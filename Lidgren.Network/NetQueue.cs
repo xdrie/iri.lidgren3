@@ -22,10 +22,6 @@ using System.Diagnostics;
 using System.Collections.Generic;
 using System.Threading;
 
-//
-// Comment for Linux Mono users: reports of library thread hangs on EnterReadLock() suggests switching to plain lock() works better
-//
-
 namespace Lidgren.Network
 {
 	/// <summary>
@@ -53,37 +49,20 @@ namespace Lidgren.Network
 		private int m_size;
 		private int m_head;
 
-		/// <summary>
-		/// Gets the number of items in the queue
-		/// </summary>
-		public int Count {
-			get
-			{
-				m_lock.EnterReadLock();
-				int count = m_size;
-				m_lock.ExitReadLock();
-				return count;
-			}
-		}
+        /// <summary>
+        /// Gets the number of items in the queue
+        /// </summary>
+        public int Count => m_size;
 
-		/// <summary>
-		/// Gets the current capacity for the queue
-		/// </summary>
-		public int Capacity
-		{
-			get
-			{
-				m_lock.EnterReadLock();
-				int capacity = m_items.Length;
-				m_lock.ExitReadLock();
-				return capacity;
-			}
-		}
+        /// <summary>
+        /// Gets the current capacity for the queue
+        /// </summary>
+        public int Capacity => m_items.Length;
 
-		/// <summary>
-		/// NetQueue constructor
-		/// </summary>
-		public NetQueue(int initialCapacity)
+        /// <summary>
+        /// NetQueue constructor
+        /// </summary>
+        public NetQueue(int initialCapacity)
 		{
 			m_items = new T[initialCapacity];
 		}
@@ -96,10 +75,10 @@ namespace Lidgren.Network
 			m_lock.EnterWriteLock();
 			try
 			{
-				if (m_size == m_items.Length)
-					SetCapacity(m_items.Length + 8);
-
-				int slot = (m_head + m_size) % m_items.Length;
+                if (m_size == m_items.Length)
+                    AddCapacity();
+            
+                int slot = (m_head + m_size) % m_items.Length;
 				m_items[slot] = item;
 				m_size++;
 			}
@@ -108,6 +87,11 @@ namespace Lidgren.Network
 				m_lock.ExitWriteLock();
 			}
 		}
+
+        private void AddCapacity()
+        {
+            SetCapacity(m_items.Length + 64);
+        }
 
 		/// <summary>
 		/// Adds an item last/tail of the queue
@@ -119,10 +103,10 @@ namespace Lidgren.Network
 			{
 				foreach (var item in items)
 				{
-					if (m_size == m_items.Length)
-						SetCapacity(m_items.Length + 8); // @TODO move this out of loop
-
-					int slot = (m_head + m_size) % m_items.Length;
+                    if (m_size == m_items.Length)
+                        AddCapacity(); // TODO move this out of loop
+                    
+                    int slot = (m_head + m_size) % m_items.Length;
 					m_items[slot] = item;
 					m_size++;
 				}
@@ -141,10 +125,10 @@ namespace Lidgren.Network
 			m_lock.EnterWriteLock();
 			try
 			{
-				if (m_size >= m_items.Length)
-					SetCapacity(m_items.Length + 8);
+                if (m_size >= m_items.Length)
+                    AddCapacity();
 
-				m_head--;
+                 m_head--;
 				if (m_head < 0)
 					m_head = m_items.Length - 1;
 				m_items[m_head] = item;
@@ -159,15 +143,12 @@ namespace Lidgren.Network
 		// must be called from within a write locked m_lock!
 		private void SetCapacity(int newCapacity)
 		{
-			if (m_size == 0)
-			{
-				if (m_size == 0)
-				{
-					m_items = new T[newCapacity];
-					m_head = 0;
-					return;
-				}
-			}
+            if (m_size == 0)
+            {
+                m_items = new T[newCapacity];
+                m_head = 0;
+                return;
+            }
 
 			T[] newItems = new T[newCapacity];
 

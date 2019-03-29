@@ -18,7 +18,7 @@ namespace Lidgren.Network
 		private Dictionary<NetConnection, Dictionary<int, ReceivedFragmentGroup>> m_receivedFragmentGroups;
 
 		// on user thread
-		private NetSendResult SendFragmentedMessage(NetOutgoingMessage msg, IList<NetConnection> recipients, NetDeliveryMethod method, int sequenceChannel)
+		private NetSendResult SendFragmentedMessage(NetOutgoingMessage msg, ICollection<NetConnection> recipients, NetDeliveryMethod method, int sequenceChannel)
 		{
 			// Note: this group id is PER SENDING/NetPeer; ie. same id is sent to all recipients;
 			// this should be ok however; as long as recipients differentiate between same id but different sender
@@ -64,11 +64,9 @@ namespace Lidgren.Network
 
 				Interlocked.Add(ref chunk.m_recyclingCount, recipients.Count);
 
-				foreach (NetConnection recipient in recipients)
+				foreach (var recipient in recipients)
 				{
 					var res = recipient.EnqueueMessage(chunk, method, sequenceChannel);
-					if (res == NetSendResult.Dropped)
-						Interlocked.Decrement(ref chunk.m_recyclingCount);
 					if ((int)res > (int)retval)
 						retval = res; // return "worst" result
 				}
@@ -104,7 +102,7 @@ namespace Lidgren.Network
 			NetException.Assert(totalBits > 0);
 			NetException.Assert(chunkByteSize > 0);
 			
-			int totalBytes = NetUtility.BytesToHoldBits((int)totalBits);
+			int totalBytes = NetUtility.BytesNeededToHoldBits((int)totalBits);
 			int totalNumChunks = totalBytes / chunkByteSize;
 			if (totalNumChunks * chunkByteSize < totalBytes)
 				totalNumChunks++;

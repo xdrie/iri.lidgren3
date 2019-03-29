@@ -30,13 +30,6 @@ namespace Lidgren.Network
 	{
 		internal NetMessageType m_messageType;
 		internal bool m_isSent;
-
-		// Recycling count is:
-		// * incremented for each recipient on send
-		// * incremented, when reliable, in SenderChannel.ExecuteSend()
-		// * decremented (both reliable and unreliable) in NetConnection.QueueSendMessage()
-		// * decremented, when reliable, in SenderChannel.DestoreMessage()
-		// ... when it reaches zero it can be recycled
 		internal int m_recyclingCount;
 
 		internal int m_fragmentGroup;             // which group of fragments ths belongs to
@@ -53,7 +46,7 @@ namespace Lidgren.Network
 			m_messageType = NetMessageType.LibraryError;
 			m_bitLength = 0;
 			m_isSent = false;
-			NetException.Assert(m_recyclingCount == 0);
+			m_recyclingCount = 0;
 			m_fragmentGroup = 0;
 		}
 
@@ -75,7 +68,7 @@ namespace Lidgren.Network
 				intoBuffer[ptr++] = (byte)m_bitLength;
 				intoBuffer[ptr++] = (byte)(m_bitLength >> 8);
 
-				int byteLen = NetUtility.BytesToHoldBits(m_bitLength);
+				int byteLen = NetUtility.BytesNeededToHoldBits(m_bitLength);
 				if (byteLen > 0)
 				{
 					Buffer.BlockCopy(m_data, 0, intoBuffer, ptr, byteLen);
@@ -99,7 +92,7 @@ namespace Lidgren.Network
 				intoBuffer[wasPtr] = (byte)realBitLength;
 				intoBuffer[wasPtr + 1] = (byte)(realBitLength >> 8);
 
-				int byteLen = NetUtility.BytesToHoldBits(m_bitLength);
+				int byteLen = NetUtility.BytesNeededToHoldBits(m_bitLength);
 				if (byteLen > 0)
 				{
 					Buffer.BlockCopy(m_data, (int)(m_fragmentChunkNumber * m_fragmentChunkByteSize), intoBuffer, ptr, byteLen);

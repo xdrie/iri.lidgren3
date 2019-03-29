@@ -65,7 +65,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Read several bytes from a buffer
+		/// Read bytes from a buffer
 		/// </summary>
 		public static void ReadBytes(byte[] fromBuffer, int numberOfBytes, int readBitOffset, byte[] destination, int destinationByteOffset)
 		{
