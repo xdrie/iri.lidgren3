@@ -19,10 +19,6 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 using System;
 using System.Net;
 
-#if !__NOIPENDPOINT__
-using NetEndPoint = System.Net.IPEndPoint;
-#endif
-
 namespace Lidgren.Network
 {
 	/// <summary>
@@ -84,7 +80,7 @@ namespace Lidgren.Network
 		/// <param name="remoteEndPoint">The remote endpoint to connect to</param>
 		/// <param name="hailMessage">The hail message to pass</param>
 		/// <returns>server connection, or null if already connected</returns>
-		public override NetConnection Connect(NetEndPoint remoteEndPoint, NetOutgoingMessage hailMessage)
+		public override NetConnection Connect(IPEndPoint remoteEndPoint, NetOutgoingMessage hailMessage)
 		{
 			lock (m_connections)
 			{
@@ -107,31 +103,32 @@ namespace Lidgren.Network
 			return base.Connect(remoteEndPoint, hailMessage);
 		}
 
-		/// <summary>
-		/// Disconnect from server
-		/// </summary>
-		/// <param name="byeMessage">reason for disconnect</param>
-		public void Disconnect(string byeMessage)
-		{
-			NetConnection serverConnection = ServerConnection;
-			if (serverConnection == null)
-			{
-				lock (m_handshakes)
-				{
-					if (m_handshakes.Count > 0)
-					{
-						LogVerbose("Aborting connection attempt");
-						foreach(var hs in m_handshakes)
-							hs.Value.Disconnect(byeMessage);
-						return;
-					}
-				}
-
-				LogWarning("Disconnect requested when not connected!");
-				return;
-			}
-			serverConnection.Disconnect(byeMessage);
-		}
+        /// <summary>
+        /// Disconnect from server
+        /// </summary>
+        /// <param name="byeMessage">reason for disconnect</param>
+        public void Disconnect(string byeMessage)
+        {
+            NetConnection connection = ServerConnection;
+            if (connection != null)
+            {
+                connection.Disconnect(byeMessage);
+            }
+            else
+            {
+                lock (m_handshakes)
+                {
+                    if (m_handshakes.Count > 0)
+                    {
+                        LogVerbose("Aborting connection attempt");
+                        foreach (var hs in m_handshakes)
+                            hs.Value.Disconnect(byeMessage);
+                        return;
+                    }
+                }
+                LogWarning("Disconnect requested when not connected!");
+            }
+        }
 
 		/// <summary>
 		/// Sends message to server
@@ -144,7 +141,6 @@ namespace Lidgren.Network
 				LogWarning("Cannot send message, no server connection!");
 				return NetSendResult.FailedNotConnected;
 			}
-
 			return serverConnection.SendMessage(msg, method, 0);
 		}
 
@@ -157,10 +153,8 @@ namespace Lidgren.Network
 			if (serverConnection == null)
 			{
 				LogWarning("Cannot send message, no server connection!");
-				Recycle(msg);
 				return NetSendResult.FailedNotConnected;
 			}
-
 			return serverConnection.SendMessage(msg, method, sequenceChannel);
 		}
 

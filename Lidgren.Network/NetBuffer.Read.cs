@@ -3,11 +3,6 @@ using System.Collections.Generic;
 using System.Text;
 using System.Reflection;
 using System.Net;
-using System.Threading;
-
-#if !__NOIPENDPOINT__
-using NetEndPoint = System.Net.IPEndPoint;
-#endif
 
 namespace Lidgren.Network
 {
@@ -17,13 +12,19 @@ namespace Lidgren.Network
 	public partial class NetBuffer
 	{
 		private const string c_readOverflowError = "Trying to read past the buffer size - likely caused by mismatching Write/Reads, different size or order.";
-		private const int c_bufferSize = 64; // Min 8 to hold anything but strings. Increase it if readed strings usally don't fit inside the buffer
-		private static object s_buffer;
 
-		/// <summary>
-		/// Reads a boolean value (stored as a single bit) written using Write(bool)
-		/// </summary>
-		public bool ReadBoolean()
+        /// <summary>
+        /// Reads a byte and casts it to <see cref="NetConnectionStatus"/>.
+        /// </summary>
+        public NetConnectionStatus ReadStatus()
+        {
+            return (NetConnectionStatus)ReadByte();
+        }
+
+        /// <summary>
+        /// Reads a boolean value (stored as a single bit) written using <see cref="NetBuffer.Write(bool)"/>.
+        /// </summary>
+        public bool ReadBoolean()
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 1, c_readOverflowError);
 			byte retval = NetBitWriter.ReadByte(m_data, 1, m_readPosition);
@@ -126,16 +127,34 @@ namespace Lidgren.Network
 			return;
 		}
 
-		/// <summary>
-		/// Reads the specified number of bits into a preallocated array
-		/// </summary>
-		/// <param name="into">The destination array</param>
-		/// <param name="offset">The offset where to start writing in the destination array</param>
-		/// <param name="numberOfBits">The number of bits to read</param>
-		public void ReadBits(byte[] into, int offset, int numberOfBits)
+        /// <summary>
+        /// Reads a block of bytes from the stream and writes the data in a given buffer.
+        /// </summary>
+        /// <param name="buffer">The destination buffer.</param>
+        /// <param name="offset">The offset where to start writing in the destination buffer.</param>
+        /// <param name="count">The number of bytes to read.</param>
+		public int Read(byte[] buffer, int offset, int count)
+        {
+            NetException.Assert(offset + count <= buffer.Length);
+
+            int bitsToRead = Math.Min((m_bitLength - m_readPosition + 7), count * 8);
+            int bytesToRead = bitsToRead / 8;
+
+            NetBitWriter.ReadBytes(m_data, bytesToRead, m_readPosition, buffer, offset);
+            m_readPosition += bitsToRead;
+            return bytesToRead;
+        }
+
+        /// <summary>
+        /// Reads the specified number of bits into a preallocated array
+        /// </summary>
+        /// <param name="into">The destination array</param>
+        /// <param name="offset">The offset where to start writing in the destination array</param>
+        /// <param name="numberOfBits">The number of bits to read</param>
+        public void ReadBits(byte[] into, int offset, int numberOfBits)
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= numberOfBits, c_readOverflowError);
-			NetException.Assert(offset + NetUtility.BytesToHoldBits(numberOfBits) <= into.Length);
+			NetException.Assert(offset + NetUtility.BytesNeededToHoldBits(numberOfBits) <= into.Length);
 
 			int numberOfWholeBytes = numberOfBits / 8;
 			int extraBits = numberOfBits - (numberOfWholeBytes * 8);
@@ -318,7 +337,7 @@ namespace Lidgren.Network
 			else
 			{
 				retval = NetBitWriter.ReadUInt32(m_data, 32, m_readPosition);
-				retval |= (UInt64)NetBitWriter.ReadUInt32(m_data, numberOfBits - 32, m_readPosition + 32) << 32;
+				retval |= NetBitWriter.ReadUInt32(m_data, numberOfBits - 32, m_readPosition) << 32;
 			}
 			m_readPosition += numberOfBits;
 			return retval;
@@ -355,11 +374,8 @@ namespace Lidgren.Network
 				return retval;
 			}
 
-			byte[] bytes = (byte[]) Interlocked.Exchange(ref s_buffer, null) ?? new byte[c_bufferSize];
-			ReadBytes(bytes, 0, 4);
-			float res = BitConverter.ToSingle(bytes, 0);
-			s_buffer = bytes;
-			return res;
+			byte[] bytes = ReadBytes(4);
+			return BitConverter.ToSingle(bytes, 0);
 		}
 
 		/// <summary>
@@ -380,10 +396,8 @@ namespace Lidgren.Network
 				return true;
 			}
 
-			byte[] bytes = (byte[]) Interlocked.Exchange(ref s_buffer, null) ?? new byte[c_bufferSize];
-			ReadBytes(bytes, 0, 4);
+			byte[] bytes = ReadBytes(4);
 			result = BitConverter.ToSingle(bytes, 0);
-			s_buffer = bytes;
 			return true;
 		}
 
@@ -402,11 +416,8 @@ namespace Lidgren.Network
 				return retval;
 			}
 
-			byte[] bytes = (byte[]) Interlocked.Exchange(ref s_buffer, null) ?? new byte[c_bufferSize];
-			ReadBytes(bytes, 0, 8);
-			double res = BitConverter.ToDouble(bytes, 0);
-			s_buffer = bytes;
-			return res;
+			byte[] bytes = ReadBytes(8);
+			return BitConverter.ToDouble(bytes, 0);
 		}
 
 		//
@@ -559,21 +570,6 @@ namespace Lidgren.Network
 			return (int)(min + rvalue);
 		}
 
-	        /// <summary>
-	        /// Reads a 64 bit integer value written using WriteRangedInteger() (64 version)
-	        /// </summary>
-	        /// <param name="min">The minimum value used when writing the value</param>
-	        /// <param name="max">The maximum value used when writing the value</param>
-	        /// <returns>A signed integer value larger or equal to MIN and smaller or equal to MAX</returns>
-	        public long ReadRangedInteger(long min, long max)
-	        {
-	            ulong range = (ulong)(max - min);
-	            int numBits = NetUtility.BitsToHoldUInt64(range);
-	
-	            ulong rvalue = ReadUInt64(numBits);
-	            return min + (long)rvalue;
-	        }
-
 		/// <summary>
 		/// Reads a string written using Write(string)
 		/// </summary>
@@ -604,16 +600,8 @@ namespace Lidgren.Network
 				return retval;
 			}
 
-			if (byteLen <= c_bufferSize) {
-				byte[] buffer = (byte[]) Interlocked.Exchange(ref s_buffer, null) ?? new byte[c_bufferSize];
-				ReadBytes(buffer, 0, byteLen);
-				string retval = Encoding.UTF8.GetString(buffer, 0, byteLen);
-				s_buffer = buffer;
-				return retval;
-			} else {
-				byte[] bytes = ReadBytes(byteLen);
-				return Encoding.UTF8.GetString(bytes, 0, bytes.Length);
-			}
+			byte[] bytes = ReadBytes(byteLen);
+			return System.Text.Encoding.UTF8.GetString(bytes, 0, bytes.Length);
 		}
 
 		/// <summary>
@@ -676,14 +664,14 @@ namespace Lidgren.Network
 		/// <summary>
 		/// Reads a stored IPv4 endpoint description
 		/// </summary>
-		public NetEndPoint ReadIPEndPoint()
+		public IPEndPoint ReadIPEndPoint()
 		{
 			byte len = ReadByte();
 			byte[] addressBytes = ReadBytes(len);
 			int port = (int)ReadUInt16();
 
-			var address = NetUtility.CreateAddressFromBytes(addressBytes);
-			return new NetEndPoint(address, port);
+			IPAddress address = new IPAddress(addressBytes);
+			return new IPEndPoint(address, port);
 		}
 
 		/// <summary>

@@ -30,24 +30,21 @@ namespace Lidgren.Network
 		/// <summary>
 		/// NetException constructor
 		/// </summary>
-		public NetException()
-			: base()
+		public NetException() : base()
 		{
 		}
 
 		/// <summary>
 		/// NetException constructor
 		/// </summary>
-		public NetException(string message)
-			: base(message)
+		public NetException(string message) : base(message)
 		{
 		}
 
 		/// <summary>
 		/// NetException constructor
 		/// </summary>
-		public NetException(string message, Exception inner)
-			: base(message, inner)
+		public NetException(string message, Exception inner) : base(message, inner)
 		{
 		}
 

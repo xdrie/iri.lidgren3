@@ -23,7 +23,9 @@ using System.Net;
 namespace Lidgren.Network
 {
 	/// <summary>
-	/// Partly immutable after NetPeer has been initialized
+	/// Configuration for a <see cref="NetPeer"/>.
+    /// Partly immutable after a <see cref="NetPeer"/> has been initialized
+    /// with specified <see cref="NetPeerConfiguration"/> instance.
 	/// </summary>
 	public sealed class NetPeerConfiguration
 	{
@@ -31,17 +33,18 @@ namespace Lidgren.Network
 		// Ethernet can take 1500 bytes of payload, so lets stay below that.
 		// The aim is for a max full packet to be 1440 bytes (30 x 48 bytes, lower than 1468)
 		// -20 bytes IP header
-		//  -8 bytes UDP header
-		//  -4 bytes to be on the safe side and align to 8-byte boundary
+		// -8 bytes UDP header
+		// -4 bytes to be on the safe side and align to 8-byte boundary
 		// Total 1408 bytes
 		// Note that lidgren headers (5 bytes) are not included here; since it's part of the "mtu payload"
 		
 		/// <summary>
-		/// Default MTU value in bytes
+		/// Default MTU value in bytes.
 		/// </summary>
 		public const int kDefaultMTU = 1408;
 		
-		private const string c_isLockedMessage = "You may not modify the NetPeerConfiguration after it has been used to initialize a NetPeer";
+		private const string c_isLockedMessage =
+            "You may not modify the NetPeerConfiguration after it has been used to initialize a NetPeer.";
 
 		private bool m_isLocked;
 		private readonly string m_appIdentifier;
@@ -53,12 +56,10 @@ namespace Lidgren.Network
 		internal int m_defaultOutgoingMessageCapacity;
 		internal float m_pingInterval;
 		internal bool m_useMessageRecycling;
-		internal int m_recycledCacheMaxCount;
 		internal float m_connectionTimeout;
 		internal bool m_enableUPnP;
 		internal bool m_autoFlushSendQueue;
 		private NetUnreliableSizeBehaviour m_unreliableSizeBehaviour;
-		internal bool m_suppressUnreliableUnorderedAcks;
 
 		internal NetIncomingMessageType m_disabledTypes;
 		internal int m_port;
@@ -80,26 +81,28 @@ namespace Lidgren.Network
 		internal int m_expandMTUFailAttempts;
 
 		/// <summary>
-		/// NetPeerConfiguration constructor
+		/// <see cref="NetPeerConfiguration"/> constructor.
 		/// </summary>
 		public NetPeerConfiguration(string appIdentifier)
 		{
 			if (string.IsNullOrEmpty(appIdentifier))
-				throw new NetException("App identifier must be at least one character long");
+				throw new NetException("App identifier must be at least one character long.");
 			m_appIdentifier = appIdentifier;
+            
+			m_disabledTypes =
+                NetIncomingMessageType.ConnectionApproval |
+                NetIncomingMessageType.UnconnectedData |
+                NetIncomingMessageType.VerboseDebugMessage |
+                NetIncomingMessageType.ConnectionLatencyUpdated |
+                NetIncomingMessageType.NatIntroductionSuccess;
 
-			//
-			// default values
-			//
-			m_disabledTypes = NetIncomingMessageType.ConnectionApproval | NetIncomingMessageType.UnconnectedData | NetIncomingMessageType.VerboseDebugMessage | NetIncomingMessageType.ConnectionLatencyUpdated | NetIncomingMessageType.NatIntroductionSuccess;
-			m_networkThreadName = "Lidgren network thread";
-			m_localAddress = IPAddress.Any;
+            m_networkThreadName = "Lidgren Network Thread";
+			m_localAddress = IPAddress.IPv6Any;
 			m_broadcastAddress = IPAddress.Broadcast;
 			var ip = NetUtility.GetBroadcastAddress();
 			if (ip != null)
-			{
 				m_broadcastAddress = ip;
-			}
+
 			m_port = 0;
 			m_receiveBufferSize = 131071;
 			m_sendBufferSize = 131071;
@@ -109,11 +112,9 @@ namespace Lidgren.Network
 			m_pingInterval = 4.0f;
 			m_connectionTimeout = 25.0f;
 			m_useMessageRecycling = true;
-			m_recycledCacheMaxCount = 64;
 			m_resendHandshakeInterval = 3.0f;
 			m_maximumHandshakeAttempts = 5;
 			m_autoFlushSendQueue = true;
-			m_suppressUnreliableUnorderedAcks = false;
 
 			m_maximumTransmissionUnit = kDefaultMTU;
 			m_autoExpandMTU = false;
@@ -135,7 +136,8 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Gets the identifier of this application; the library can only connect to matching app identifier peers
+		/// Gets the identifier of this application;
+        /// the library can only connect to matching app identifier peers.
 		/// </summary>
 		public string AppIdentifier
 		{
@@ -143,7 +145,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Enables receiving of the specified type of message
+		/// Enables receiving of the specified type of message.
 		/// </summary>
 		public void EnableMessageType(NetIncomingMessageType type)
 		{
@@ -151,7 +153,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Disables receiving of the specified type of message
+		/// Disables receiving of the specified type of message.
 		/// </summary>
 		public void DisableMessageType(NetIncomingMessageType type)
 		{
@@ -159,7 +161,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Enables or disables receiving of the specified type of message
+		/// Enables or disables receiving of the specified type of message.
 		/// </summary>
 		public void SetMessageTypeEnabled(NetIncomingMessageType type, bool enabled)
 		{
@@ -170,7 +172,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Gets if receiving of the specified type of message is enabled
+		/// Gets if receiving of the specified type of message is enabled.
 		/// </summary>
 		public bool IsMessageTypeEnabled(NetIncomingMessageType type)
 		{
@@ -178,7 +180,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Gets or sets the behaviour of unreliable sends above MTU
+		/// Gets or sets the behaviour of unreliable sends above MTU.
 		/// </summary>
 		public NetUnreliableSizeBehaviour UnreliableSizeBehaviour
 		{
@@ -186,24 +188,27 @@ namespace Lidgren.Network
 			set { m_unreliableSizeBehaviour = value; }
 		}
 
-		/// <summary>
-		/// Gets or sets the name of the library network thread. Cannot be changed once NetPeer is initialized.
-		/// </summary>
-		public string NetworkThreadName
+        /// <summary>
+        /// Gets or sets the name of the library network thread.
+        /// Cannot be changed once <see cref="NetPeer"/> is initialized.
+        /// </summary>
+        public string NetworkThreadName
 		{
 			get { return m_networkThreadName; }
 			set
 			{
 				if (m_isLocked)
-					throw new NetException("NetworkThreadName may not be set after the NetPeer which uses the configuration has been started");
+					throw new NetException(
+                        "NetworkThreadName may not be set after the NetPeer which uses the configuration has been started");
 				m_networkThreadName = value;
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets the maximum amount of connections this peer can hold. Cannot be changed once NetPeer is initialized.
-		/// </summary>
-		public int MaximumConnections
+        /// <summary>
+        /// Gets or sets the maximum amount of connections this peer can hold.
+        /// Cannot be changed once <see cref="NetPeer"/> is initialized.
+        /// </summary>
+        public int MaximumConnections
 		{
 			get { return m_maximumConnections; }
 			set
@@ -214,10 +219,11 @@ namespace Lidgren.Network
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets the maximum amount of bytes to send in a single packet, excluding ip, udp and lidgren headers. Cannot be changed once NetPeer is initialized.
-		/// </summary>
-		public int MaximumTransmissionUnit
+        /// <summary>
+        /// Gets or sets the maximum amount of bytes to send in a single packet, excluding IP, UDP and Lidgren headers.
+        /// Cannot be changed once <see cref="NetPeer"/> is initialized.
+        /// </summary>
+        public int MaximumTransmissionUnit
 		{
 			get { return m_maximumTransmissionUnit; }
 			set
@@ -230,17 +236,17 @@ namespace Lidgren.Network
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets the default capacity in bytes when NetPeer.CreateMessage() is called without argument
-		/// </summary>
-		public int DefaultOutgoingMessageCapacity
+        /// <summary>
+        /// Gets or sets the default capacity in bytes when <see cref="NetPeer.CreateMessage"/> is called without argument.
+        /// </summary>
+        public int DefaultOutgoingMessageCapacity
 		{
 			get { return m_defaultOutgoingMessageCapacity; }
 			set { m_defaultOutgoingMessageCapacity = value; }
 		}
 
 		/// <summary>
-		/// Gets or sets the time between latency calculating pings
+		/// Gets or sets the time between latency calculating pings.
 		/// </summary>
 		public float PingInterval
 		{
@@ -249,7 +255,8 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Gets or sets if the library should recycling messages to avoid excessive garbage collection. Cannot be changed once NetPeer is initialized.
+		/// Gets or sets if the library should recycling messages to avoid excessive garbage collection.
+        /// Cannot be changed once <see cref="NetPeer"/> is initialized.
 		/// </summary>
 		public bool UseMessageRecycling
 		{
@@ -263,21 +270,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Gets or sets the maximum number of incoming/outgoing messages to keep in the recycle cache.
-		/// </summary>
-		public int RecycledCacheMaxCount
-		{
-			get { return m_recycledCacheMaxCount; }
-			set
-			{
-				if (m_isLocked)
-					throw new NetException(c_isLockedMessage);
-				m_recycledCacheMaxCount = value;
-			}
-		}
-
-		/// <summary>
-		/// Gets or sets the number of seconds timeout will be postponed on a successful ping/pong
+		/// Gets or sets the number of seconds timeout will be postponed on a successful ping/pong.
 		/// </summary>
 		public float ConnectionTimeout
 		{
@@ -291,7 +284,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Enables UPnP support; enabling port forwarding and getting external ip
+		/// Enables UPnP support; enabling port forwarding and getting external IP.
 		/// </summary>
 		public bool EnableUPnP
 		{
@@ -304,33 +297,21 @@ namespace Lidgren.Network
 			}
 		}
 
-		/// <summary>
-		/// Enables or disables automatic flushing of the send queue. If disabled, you must manully call NetPeer.FlushSendQueue() to flush sent messages to network.
-		/// </summary>
-		public bool AutoFlushSendQueue
+        /// <summary>
+        /// Enables or disables automatic flushing of the send queue.
+        /// If disabled, you must manully call <see cref="NetPeer.FlushSendQueue"/> to flush sent messages to network.
+        /// </summary>
+        public bool AutoFlushSendQueue
 		{
 			get { return m_autoFlushSendQueue; }
 			set { m_autoFlushSendQueue = value; }
 		}
 
-		/// <summary>
-		/// If true, will not send acks for unreliable unordered messages. This will save bandwidth, but disable flow control and duplicate detection for this type of messages.
-		/// </summary>
-		public bool SuppressUnreliableUnorderedAcks
-		{
-			get { return m_suppressUnreliableUnorderedAcks; }
-			set
-			{
-				if (m_isLocked)
-					throw new NetException(c_isLockedMessage);
-				m_suppressUnreliableUnorderedAcks = value;
-			}
-		}
-
-		/// <summary>
-		/// Gets or sets the local ip address to bind to. Defaults to IPAddress.Any. Cannot be changed once NetPeer is initialized.
-		/// </summary>
-		public IPAddress LocalAddress
+        /// <summary>
+        /// Gets or sets the local <see cref="IPAddress"/> to bind to. Defaults to <see cref="IPAddress.IPv6Any"/>.
+        /// Cannot be changed once <see cref="NetPeer"/> is initialized.
+        /// </summary>
+        public IPAddress LocalAddress
 		{
 			get { return m_localAddress; }
 			set
@@ -342,7 +323,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Gets or sets the local broadcast address to use when broadcasting
+		/// Gets or sets the local broadcast address to use when broadcasting.
 		/// </summary>
 		public IPAddress BroadcastAddress
 		{
@@ -355,10 +336,11 @@ namespace Lidgren.Network
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets the local port to bind to. Defaults to 0. Cannot be changed once NetPeer is initialized.
-		/// </summary>
-		public int Port
+        /// <summary>
+        /// Gets or sets the local port to bind to. Defaults to 0.
+        /// Cannot be changed once <see cref="NetPeer"/> is initialized.
+        /// </summary>
+        public int Port
 		{
 			get { return m_port; }
 			set
@@ -369,10 +351,11 @@ namespace Lidgren.Network
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets the size in bytes of the receiving buffer. Defaults to 131071 bytes. Cannot be changed once NetPeer is initialized.
-		/// </summary>
-		public int ReceiveBufferSize
+        /// <summary>
+        /// Gets or sets the size in bytes of the receiving buffer. Defaults to 131071 bytes.
+        /// Cannot be changed once <see cref="NetPeer"/> is initialized.
+        /// </summary>
+        public int ReceiveBufferSize
 		{
 			get { return m_receiveBufferSize; }
 			set
@@ -383,10 +366,11 @@ namespace Lidgren.Network
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets the size in bytes of the sending buffer. Defaults to 131071 bytes. Cannot be changed once NetPeer is initialized.
-		/// </summary>
-		public int SendBufferSize
+        /// <summary>
+        /// Gets or sets the size in bytes of the sending buffer. Defaults to 131071 bytes.
+        /// Cannot be changed once <see cref="NetPeer"/> is initialized.
+        /// </summary>
+        public int SendBufferSize
 		{
 			get { return m_sendBufferSize; }
 			set
@@ -397,17 +381,18 @@ namespace Lidgren.Network
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets if the NetPeer should accept incoming connections. This is automatically set to true in NetServer and false in NetClient.
-		/// </summary>
-		public bool AcceptIncomingConnections
+        /// <summary>
+        /// Gets or sets if the <see cref="NetPeer"/> should accept incoming connections.
+        /// This is automatically set to true in <see cref="NetServer"/> and false in <see cref="NetClient"/>.
+        /// </summary>
+        public bool AcceptIncomingConnections
 		{
 			get { return m_acceptIncomingConnections; }
 			set { m_acceptIncomingConnections = value; }
 		}
 
 		/// <summary>
-		/// Gets or sets the number of seconds between handshake attempts
+		/// Gets or sets the number of seconds between handshake attempts.
 		/// </summary>
 		public float ResendHandshakeInterval
 		{
@@ -416,7 +401,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Gets or sets the maximum number of handshake attempts before failing to connect
+		/// Gets or sets the maximum number of handshake attempts before failing to connect.
 		/// </summary>
 		public int MaximumHandshakeAttempts
 		{
@@ -424,15 +409,16 @@ namespace Lidgren.Network
 			set
 			{
 				if (value < 1)
-					throw new NetException("MaximumHandshakeAttempts must be at least 1");
+					throw new NetException("MaximumHandshakeAttempts must be at least 1.");
 				m_maximumHandshakeAttempts = value;
 			}
 		}
 
-		/// <summary>
-		/// Gets or sets if the NetPeer should send large messages to try to expand the maximum transmission unit size
-		/// </summary>
-		public bool AutoExpandMTU
+        /// <summary>
+        /// Gets or sets if the <see cref="NetPeer"/> should send large messages
+        /// to try to expand the maximum transmission unit size.
+        /// </summary>
+        public bool AutoExpandMTU
 		{
 			get { return m_autoExpandMTU; }
 			set
@@ -444,7 +430,8 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Gets or sets how often to send large messages to expand MTU if AutoExpandMTU is enabled
+		/// Gets or sets how often to send large messages
+        /// to expand MTU if <see cref="AutoExpandMTU"/> is enabled.
 		/// </summary>
 		public float ExpandMTUFrequency
 		{
@@ -453,17 +440,16 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Gets or sets the number of failed expand mtu attempts to perform before setting final MTU
+		/// Gets or sets the number of failed expand MTU attempts to perform before setting final MTU.
 		/// </summary>
 		public int ExpandMTUFailAttempts
 		{
 			get { return m_expandMTUFailAttempts; }
 			set { m_expandMTUFailAttempts = value; }
 		}
-
-#if DEBUG
+        
 		/// <summary>
-		/// Gets or sets the simulated amount of sent packets lost from 0.0f to 1.0f
+		/// Gets or sets the simulated amount of sent packets lost from 0.0 to 1.0.
 		/// </summary>
 		public float SimulatedLoss
 		{
@@ -472,7 +458,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Gets or sets the minimum simulated amount of one way latency for sent packets in seconds
+		/// Gets or sets the minimum simulated amount of one way latency for sent packets in seconds.
 		/// </summary>
 		public float SimulatedMinimumLatency
 		{
@@ -481,7 +467,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Gets or sets the simulated added random amount of one way latency for sent packets in seconds
+		/// Gets or sets the simulated added random amount of one way latency for sent packets in seconds.
 		/// </summary>
 		public float SimulatedRandomLatency
 		{
@@ -490,7 +476,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Gets the average simulated one way latency in seconds
+		/// Gets the average simulated one way latency in seconds.
 		/// </summary>
 		public float SimulatedAverageLatency
 		{
@@ -498,17 +484,16 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Gets or sets the simulated amount of duplicated packets from 0.0f to 1.0f
+		/// Gets or sets the simulated amount of duplicated packets from 0.0 to 1.0.
 		/// </summary>
 		public float SimulatedDuplicatesChance
 		{
 			get { return m_duplicates; }
 			set { m_duplicates = value; }
 		}
-#endif
 
 		/// <summary>
-		/// Creates a memberwise shallow clone of this configuration
+		/// Creates a memberwise shallow clone of this configuration.
 		/// </summary>
 		public NetPeerConfiguration Clone()
 		{
@@ -519,22 +504,24 @@ namespace Lidgren.Network
 	}
 
 	/// <summary>
-	/// Behaviour of unreliable sends above MTU
+	/// Behaviour of unreliable sends above MTU.
 	/// </summary>
 	public enum NetUnreliableSizeBehaviour
 	{
 		/// <summary>
-		/// Sending an unreliable message will ignore MTU and send everything in a single packet; this is the new default
+		/// Sending an unreliable message will ignore MTU and send
+        /// everything in a single packet; this is the new default.
 		/// </summary>
 		IgnoreMTU = 0,
 
 		/// <summary>
-		/// Old behaviour; use normal fragmentation for unreliable messages - if a fragment is dropped, memory for received fragments are never reclaimed!
+		/// Old behaviour; use normal fragmentation for unreliable messages -
+        /// if a fragment is dropped, memory for received fragments is never reclaimed!
 		/// </summary>
 		NormalFragmentation = 1,
 
 		/// <summary>
-		/// Alternate behaviour; just drops unreliable messages above MTU
+		/// Alternate behaviour; just drops unreliable messages above MTU.
 		/// </summary>
 		DropAboveMTU = 2,
 	}

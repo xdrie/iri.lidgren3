@@ -3,10 +3,6 @@ using System.Threading;
 using System.Collections.Generic;
 using System.Net;
 
-#if !__NOIPENDPOINT__
-using NetEndPoint = System.Net.IPEndPoint;
-#endif
-
 namespace Lidgren.Network
 {
 	/// <summary>
@@ -21,7 +17,7 @@ namespace Lidgren.Network
 		private object m_messageReceivedEventCreationLock = new object();
 
 		internal readonly List<NetConnection> m_connections;
-		private readonly Dictionary<NetEndPoint, NetConnection> m_connectionLookup;
+		private readonly Dictionary<IPEndPoint, NetConnection> m_connectionLookup;
 
 		private string m_shutdownReason;
 
@@ -116,12 +112,12 @@ namespace Lidgren.Network
 		{
 			m_configuration = config;
 			m_statistics = new NetPeerStatistics(this);
-			m_releasedIncomingMessages = new NetQueue<NetIncomingMessage>(4);
-			m_unsentUnconnectedMessages = new NetQueue<NetTuple<NetEndPoint, NetOutgoingMessage>>(2);
+			m_releasedIncomingMessages = new NetQueue<NetIncomingMessage>(8);
+			m_unsentUnconnectedMessages = new NetQueue<NetTuple<IPEndPoint, NetOutgoingMessage>>(4);
 			m_connections = new List<NetConnection>();
-			m_connectionLookup = new Dictionary<NetEndPoint, NetConnection>();
-			m_handshakes = new Dictionary<NetEndPoint, NetConnection>();
-			m_senderRemote = (EndPoint)new NetEndPoint(IPAddress.Any, 0);
+			m_connectionLookup = new Dictionary<IPEndPoint, NetConnection>();
+			m_handshakes = new Dictionary<IPEndPoint, NetConnection>();
+			m_senderRemote = (EndPoint)new IPEndPoint(IPAddress.IPv6Any, 0);
 			m_status = NetPeerStatus.NotRunning;
 			m_receivedFragmentGroups = new Dictionary<NetConnection, Dictionary<int, ReceivedFragmentGroup>>();	
 		}
@@ -160,13 +156,13 @@ namespace Lidgren.Network
 				m_upnp.Discover(this);
 
 			// allow some time for network thread to start up in case they call Connect() or UPnP calls immediately
-			NetUtility.Sleep(50);
+			Thread.Sleep(50);
 		}
 
 		/// <summary>
 		/// Get the connection, if any, for a certain remote endpoint
 		/// </summary>
-		public NetConnection GetConnection(NetEndPoint ep)
+		public NetConnection GetConnection(IPEndPoint ep)
 		{
 			NetConnection retval;
 
@@ -180,24 +176,15 @@ namespace Lidgren.Network
 		/// <summary>
 		/// Read a pending message from any connection, blocking up to maxMillis if needed
 		/// </summary>
-	        public NetIncomingMessage WaitMessage(int maxMillis)
-	        {
-	            NetIncomingMessage msg = ReadMessage();
-	
-	            while (msg == null)
-	            {
-	                // This could return true...
-	                if (!MessageReceivedEvent.WaitOne(maxMillis))
-	                {
-	                    return null;
-	                }
-	
-	                // ... while this will still returns null. That's why we need to cycle.
-	                msg = ReadMessage();
-	            }
-	
-	            return msg;
-        	}
+		public NetIncomingMessage WaitMessage(int maxMillis)
+		{
+			var msg = ReadMessage();
+			if (msg != null)
+				return msg; // no need to wait; we already have a message to deliver
+			var msgEvt = MessageReceivedEvent;
+			msgEvt.WaitOne(maxMillis);
+			return ReadMessage();
+		}
 
 		/// <summary>
 		/// Read a pending message from any connection, if any
@@ -215,17 +202,6 @@ namespace Lidgren.Network
 			}
 			return retval;
 		}
-		
-        	/// <summary>
-	        /// Reads a pending message from any connection, if any.
-	        /// Returns true if message was read, otherwise false.
-	        /// </summary>
-	        /// <returns>True, if message was read.</returns>
-	        public bool ReadMessage(out NetIncomingMessage message)
-	        {
-	            message = ReadMessage();
-	            return message != null;
-	        }
 
 		/// <summary>
 		/// Read a pending message from any connection, if any
@@ -249,8 +225,8 @@ namespace Lidgren.Network
 			return added;
 		}
 
-		// send message immediately and recycle it
-		internal void SendLibrary(NetOutgoingMessage msg, NetEndPoint recipient)
+		// send message immediately
+		internal void SendLibrary(NetOutgoingMessage msg, IPEndPoint recipient)
 		{
 			VerifyNetworkThread();
 			NetException.Assert(msg.m_isSent == false);
@@ -258,18 +234,6 @@ namespace Lidgren.Network
 			bool connReset;
 			int len = msg.Encode(m_sendBuffer, 0, 0);
 			SendPacket(len, recipient, 1, out connReset);
-
-			// no reliability, no multiple recipients - we can just recycle this message immediately
-			msg.m_recyclingCount = 0;
-			Recycle(msg);
-		}
-
-		static NetEndPoint GetNetEndPoint(string host, int port)
-		{
-			IPAddress address = NetUtility.Resolve(host);
-			if (address == null)
-				throw new NetException("Could not resolve host");
-			return new NetEndPoint(address, port);
 		}
 
 		/// <summary>
@@ -277,7 +241,7 @@ namespace Lidgren.Network
 		/// </summary>
 		public NetConnection Connect(string host, int port)
 		{
-			return Connect(GetNetEndPoint(host, port), null);
+			return Connect(new IPEndPoint(NetUtility.Resolve(host), port), null);
 		}
 
 		/// <summary>
@@ -285,13 +249,13 @@ namespace Lidgren.Network
 		/// </summary>
 		public NetConnection Connect(string host, int port, NetOutgoingMessage hailMessage)
 		{
-			return Connect(GetNetEndPoint(host, port), hailMessage);
+			return Connect(new IPEndPoint(NetUtility.Resolve(host), port), hailMessage);
 		}
 
 		/// <summary>
 		/// Create a connection to a remote endpoint
 		/// </summary>
-		public NetConnection Connect(NetEndPoint remoteEndPoint)
+		public NetConnection Connect(IPEndPoint remoteEndPoint)
 		{
 			return Connect(remoteEndPoint, null);
 		}
@@ -299,12 +263,14 @@ namespace Lidgren.Network
 		/// <summary>
 		/// Create a connection to a remote endpoint
 		/// </summary>
-		public virtual NetConnection Connect(NetEndPoint remoteEndPoint, NetOutgoingMessage hailMessage)
+		public virtual NetConnection Connect(IPEndPoint remoteEndPoint, NetOutgoingMessage hailMessage)
 		{
 			if (remoteEndPoint == null)
-				throw new ArgumentNullException("remoteEndPoint");
+				throw new ArgumentNullException(nameof(remoteEndPoint));
 
-			lock (m_connections)
+            remoteEndPoint = NetUtility.MapToIPv6(remoteEndPoint);
+
+            lock (m_connections)
 			{
 				if (m_status == NetPeerStatus.NotRunning)
 					throw new NetException("Must call Start() first");
@@ -324,7 +290,7 @@ namespace Lidgren.Network
 							break;
 						case NetConnectionStatus.RespondedConnect:
 							// send another response
-							hs.SendConnectResponse(NetTime.Now, false);
+							hs.SendConnectResponse((float)NetTime.Now, false);
 							break;
 						default:
 							// weird
@@ -335,7 +301,7 @@ namespace Lidgren.Network
 				}
 
 				NetConnection conn = new NetConnection(this, remoteEndPoint);
-                conn.SetStatus(NetConnectionStatus.InitiatedConnect, "user called connect");
+				conn.m_status = NetConnectionStatus.InitiatedConnect;
 				conn.m_localHailMessage = hailMessage;
 
 				// handle on network thread
@@ -351,8 +317,8 @@ namespace Lidgren.Network
 		/// <summary>
 		/// Send raw bytes; only used for debugging
 		/// </summary>
-		public void RawSend(byte[] arr, int offset, int length, NetEndPoint destination)
-		{
+		public void RawSend(byte[] arr, int offset, int length, IPEndPoint destination)
+	{
 			// wrong thread - this miiiight crash with network thread... but what's a boy to do.
 			Array.Copy(arr, offset, m_sendBuffer, 0, length);
 			bool unused;
