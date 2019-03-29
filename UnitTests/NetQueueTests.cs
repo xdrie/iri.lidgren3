@@ -21,19 +21,17 @@ namespace UnitTests
 				throw new Exception("NetQueue.ToArray failure");
 
 			bool ok;
-			int a;
+            if (queue.Contains(4))
+                throw new Exception("NetQueue Contains failure");
 
-			if (queue.Contains(4))
-				throw new Exception("NetQueue Contains failure");
-
-			if (!queue.Contains(2))
+            if (!queue.Contains(2))
 				throw new Exception("NetQueue Contains failure 2");
 
 			if (queue.Count != 3)
 				throw new Exception("NetQueue failed");
 
-			ok = queue.TryDequeue(out a);
-			if (ok == false || a != 1)
+            ok = queue.TryDequeue(out int a);
+            if (ok == false || a != 1)
 				throw new Exception("NetQueue failure");
 
 			if (queue.Count != 2)

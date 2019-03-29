@@ -153,22 +153,23 @@ namespace Lidgren.Network
 		/// <summary>
 		/// Write several whole bytes
 		/// </summary>
-		public static void WriteBytes(byte[] source, int sourceByteOffset, int numberOfBytes, byte[] destination, int destBitOffset)
+		public static void WriteBytes(Span<byte> source, byte[] destination, int destBitOffset)
 		{
 			int dstBytePtr = destBitOffset >> 3;
 			int firstPartLen = (destBitOffset % 8);
 
 			if (firstPartLen == 0)
 			{
-				Buffer.BlockCopy(source, sourceByteOffset, destination, dstBytePtr, numberOfBytes);
+                var dst = destination.AsSpan(dstBytePtr);
+                source.CopyTo(dst);
 				return;
 			}
 
 			int lastPartLen = 8 - firstPartLen;
 
-			for (int i = 0; i < numberOfBytes; i++)
+			for (int i = 0; i < source.Length; i++)
 			{
-				byte src = source[sourceByteOffset + i];
+				byte src = source[i];
 
 				// write last part of this byte
 				destination[dstBytePtr] &= (byte)(255 >> lastPartLen); // clear before writing
@@ -180,8 +181,6 @@ namespace Lidgren.Network
 				destination[dstBytePtr] &= (byte)(255 << firstPartLen); // clear before writing
 				destination[dstBytePtr] |= (byte)(src >> lastPartLen); // write second half
 			}
-
-			return;
 		}
 
 		/// <summary>
@@ -392,77 +391,19 @@ namespace Lidgren.Network
 #endif
 
 			int returnValue = destinationBitOffset + numberOfBits;
-			if (numberOfBits <= 8)
-			{
-				NetBitWriter.WriteByte((byte)source, numberOfBits, destination, destinationBitOffset);
-				return returnValue;
-			}
-			NetBitWriter.WriteByte((byte)source, 8, destination, destinationBitOffset);
-			destinationBitOffset += 8;
-			numberOfBits -= 8;
 
-			if (numberOfBits <= 8)
-			{
-				NetBitWriter.WriteByte((byte)(source >> 8), numberOfBits, destination, destinationBitOffset);
-				return returnValue;
-			}
-			NetBitWriter.WriteByte((byte)(source >> 8), 8, destination, destinationBitOffset);
-			destinationBitOffset += 8;
-			numberOfBits -= 8;
-
-			if (numberOfBits <= 8)
-			{
-				NetBitWriter.WriteByte((byte)(source >> 16), numberOfBits, destination, destinationBitOffset);
-				return returnValue;
-			}
-			NetBitWriter.WriteByte((byte)(source >> 16), 8, destination, destinationBitOffset);
-			destinationBitOffset += 8;
-			numberOfBits -= 8;
-
-			if (numberOfBits <= 8)
-			{
-				NetBitWriter.WriteByte((byte)(source >> 24), numberOfBits, destination, destinationBitOffset);
-				return returnValue;
-			}
-			NetBitWriter.WriteByte((byte)(source >> 24), 8, destination, destinationBitOffset);
-			destinationBitOffset += 8;
-			numberOfBits -= 8;
-
-			if (numberOfBits <= 8)
-			{
-				NetBitWriter.WriteByte((byte)(source >> 32), numberOfBits, destination, destinationBitOffset);
-				return returnValue;
-			}
-			NetBitWriter.WriteByte((byte)(source >> 32), 8, destination, destinationBitOffset);
-			destinationBitOffset += 8;
-			numberOfBits -= 8;
-
-			if (numberOfBits <= 8)
-			{
-				NetBitWriter.WriteByte((byte)(source >> 40), numberOfBits, destination, destinationBitOffset);
-				return returnValue;
-			}
-			NetBitWriter.WriteByte((byte)(source >> 40), 8, destination, destinationBitOffset);
-			destinationBitOffset += 8;
-			numberOfBits -= 8;
-
-			if (numberOfBits <= 8)
-			{
-				NetBitWriter.WriteByte((byte)(source >> 48), numberOfBits, destination, destinationBitOffset);
-				return returnValue;
-			}
-			NetBitWriter.WriteByte((byte)(source >> 48), 8, destination, destinationBitOffset);
-			destinationBitOffset += 8;
-			numberOfBits -= 8;
-
-			if (numberOfBits <= 8)
-			{
-				NetBitWriter.WriteByte((byte)(source >> 56), numberOfBits, destination, destinationBitOffset);
-				return returnValue;
-			}
-			NetBitWriter.WriteByte((byte)(source >> 56), 8, destination, destinationBitOffset);
-			destinationBitOffset += 8;
-			numberOfBits -= 8;
+            for (int i = 0; i < 8; i++)
+            {
+                byte s = (byte)(source >> (i * 8));
+                if (numberOfBits <= 8)
+                {
+                    NetBitWriter.WriteByte(s, numberOfBits, destination, destinationBitOffset);
+                    return returnValue;
+                }
+                NetBitWriter.WriteByte(s, 8, destination, destinationBitOffset);
+                destinationBitOffset += 8;
+                numberOfBits -= 8;
+            }
 
 			return returnValue;
 		}

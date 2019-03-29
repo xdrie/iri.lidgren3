@@ -72,9 +72,8 @@ namespace UnitTests
 			bdr.Append(inc.ReadInt32(6));
 			bdr.Append(inc.ReadInt32());
 
-			string strResult;
-			bool ok = inc.ReadString(out strResult);
-			if (ok == false)
+            bool ok = inc.ReadString(out string strResult);
+            if (ok == false)
 				throw new NetException("Read/write failure");
 			bdr.Append(strResult);
 			
@@ -85,7 +84,8 @@ namespace UnitTests
 
 			bdr.Append(inc.ReadUInt16());
 
-			if (inc.PeekUInt64(64) != UInt64.MaxValue)
+            var pp = inc.PeekUInt64(64);
+            if (pp != UInt64.MaxValue)
 				throw new NetException("Read/write failure");
 
 			bdr.Append(inc.ReadUInt64());

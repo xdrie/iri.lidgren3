@@ -228,18 +228,17 @@ namespace Lidgren.Network
 		{
 			NetException.Assert((numberOfBits > 0 && numberOfBits <= 64), "ReadUInt() can only read between 1 and 64 bits");
 			NetException.Assert(m_bitLength - m_readPosition >= numberOfBits, c_readOverflowError);
-
-			ulong retval;
+            
 			if (numberOfBits <= 32)
 			{
-				retval = (ulong)NetBitWriter.ReadUInt32(m_data, numberOfBits, m_readPosition);
+				return (ulong)NetBitWriter.ReadUInt32(m_data, numberOfBits, m_readPosition);
 			}
 			else
 			{
-				retval = NetBitWriter.ReadUInt32(m_data, 32, m_readPosition);
-				retval |= NetBitWriter.ReadUInt32(m_data, numberOfBits - 32, m_readPosition) << 32;
+				uint v1 = NetBitWriter.ReadUInt32(m_data, 32, m_readPosition);
+                uint v2 = NetBitWriter.ReadUInt32(m_data, numberOfBits - 32, m_readPosition);
+                return (ulong)(v1 | ((long)v2 << 32));
 			}
-			return retval;
 		}
 
 		/// <summary>

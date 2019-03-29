@@ -60,7 +60,9 @@ namespace UnitTests
 				inc = peer.ReadMessage();
 			}
 
-			Console.WriteLine("Done");
+            Console.WriteLine();
+			Console.WriteLine("Tests finished");
+            Console.ReadKey();
 		}
 
 		/// <summary>
