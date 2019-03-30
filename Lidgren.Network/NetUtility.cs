@@ -433,6 +433,18 @@ namespace Lidgren.Network
             // compare network portions
             return ((remoteBits & maskBits) == (localBits & maskBits));
         }
+        
+        /// <summary>
+        /// Returns how many bits are necessary to hold a certain number
+        /// </summary>
+        [CLSCompliant(false)]
+        public static int BitsToHoldUInt64(ulong value)
+        {
+            int bits = 1;
+            while ((value >>= 1) != 0)
+                bits++;
+            return bits;
+        }
 
         /// <summary>
         /// Returns how many bits are necessary to hold a certain number.

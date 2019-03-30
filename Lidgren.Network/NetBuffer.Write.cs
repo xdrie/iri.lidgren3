@@ -123,18 +123,18 @@ namespace Lidgren.Network
 			m_bitLength += numberOfBits;
 		}
 
-		/// <summary>
-		/// Writes all bytes in an array
+        /// <summary>
+		/// Writes all bytes in a span
 		/// </summary>
-		public void Write(byte[] source)
-		{
-			if (source == null)
-				throw new ArgumentNullException(nameof(source));
-			int bits = source.Length * 8;
-			EnsureBufferSize(m_bitLength + bits);
-			NetBitWriter.WriteBytes(source, 0, source.Length, m_data, m_bitLength);
-			m_bitLength += bits;
-		}
+		public void Write(ReadOnlySpan<byte> source)
+        {
+            if (source == null)
+                throw new ArgumentNullException(nameof(source));
+            int bits = source.Length * 8;
+            EnsureBufferSize(m_bitLength + bits);
+            NetBitWriter.WriteBytes(source, m_data, m_bitLength);
+            m_bitLength += bits;
+        }
 
 		/// <summary>
 		/// Writes the specified number of bytes from an array
@@ -145,7 +145,7 @@ namespace Lidgren.Network
 				throw new ArgumentNullException(nameof(source));
 			int bits = numberOfBytes * 8;
 			EnsureBufferSize(m_bitLength + bits);
-			NetBitWriter.WriteBytes(source, offsetInBytes, numberOfBytes, m_data, m_bitLength);
+			NetBitWriter.WriteBytes(source.AsSpan(offsetInBytes, numberOfBytes), m_data, m_bitLength);
 			m_bitLength += bits;
 		}
 

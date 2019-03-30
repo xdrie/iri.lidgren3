@@ -1,5 +1,4 @@
-﻿using MonoGame.Utilities.Memory;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -29,11 +28,6 @@ namespace Lidgren.Network
 				m_incomingMessagesPool = null;
 			}
 		}
-
-        internal MemoryStream GetRecyclableMemory()
-        {
-            return RecyclableMemoryManager.Instance.GetMemoryStream();
-        }
 
 		internal byte[] GetStorage(int minimumCapacityInBytes)
 		{

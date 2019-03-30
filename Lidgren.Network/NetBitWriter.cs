@@ -67,21 +67,23 @@ namespace Lidgren.Network
 		/// <summary>
 		/// Read bytes from a buffer
 		/// </summary>
-		public static void ReadBytes(byte[] fromBuffer, int numberOfBytes, int readBitOffset, byte[] destination, int destinationByteOffset)
+		public static void ReadBytes(byte[] fromBuffer, int readBitOffset, Span<byte> destination)
 		{
 			int readPtr = readBitOffset >> 3;
 			int startReadAtIndex = readBitOffset - (readPtr * 8); // (readBitOffset % 8);
 
 			if (startReadAtIndex == 0)
 			{
-				Buffer.BlockCopy(fromBuffer, readPtr, destination, destinationByteOffset, numberOfBytes);
-				return;
+                var src = fromBuffer.AsSpan(readPtr, destination.Length);
+                src.CopyTo(destination);
+                return;
 			}
 
 			int secondPartLen = 8 - startReadAtIndex;
 			int secondMask = 255 >> secondPartLen;
+            int dstPtr = 0;
 
-			for (int i = 0; i < numberOfBytes; i++)
+			for (int i = 0; i < destination.Length; i++)
 			{
 				// mask away unused bits lower than (right of) relevant bits in byte
 				int b = fromBuffer[readPtr] >> startReadAtIndex;
@@ -91,10 +93,8 @@ namespace Lidgren.Network
 				// mask away unused bits higher than (left of) relevant bits in second byte
 				int second = fromBuffer[readPtr] & secondMask;
 
-				destination[destinationByteOffset++] = (byte)(b | (second << secondPartLen));
+				destination[dstPtr++] = (byte)(b | (second << secondPartLen));
 			}
-
-			return;
 		}
 
 		/// <summary>
@@ -153,22 +153,23 @@ namespace Lidgren.Network
 		/// <summary>
 		/// Write several whole bytes
 		/// </summary>
-		public static void WriteBytes(byte[] source, int sourceByteOffset, int numberOfBytes, byte[] destination, int destBitOffset)
+		public static void WriteBytes(ReadOnlySpan<byte> source, byte[] destination, int destBitOffset)
 		{
 			int dstBytePtr = destBitOffset >> 3;
 			int firstPartLen = (destBitOffset % 8);
 
 			if (firstPartLen == 0)
 			{
-				Buffer.BlockCopy(source, sourceByteOffset, destination, dstBytePtr, numberOfBytes);
+                var dst = destination.AsSpan(dstBytePtr);
+                source.CopyTo(dst);
 				return;
 			}
 
 			int lastPartLen = 8 - firstPartLen;
 
-			for (int i = 0; i < numberOfBytes; i++)
+			for (int i = 0; i < source.Length; i++)
 			{
-				byte src = source[sourceByteOffset + i];
+				byte src = source[i];
 
 				// write last part of this byte
 				destination[dstBytePtr] &= (byte)(255 >> lastPartLen); // clear before writing
@@ -180,8 +181,6 @@ namespace Lidgren.Network
 				destination[dstBytePtr] &= (byte)(255 << firstPartLen); // clear before writing
 				destination[dstBytePtr] |= (byte)(src >> lastPartLen); // write second half
 			}
-
-			return;
 		}
 
 		/// <summary>
@@ -295,10 +294,7 @@ namespace Lidgren.Network
 			return returnValue;
 #endif
 		}
-
-		//[CLSCompliant(false)]
-		//public static ulong ReadUInt64(byte[] fromBuffer, int numberOfBits, int readBitOffset)
-
+        
 		/// <summary>
 		/// Writes an unsigned 16 bit integer
 		/// </summary>
@@ -392,77 +388,19 @@ namespace Lidgren.Network
 #endif
 
 			int returnValue = destinationBitOffset + numberOfBits;
-			if (numberOfBits <= 8)
-			{
-				NetBitWriter.WriteByte((byte)source, numberOfBits, destination, destinationBitOffset);
-				return returnValue;
-			}
-			NetBitWriter.WriteByte((byte)source, 8, destination, destinationBitOffset);
-			destinationBitOffset += 8;
-			numberOfBits -= 8;
 
-			if (numberOfBits <= 8)
-			{
-				NetBitWriter.WriteByte((byte)(source >> 8), numberOfBits, destination, destinationBitOffset);
-				return returnValue;
-			}
-			NetBitWriter.WriteByte((byte)(source >> 8), 8, destination, destinationBitOffset);
-			destinationBitOffset += 8;
-			numberOfBits -= 8;
-
-			if (numberOfBits <= 8)
-			{
-				NetBitWriter.WriteByte((byte)(source >> 16), numberOfBits, destination, destinationBitOffset);
-				return returnValue;
-			}
-			NetBitWriter.WriteByte((byte)(source >> 16), 8, destination, destinationBitOffset);
-			destinationBitOffset += 8;
-			numberOfBits -= 8;
-
-			if (numberOfBits <= 8)
-			{
-				NetBitWriter.WriteByte((byte)(source >> 24), numberOfBits, destination, destinationBitOffset);
-				return returnValue;
-			}
-			NetBitWriter.WriteByte((byte)(source >> 24), 8, destination, destinationBitOffset);
-			destinationBitOffset += 8;
-			numberOfBits -= 8;
-
-			if (numberOfBits <= 8)
-			{
-				NetBitWriter.WriteByte((byte)(source >> 32), numberOfBits, destination, destinationBitOffset);
-				return returnValue;
-			}
-			NetBitWriter.WriteByte((byte)(source >> 32), 8, destination, destinationBitOffset);
-			destinationBitOffset += 8;
-			numberOfBits -= 8;
-
-			if (numberOfBits <= 8)
-			{
-				NetBitWriter.WriteByte((byte)(source >> 40), numberOfBits, destination, destinationBitOffset);
-				return returnValue;
-			}
-			NetBitWriter.WriteByte((byte)(source >> 40), 8, destination, destinationBitOffset);
-			destinationBitOffset += 8;
-			numberOfBits -= 8;
-
-			if (numberOfBits <= 8)
-			{
-				NetBitWriter.WriteByte((byte)(source >> 48), numberOfBits, destination, destinationBitOffset);
-				return returnValue;
-			}
-			NetBitWriter.WriteByte((byte)(source >> 48), 8, destination, destinationBitOffset);
-			destinationBitOffset += 8;
-			numberOfBits -= 8;
-
-			if (numberOfBits <= 8)
-			{
-				NetBitWriter.WriteByte((byte)(source >> 56), numberOfBits, destination, destinationBitOffset);
-				return returnValue;
-			}
-			NetBitWriter.WriteByte((byte)(source >> 56), 8, destination, destinationBitOffset);
-			destinationBitOffset += 8;
-			numberOfBits -= 8;
+            for (int i = 0; i < 8; i++)
+            {
+                byte s = (byte)(source >> (i * 8));
+                if (numberOfBits <= 8)
+                {
+                    NetBitWriter.WriteByte(s, numberOfBits, destination, destinationBitOffset);
+                    return returnValue;
+                }
+                NetBitWriter.WriteByte(s, 8, destination, destinationBitOffset);
+                destinationBitOffset += 8;
+                numberOfBits -= 8;
+            }
 
 			return returnValue;
 		}

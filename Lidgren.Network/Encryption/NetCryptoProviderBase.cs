@@ -75,9 +75,7 @@ namespace Lidgren.Network
             try
             {
                 int sourceBits = msg.LengthBits;
-
-#if !(ANDROID || IOS)
-                using (var ms = m_peer.GetRecyclableMemory())
+                using (var ms = new MemoryStream())
                 {
                     using (var cs = new CryptoStream(ms, Encryptor, CryptoStreamMode.Write, true))
                         cs.Write(msg.m_data, 0, msg.LengthBytes);
@@ -91,21 +89,6 @@ namespace Lidgren.Network
                     msg.Write(ms.GetBuffer(), 0, length);
                     msg.LengthBits = neededBufferBits;
                 }
-#else
-                var ms = new MemoryStream();
-                var cs = new CryptoStream(ms, m_algorithm.CreateEncryptor(), CryptoStreamMode.Write);
-                cs.Write(msg.m_data, 0, msg.LengthBytes);
-                cs.Close();
-                
-                var result = ms.ToArray();
-                ms.Close();
-
-                msg.EnsureBufferSize((result.Length + 4) * 8);
-                msg.LengthBits = 0; // reset write pointer
-                msg.Write((uint)sourceBits);
-                msg.Write(result);
-                msg.LengthBits = (result.Length + 4) * 8;
-#endif
                 return true;
             }
             catch
