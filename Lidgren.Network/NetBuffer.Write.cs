@@ -126,7 +126,7 @@ namespace Lidgren.Network
         /// <summary>
 		/// Writes all bytes in a span
 		/// </summary>
-		public void Write(Span<byte> source)
+		public void Write(ReadOnlySpan<byte> source)
         {
             if (source == null)
                 throw new ArgumentNullException(nameof(source));

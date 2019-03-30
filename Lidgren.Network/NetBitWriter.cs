@@ -67,21 +67,23 @@ namespace Lidgren.Network
 		/// <summary>
 		/// Read bytes from a buffer
 		/// </summary>
-		public static void ReadBytes(byte[] fromBuffer, int numberOfBytes, int readBitOffset, byte[] destination, int destinationByteOffset)
+		public static void ReadBytes(byte[] fromBuffer, int readBitOffset, Span<byte> destination)
 		{
 			int readPtr = readBitOffset >> 3;
 			int startReadAtIndex = readBitOffset - (readPtr * 8); // (readBitOffset % 8);
 
 			if (startReadAtIndex == 0)
 			{
-				Buffer.BlockCopy(fromBuffer, readPtr, destination, destinationByteOffset, numberOfBytes);
-				return;
+                var src = fromBuffer.AsSpan(readPtr, destination.Length);
+                src.CopyTo(destination);
+                return;
 			}
 
 			int secondPartLen = 8 - startReadAtIndex;
 			int secondMask = 255 >> secondPartLen;
+            int dstPtr = 0;
 
-			for (int i = 0; i < numberOfBytes; i++)
+			for (int i = 0; i < destination.Length; i++)
 			{
 				// mask away unused bits lower than (right of) relevant bits in byte
 				int b = fromBuffer[readPtr] >> startReadAtIndex;
@@ -91,10 +93,8 @@ namespace Lidgren.Network
 				// mask away unused bits higher than (left of) relevant bits in second byte
 				int second = fromBuffer[readPtr] & secondMask;
 
-				destination[destinationByteOffset++] = (byte)(b | (second << secondPartLen));
+				destination[dstPtr++] = (byte)(b | (second << secondPartLen));
 			}
-
-			return;
 		}
 
 		/// <summary>
@@ -153,7 +153,7 @@ namespace Lidgren.Network
 		/// <summary>
 		/// Write several whole bytes
 		/// </summary>
-		public static void WriteBytes(Span<byte> source, byte[] destination, int destBitOffset)
+		public static void WriteBytes(ReadOnlySpan<byte> source, byte[] destination, int destBitOffset)
 		{
 			int dstBytePtr = destBitOffset >> 3;
 			int firstPartLen = (destBitOffset % 8);
@@ -294,10 +294,7 @@ namespace Lidgren.Network
 			return returnValue;
 #endif
 		}
-
-		//[CLSCompliant(false)]
-		//public static ulong ReadUInt64(byte[] fromBuffer, int numberOfBits, int readBitOffset)
-
+        
 		/// <summary>
 		/// Writes an unsigned 16 bit integer
 		/// </summary>
