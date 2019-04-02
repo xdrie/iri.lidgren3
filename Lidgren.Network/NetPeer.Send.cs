@@ -59,11 +59,16 @@ namespace Lidgren.Network
                 // message must be fragmented!
                 if (recipient.m_status != NetConnectionStatus.Connected)
                     return NetSendResult.FailedNotConnected;
-                return SendFragmentedMessage(msg, new NetConnection[] { recipient }, method, sequenceChannel);
+
+                var tmp = ConnectionListPool.Rent();
+                tmp.Add(recipient);
+                var result = SendFragmentedMessage(msg, tmp, method, sequenceChannel);
+                ConnectionListPool.Return(tmp);
+                return result;
             }
         }
 
-        internal static int GetMTU(ICollection<NetConnection> recipients)
+        internal static int GetMTU(List<NetConnection> recipients)
         {
             int mtu = NetPeerConfiguration.kDefaultMTU;
             if (recipients.Count < 1)
@@ -78,10 +83,7 @@ namespace Lidgren.Network
 
             foreach(var conn in recipients)
             {
-                if (conn == null)
-                    continue;
-
-                if (conn.m_currentMTU < mtu)
+                if (conn != null && conn.m_currentMTU < mtu)
                     mtu = conn.m_currentMTU;
             }
             return mtu;
@@ -94,7 +96,7 @@ namespace Lidgren.Network
         /// <param name="recipients">The list of recipients to send to</param>
         /// <param name="method">How to deliver the message</param>
         /// <param name="sequenceChannel">Sequence channel within the delivery method</param>
-        public void SendMessage(NetOutgoingMessage msg, ICollection<NetConnection> recipients, NetDeliveryMethod method, int sequenceChannel)
+        public void SendMessage(NetOutgoingMessage msg, List<NetConnection> recipients, NetDeliveryMethod method, int sequenceChannel)
         {
             if (msg == null)
                 throw new ArgumentNullException(nameof(msg));

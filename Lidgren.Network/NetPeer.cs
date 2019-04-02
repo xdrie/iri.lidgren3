@@ -2,6 +2,7 @@
 using System.Threading;
 using System.Collections.Generic;
 using System.Net;
+using System.Collections.ObjectModel;
 
 namespace Lidgren.Network
 {
@@ -17,6 +18,7 @@ namespace Lidgren.Network
 		private object m_messageReceivedEventCreationLock = new object();
 
 		internal readonly List<NetConnection> m_connections;
+        internal readonly ReadOnlyCollection<NetConnection> m_readOnlyConnections;
 		private readonly Dictionary<IPEndPoint, NetConnection> m_connectionLookup;
 
 		private string m_shutdownReason;
@@ -72,22 +74,24 @@ namespace Lidgren.Network
 			set { m_tag = value; }
 		}
 
-		/// <summary>
-		/// Gets a copy of the list of connections
-		/// </summary>
-		public List<NetConnection> Connections
-		{
-			get
-			{
-				lock (m_connections)
-					return new List<NetConnection>(m_connections);
-			}
-		}
+        /// <summary>
+        /// Gets a copy of the list of connections.
+        /// </summary>
+        public List<NetConnection> GetConnections()
+        {
+            var list = ConnectionListPool.Rent();
+            lock (m_connections)
+            {
+                foreach (var conn in m_connections)
+                    list.Add(conn);
+            }
+            return list;
+        }
 
-		/// <summary>
-		/// Gets the number of active connections
-		/// </summary>
-		public int ConnectionsCount
+        /// <summary>
+        /// Gets the number of active connections
+        /// </summary>
+        public int ConnectionCount
 		{
 			get { return m_connections.Count; }
 		}
@@ -115,7 +119,7 @@ namespace Lidgren.Network
 			m_releasedIncomingMessages = new NetQueue<NetIncomingMessage>(8);
 			m_unsentUnconnectedMessages = new NetQueue<NetTuple<IPEndPoint, NetOutgoingMessage>>(4);
 			m_connections = new List<NetConnection>();
-			m_connectionLookup = new Dictionary<IPEndPoint, NetConnection>();
+            m_connectionLookup = new Dictionary<IPEndPoint, NetConnection>();
 			m_handshakes = new Dictionary<IPEndPoint, NetConnection>();
 			m_senderRemote = (EndPoint)new IPEndPoint(IPAddress.IPv6Any, 0);
 			m_status = NetPeerStatus.NotRunning;

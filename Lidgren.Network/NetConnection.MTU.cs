@@ -104,7 +104,7 @@ namespace Lidgren.Network
 		private void SendExpandMTU(double now, int size)
 		{
 			NetOutgoingMessage om = m_peer.CreateMessage(size);
-			byte[] tmp = new byte[size];
+			Span<byte> tmp = stackalloc byte[size];
 			om.Write(tmp);
 			om.m_messageType = NetMessageType.ExpandMTURequest;
 			int len = om.Encode(m_peer.m_sendBuffer, 0, 0);
@@ -144,7 +144,6 @@ namespace Lidgren.Network
 			m_currentMTU = size;
 			if (m_currentMTU != m_peerConfiguration.m_maximumTransmissionUnit)
 				m_peer.LogDebug("Expanded Maximum Transmission Unit to: " + m_currentMTU + " bytes");
-			return;
 		}
 
 		private void SendMTUSuccess(int size)
