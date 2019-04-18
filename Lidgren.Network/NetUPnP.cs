@@ -234,8 +234,8 @@ namespace Lidgren.Network
 
                 XmlNamespaceManager nsMgr = new XmlNamespaceManager(xdoc.NameTable);
 				nsMgr.AddNamespace("tns", "urn:schemas-upnp-org:device-1-0");
-				string IP = xdoc.SelectSingleNode("//NewExternalIPAddress/text()", nsMgr).Value;
-				return IPAddress.Parse(IP);
+				string ip = xdoc.SelectSingleNode("//NewExternalIPAddress/text()", nsMgr).Value;
+				return IPAddress.Parse(ip);
 			}
 			catch (Exception ex)
 			{

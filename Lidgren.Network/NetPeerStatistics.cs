@@ -129,7 +129,7 @@ namespace Lidgren.Network
             ILibraryLanguage lang = LanguageManager.Current;
             StringBuilder sb = new StringBuilder();
 
-            sb.AppendFormatLine(lang["X_connections"], m_peer.ConnectionsCount);
+            sb.AppendFormatLine(lang["X_connections"], m_peer.ConnectionCount);
             sb.AppendFormatLine(lang["sent_X_bytes_X_messages_X_packets"], m_sentBytes, m_sentMessages, m_sentPackets);
             sb.AppendFormatLine(lang["received_X_bytes_X_messages_X_fragments_X_packets"], m_receivedBytes, m_receivedMessages, m_receivedFragments, m_receivedPackets);
             sb.AppendLine();

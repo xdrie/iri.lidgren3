@@ -23,11 +23,13 @@ namespace Lidgren.Network
         /// </summary>
         /// <param name="msg">The message to send</param>
         /// <param name="method">How to deliver the message</param>
-        public void SendToAll(NetOutgoingMessage msg, NetDeliveryMethod method)
+		/// <param name="sequenceChannel">Which sequence channel to use for the message</param>
+        public void SendToAll(NetOutgoingMessage msg, NetDeliveryMethod method, int sequenceChannel)
         {
-            var all = this.Connections;
+            var all = this.GetConnections();
             if (all.Count > 0)
-                SendMessage(msg, all, method, 0);
+                SendMessage(msg, all, method, sequenceChannel);
+            ConnectionListPool.Return(all);
         }
 
 		/// <summary>
@@ -39,60 +41,41 @@ namespace Lidgren.Network
 		/// <param name="sequenceChannel">Which sequence channel to use for the message</param>
 		public void SendToAll(NetOutgoingMessage msg, NetConnection except, NetDeliveryMethod method, int sequenceChannel)
 		{
-			var all = this.Connections;
-			if (all.Count <= 0)
-				return;
-
-            if (except == null)
+			var all = this.GetConnections();
+            if (all.Count > 0)
             {
-                SendMessage(msg, all, method, sequenceChannel);
-            }
-            else
-            {
-                if (all.Count > 1) {
-                    IEnumerable<NetConnection> Exclude()
+                if (except == null)
+                {
+                    SendMessage(msg, all, method, sequenceChannel);
+                }
+                else
+                {
+                    if (all.Count > 1)
                     {
-                        foreach (var conn in all)
-                            if (conn != except)
-                                yield return conn;
+                        List<NetConnection> Exclude()
+                        {
+                            var list = ConnectionListPool.Rent();
+                            foreach (var conn in all)
+                                if (conn != except)
+                                    list.Add(conn);
+                            return list;
+                        }
+
+                        var tmp = Exclude();
+                        SendMessage(msg, tmp, method, sequenceChannel);
+                        ConnectionListPool.Return(tmp);
                     }
-                    
-                    var recipients = new FakeCollection(Exclude(), all.Count - 1);
-                    SendMessage(msg, recipients, method, sequenceChannel);
                 }
             }
-		}
+            ConnectionListPool.Return(all);
+        }
         
         /// <summary>
         /// Returns a string that represents this object
         /// </summary>
         public override string ToString()
 		{
-			return "[NetServer " + ConnectionsCount + " connections]";
+			return "[NetServer " + ConnectionCount + " connections]";
 		}
-        
-        struct FakeCollection : ICollection<NetConnection>
-        {
-            private IEnumerable<NetConnection> _enumerable;
-            private int _count;
-
-            public FakeCollection(IEnumerable<NetConnection> enumerable, int count)
-            {
-                _enumerable = enumerable;
-                _count = count;
-            }
-
-            public int Count => _count;
-            public bool IsReadOnly => true;
-
-            public void Add(NetConnection item) => throw new NotImplementedException();
-            public void Clear() => throw new NotImplementedException();
-            public bool Contains(NetConnection item) => throw new NotImplementedException();
-            public void CopyTo(NetConnection[] array, int arrayIndex) => throw new NotImplementedException();
-            public bool Remove(NetConnection item) => throw new NotImplementedException();
-
-            public IEnumerator<NetConnection> GetEnumerator() => _enumerable.GetEnumerator();
-            IEnumerator IEnumerable.GetEnumerator() => throw new NotImplementedException();
-        }
     }
 }
