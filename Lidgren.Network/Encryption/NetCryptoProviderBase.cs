@@ -1,6 +1,7 @@
 ﻿using System;
 using System.IO;
 using System.Security.Cryptography;
+using MonoGame.Utilities.Memory;
 
 namespace Lidgren.Network
 {
@@ -77,7 +78,7 @@ namespace Lidgren.Network
                 int sourceBits = msg.LengthBits;
                 using (var ms = new MemoryStream())
                 {
-                    using (var cs = new CryptoStream(ms, Encryptor, CryptoStreamMode.Write, true))
+                    using (var cs = new CryptoStream(ms, Encryptor, CryptoStreamMode.Write))
                         cs.Write(msg.m_data, 0, msg.LengthBytes);
 
                     int length = (int)ms.Length;
@@ -86,7 +87,7 @@ namespace Lidgren.Network
                     msg.EnsureBufferSize(neededBufferBits);
                     msg.LengthBits = 0; // reset write pointer
                     msg.Write((uint)sourceBits);
-                    msg.Write(ms.GetBuffer(), 0, length);
+                    msg.Write(ms.ToArray(), 0, length);
                     msg.LengthBits = neededBufferBits;
                 }
                 return true;
@@ -129,7 +130,7 @@ namespace Lidgren.Network
             }
 
             Recycle(originalMsgBuffer);
-            if (success == false)
+            if (!success)
             {
                 Recycle(result);
                 result = null;
