@@ -25,11 +25,9 @@ namespace Lidgren.Network
         {
             lock (_pool)
             {
-                if (_pool.Count < 32)
-                {
-                    list.Clear();
+                list.Clear();
+                if (_pool.Count < 64)
                     _pool.Push(list);
-                }
             }
         }
     }

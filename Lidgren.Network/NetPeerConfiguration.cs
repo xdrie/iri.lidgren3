@@ -237,7 +237,7 @@ namespace Lidgren.Network
 		}
 
         /// <summary>
-        /// Gets or sets the default capacity in bytes when <see cref="NetPeer.CreateMessage"/> is called without argument.
+        /// Gets or sets the default capacity for messages created by <see cref="NetPeer.CreateMessage()"/>.
         /// </summary>
         public int DefaultOutgoingMessageCapacity
 		{

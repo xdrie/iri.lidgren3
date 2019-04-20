@@ -1,14 +1,11 @@
-﻿using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
+﻿using System.Collections.Generic;
 
 namespace Lidgren.Network
 {
-	/// <summary>
-	/// Specialized version of NetPeer used for "server" peers
-	/// </summary>
-	public class NetServer : NetPeer
+    /// <summary>
+    /// Specialized version of NetPeer used for "server" peers
+    /// </summary>
+    public class NetServer : NetPeer
 	{
 		/// <summary>
 		/// NetServer constructor

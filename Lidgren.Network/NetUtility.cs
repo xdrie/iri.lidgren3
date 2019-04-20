@@ -174,11 +174,10 @@ namespace Lidgren.Network
                 throw new ArgumentException("Supplied string must not be empty", nameof(ipOrHost));
 
             ipOrHost = ipOrHost.Trim();
-
-            IPAddress ipAddress = null;
-            if (IPAddress.TryParse(ipOrHost, out ipAddress))
+            if (IPAddress.TryParse(ipOrHost, out IPAddress ipAddress))
             {
-                if (ipAddress.AddressFamily == AddressFamily.InterNetwork || ipAddress.AddressFamily == AddressFamily.InterNetworkV6)
+                if (ipAddress.AddressFamily == AddressFamily.InterNetwork ||
+                    ipAddress.AddressFamily == AddressFamily.InterNetworkV6)
                     return ipAddress;
                 throw new ArgumentException("This method will not currently resolve other than IPv4 or IPv6 addresses");
             }
@@ -191,7 +190,8 @@ namespace Lidgren.Network
                     return null;
                 foreach (var address in addresses)
                 {
-                    if (address.AddressFamily == AddressFamily.InterNetwork || address.AddressFamily == AddressFamily.InterNetworkV6)
+                    if (address.AddressFamily == AddressFamily.InterNetwork || 
+                        address.AddressFamily == AddressFamily.InterNetworkV6)
                         return address;
                 }
                 return null;
@@ -300,17 +300,14 @@ namespace Lidgren.Network
         {
 #if __ANDROID__
 			try{
-			Android.Net.Wifi.WifiManager wifi = (Android.Net.Wifi.WifiManager)Android.App.Application.Context.GetSystemService(Android.App.Activity.WifiService);
+			var wifi = Android.App.Application.Context.GetSystemService(Android.Content.Context.WifiService) as Android.Net.Wifi.WifiManager;
 			if (wifi.IsWifiEnabled)
 			{
 				var dhcp = wifi.DhcpInfo;
-					
 				int broadcast = (dhcp.IpAddress & dhcp.Netmask) | ~dhcp.Netmask;
 	    		byte[] quads = new byte[4];
 	    		for (int k = 0; k < 4; k++)
-				{
 	      			quads[k] = (byte) ((broadcast >> k * 8) & 0xFF);
-				}
 				return new IPAddress(quads);
 			}
 			}
@@ -362,46 +359,45 @@ namespace Lidgren.Network
         /// </summary>
         public static IPAddress GetMyAddress(out IPAddress mask)
         {
-            mask = null;
 #if __ANDROID__
-			try
-			{
-				Android.Net.Wifi.WifiManager wifi = (Android.Net.Wifi.WifiManager)Android.App.Application.Context.GetSystemService(Android.App.Activity.WifiService);
-				if (!wifi.IsWifiEnabled) return null;
-				var dhcp = wifi.DhcpInfo;
-					
-				int addr = dhcp.IpAddress;
-	    		byte[] quads = new byte[4];
-	    		for (int k = 0; k < 4; k++)
-				{
-	      			quads[k] = (byte) ((addr >> k * 8) & 0xFF);
-				}			
-				return new IPAddress(quads);
-			}
-			catch // Catch Access Denied errors
-			{
-				return null;
-			}
-				
+            try
+            {
+                var wifi = Android.App.Application.Context.GetSystemService(Android.Content.Context.WifiService) as Android.Net.Wifi.WifiManager;
+                if (wifi.IsWifiEnabled)
+                {
+                    var dhcp = wifi.DhcpInfo;
+                    int addr = dhcp.IpAddress;
+                    byte[] quads = new byte[4];
+                    for (int k = 0; k < 4; k++)
+                        quads[k] = (byte)((addr >> k * 8) & 0xFF);
+
+                    mask = null;
+                    return new IPAddress(quads);
+                }
+            }
+            catch // Catch Access Denied errors
+            {
+            }
+
 #endif
 #if IS_FULL_NET_AVAILABLE
             NetworkInterface ni = GetNetworkInterface();
-            if (ni == null)
+            if (ni != null)
             {
-                mask = null;
-                return null;
-            }
-
-            IPInterfaceProperties properties = ni.GetIPProperties();
-            foreach (UnicastIPAddressInformation unicastAddress in properties.UnicastAddresses)
-            {
-                if (unicastAddress != null && unicastAddress.Address != null && unicastAddress.Address.AddressFamily == AddressFamily.InterNetwork)
+                IPInterfaceProperties properties = ni.GetIPProperties();
+                foreach (UnicastIPAddressInformation unicastAddress in properties.UnicastAddresses)
                 {
-                    mask = unicastAddress.IPv4Mask;
-                    return unicastAddress.Address;
+                    if (unicastAddress != null &&
+                        unicastAddress.Address != null &&
+                        unicastAddress.Address.AddressFamily == AddressFamily.InterNetwork)
+                    {
+                        mask = unicastAddress.IPv4Mask;
+                        return unicastAddress.Address;
+                    }
                 }
             }
 #endif
+            mask = null;
             return null;
         }
 

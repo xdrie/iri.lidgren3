@@ -11,8 +11,7 @@
     <RootNamespace>Lidgren.Network</RootNamespace>
     <AssemblyName>Lidgren.Network</AssemblyName>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <NoWarn>
-    </NoWarn>
+    <NoWarn>1591,0436</NoWarn>
     <TargetFrameworkVersion>v4.4</TargetFrameworkVersion>
     <TargetFrameworkProfile />
     <LangVersion>Default</LangVersion>
@@ -34,7 +33,7 @@
     <DocumentationFile>bin\Android\AnyCPU\Debug\Lidgren.Network.xml</DocumentationFile>
     <DefineConstants>DEBUG;ANDROID;UNITY_4_5</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>0</WarningLevel>
+    <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
     <MonoDroidLinkMode>None</MonoDroidLinkMode>
     <AndroidLinkMode>None</AndroidLinkMode>
@@ -48,7 +47,7 @@
     <DocumentationFile>bin\Android\AnyCPU\Release\Lidgren.Network.xml</DocumentationFile>
     <DefineConstants>ANDROID;UNITY_4_5</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>0</WarningLevel>
+    <WarningLevel>4</WarningLevel>
     <Prefer32Bit>false</Prefer32Bit>
     <AndroidUseSharedRuntime>False</AndroidUseSharedRuntime>
     <EmbedAssembliesIntoApk>True</EmbedAssembliesIntoApk>
@@ -61,6 +60,7 @@
     <Reference Include="System.Core" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ConnectionListPool.cs" />
     <Compile Include="Encryption\CryptoTransformExtensions.cs" />
     <Compile Include="Encryption\NetAESEncryption.cs" />
     <Compile Include="Encryption\NetCryptoProviderBase.cs" />
@@ -137,11 +137,13 @@
     <Compile Include="NetUPnP.cs" />
     <Compile Include="NetUtility.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="Resources\Resource.Designer.cs">
-      <Platforms>Android,Ouya</Platforms>
-    </Compile>
   </ItemGroup>
-  <ItemGroup />
+  <ItemGroup>
+    <ProjectReference Include="..\..\..\MonoGame.Utilities\MonoGame.Utilities.csproj">
+      <Project>{11ae16ab-940d-4d16-86ec-141d1eec21fd}</Project>
+      <Name>MonoGame.Utilities</Name>
+    </ProjectReference>
+  </ItemGroup>
   <ItemGroup />
   <ItemGroup />
   <ItemGroup />
@@ -160,6 +162,9 @@
   <Target Name="PostBuildHooks" Inputs="@(IntermediateAssembly);@(ReferencePath)" Outputs="@(IntermediateAssembly);$(_PostBuildHookTimestamp)" AfterTargets="CoreCompile" BeforeTargets="AfterCompile">
     <Touch Files="$(_PostBuildHookTimestamp)" AlwaysCreate="True" />
   </Target>
+  <PropertyGroup>
+    <DefineConstants Condition=" '$(TargetFrameworkVersion)' != 'v4.0' And '$(TargetFrameworkVersion)' != 'v3.5' And '$(TargetFrameworkVersion)' != 'v3.0' And '$(TargetFrameworkVersion)' != 'v2.0' ">$(DefineConstants);NET45</DefineConstants>
+  </PropertyGroup>
   <ItemGroup />
   <ProjectExtensions>
     <MonoDevelop>

@@ -135,8 +135,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads the specified number of bits into a preallocated array
         /// </summary>
-        /// <param name="into">The destination array</param>
-        /// <param name="offset">The offset where to start writing in the destination array</param>
+        /// <param name="span">The destination span.</param>
         /// <param name="numberOfBits">The number of bits to read</param>
         public void ReadBits(Span<byte> span, int numberOfBits)
 		{

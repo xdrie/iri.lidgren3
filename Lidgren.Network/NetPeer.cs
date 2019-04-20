@@ -2,7 +2,6 @@
 using System.Threading;
 using System.Collections.Generic;
 using System.Net;
-using System.Collections.ObjectModel;
 
 namespace Lidgren.Network
 {
@@ -14,27 +13,25 @@ namespace Lidgren.Network
 		private static int s_initializedPeersCount;
 
 		private int m_listenPort;
-		private object m_tag;
-		private object m_messageReceivedEventCreationLock = new object();
+        private object m_messageReceivedEventCreationLock = new object();
 
 		internal readonly List<NetConnection> m_connections;
-        internal readonly ReadOnlyCollection<NetConnection> m_readOnlyConnections;
 		private readonly Dictionary<IPEndPoint, NetConnection> m_connectionLookup;
 
 		private string m_shutdownReason;
 
-		/// <summary>
-		/// Gets the NetPeerStatus of the NetPeer
-		/// </summary>
-		public NetPeerStatus Status { get { return m_status; } }
+        /// <summary>
+        /// Gets the NetPeerStatus of the NetPeer
+        /// </summary>
+        public NetPeerStatus Status => m_status;
 
-		/// <summary>
-		/// Signalling event which can be waited on to determine when a message is queued for reading.
-		/// Note that there is no guarantee that after the event is signaled the blocked thread will 
-		/// find the message in the queue. Other user created threads could be preempted and dequeue 
-		/// the message before the waiting thread wakes up.
-		/// </summary>
-		public AutoResetEvent MessageReceivedEvent
+        /// <summary>
+        /// Signalling event which can be waited on to determine when a message is queued for reading.
+        /// Note that there is no guarantee that after the event is signaled the blocked thread will 
+        /// find the message in the queue. Other user created threads could be preempted and dequeue 
+        /// the message before the waiting thread wakes up.
+        /// </summary>
+        public AutoResetEvent MessageReceivedEvent
 		{
 			get
 			{
@@ -50,29 +47,25 @@ namespace Lidgren.Network
 			}
 		}
 
-		/// <summary>
-		/// Gets a unique identifier for this NetPeer based on Mac address and ip/port. Note! Not available until Start() has been called!
-		/// </summary>
-		public long UniqueIdentifier { get { return m_uniqueIdentifier; } }
+        /// <summary>
+        /// Gets a unique identifier for this NetPeer based on Mac address and ip/port. Note! Not available until Start() has been called!
+        /// </summary>
+        public long UniqueIdentifier => m_uniqueIdentifier;
 
-		/// <summary>
-		/// Gets the port number this NetPeer is listening and sending on, if Start() has been called
-		/// </summary>
-		public int Port { get { return m_listenPort; } }
+        /// <summary>
+        /// Gets the port number this NetPeer is listening and sending on, if Start() has been called
+        /// </summary>
+        public int Port => m_listenPort;
 
-		/// <summary>
-		/// Returns an UPnP object if enabled in the NetPeerConfiguration
-		/// </summary>
-		public NetUPnP UPnP { get { return m_upnp; } }
+        /// <summary>
+        /// Returns an UPnP object if enabled in the NetPeerConfiguration
+        /// </summary>
+        public NetUPnP UPnP => m_upnp;
 
-		/// <summary>
-		/// Gets or sets the application defined object containing data about the peer
-		/// </summary>
-		public object Tag
-		{
-			get { return m_tag; }
-			set { m_tag = value; }
-		}
+        /// <summary>
+        /// Gets or sets the application defined object containing data about the peer
+        /// </summary>
+        public object Tag { get; set; }
 
         /// <summary>
         /// Gets a copy of the list of connections.
@@ -91,28 +84,22 @@ namespace Lidgren.Network
         /// <summary>
         /// Gets the number of active connections
         /// </summary>
-        public int ConnectionCount
-		{
-			get { return m_connections.Count; }
-		}
+        public int ConnectionCount => m_connections.Count;
 
-		/// <summary>
-		/// Statistics on this NetPeer since it was initialized
-		/// </summary>
-		public NetPeerStatistics Statistics
-		{
-			get { return m_statistics; }
-		}
+        /// <summary>
+        /// Statistics on this NetPeer since it was initialized
+        /// </summary>
+        public NetPeerStatistics Statistics => m_statistics;
 
-		/// <summary>
-		/// Gets the configuration used to instanciate this NetPeer
-		/// </summary>
-		public NetPeerConfiguration Configuration { get { return m_configuration; } }
+        /// <summary>
+        /// Gets the configuration used to instanciate this NetPeer
+        /// </summary>
+        public NetPeerConfiguration Configuration => m_configuration;
 
-		/// <summary>
-		/// NetPeer constructor
-		/// </summary>
-		public NetPeer(NetPeerConfiguration config)
+        /// <summary>
+        /// NetPeer constructor
+        /// </summary>
+        public NetPeer(NetPeerConfiguration config)
 		{
 			m_configuration = config;
 			m_statistics = new NetPeerStatistics(this);
