@@ -31,7 +31,7 @@ namespace Lidgren.Network
 	/// Utility struct for writing Singles
 	/// </summary>
 	[StructLayout(LayoutKind.Explicit)]
-	public struct SingleUIntUnion
+    internal struct SingleUIntUnion
 	{
 		/// <summary>
 		/// Value as a 32 bit float
@@ -47,7 +47,27 @@ namespace Lidgren.Network
 		public uint UIntValue;
 	}
 
-	public partial class NetBuffer
+    /// <summary>
+	/// Utility struct for writing Doubles
+	/// </summary>
+	[StructLayout(LayoutKind.Explicit)]
+    internal struct DoubleULongUnion
+    {
+        /// <summary>
+        /// Value as a 64 bit float
+        /// </summary>
+        [FieldOffset(0)]
+        public double DoubleValue;
+
+        /// <summary>
+        /// Value as an unsigned 64 bit integer
+        /// </summary>
+        [FieldOffset(0)]
+        [CLSCompliant(false)]
+        public ulong ULongValue;
+    }
+
+    public partial class NetBuffer
 	{
 		/// <summary>
 		/// Ensures the buffer can hold this number of bits
@@ -401,7 +421,7 @@ namespace Lidgren.Network
 		{
 			uint val = *((uint*)&source);
 #if BIGENDIAN
-				val = NetUtility.SwapByteOrder(val);
+            val = NetUtility.SwapByteOrder(val);
 #endif
 			Write(val);
 		}
@@ -437,34 +457,22 @@ namespace Lidgren.Network
 			Write(val);
 		}
 #else
-		/// <summary>
+        /// <summary>
 		/// Writes a 64 bit floating point value
 		/// </summary>
 		public void Write(double source)
-		{
-			byte[] val = BitConverter.GetBytes(source);
+        {
+            // Use union to avoid BitConverter.GetBytes() which allocates memory on the heap
+            DoubleULongUnion su;
+            su.ULongValue = 0; // must initialize every member of the union to avoid warning
+            su.DoubleValue = source;
+
 #if BIGENDIAN
-			// 0 1 2 3   4 5 6 7
-
 			// swap byte order
-			byte tmp = val[7];
-			val[7] = val[0];
-			val[0] = tmp;
-
-			tmp = val[6];
-			val[6] = val[1];
-			val[1] = tmp;
-
-			tmp = val[5];
-			val[5] = val[2];
-			val[2] = tmp;
-
-			tmp = val[4];
-			val[4] = val[3];
-			val[3] = tmp;
+			su.ULongValue = NetUtility.SwapByteOrder(su.ULongValue);
 #endif
-			Write(val);
-		}
+            Write(su.ULongValue);
+        }
 #endif
 
 		//
