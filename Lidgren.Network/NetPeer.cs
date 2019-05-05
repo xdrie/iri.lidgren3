@@ -155,13 +155,12 @@ namespace Lidgren.Network
 		/// </summary>
 		public NetConnection GetConnection(IPEndPoint ep)
 		{
-			NetConnection retval;
 
-			// this should not pose a threading problem, m_connectionLookup is never added to concurrently
-			// and TryGetValue will not throw an exception on fail, only yield null, which is acceptable
-			m_connectionLookup.TryGetValue(ep, out retval);
+            // this should not pose a threading problem, m_connectionLookup is never added to concurrently
+            // and TryGetValue will not throw an exception on fail, only yield null, which is acceptable
+            m_connectionLookup.TryGetValue(ep, out NetConnection retval);
 
-			return retval;
+            return retval;
 		}
 
 		/// <summary>
@@ -182,16 +181,15 @@ namespace Lidgren.Network
 		/// </summary>
 		public NetIncomingMessage ReadMessage()
 		{
-			NetIncomingMessage retval;
-			if (m_releasedIncomingMessages.TryDequeue(out retval))
-			{
-				if (retval.MessageType == NetIncomingMessageType.StatusChanged)
-				{
-					NetConnectionStatus status = (NetConnectionStatus)retval.PeekByte();
-					retval.SenderConnection.m_visibleStatus = status;
-				}
-			}
-			return retval;
+            if (m_releasedIncomingMessages.TryDequeue(out NetIncomingMessage retval))
+            {
+                if (retval.MessageType == NetIncomingMessageType.StatusChanged)
+                {
+                    NetConnectionStatus status = (NetConnectionStatus)retval.PeekByte();
+                    retval.SenderConnection.m_visibleStatus = status;
+                }
+            }
+            return retval;
 		}
 
 		/// <summary>
@@ -222,9 +220,8 @@ namespace Lidgren.Network
 			VerifyNetworkThread();
 			NetException.Assert(msg.m_isSent == false);
 
-			bool connReset;
-			int len = msg.Encode(m_sendBuffer, 0, 0);
-			SendPacket(len, recipient, 1, out connReset);
+            int len = msg.Encode(m_sendBuffer, 0, 0);
+            SendPacket(len, recipient, 1, out _);
 		}
 
 		/// <summary>
@@ -269,29 +266,28 @@ namespace Lidgren.Network
 				if (m_connectionLookup.ContainsKey(remoteEndPoint))
 					throw new NetException("Already connected to that endpoint!");
 
-				NetConnection hs;
-				if (m_handshakes.TryGetValue(remoteEndPoint, out hs))
-				{
-					// already trying to connect to that endpoint; make another try
-					switch (hs.m_status)
-					{
-						case NetConnectionStatus.InitiatedConnect:
-							// send another connect
-							hs.m_connectRequested = true;
-							break;
-						case NetConnectionStatus.RespondedConnect:
-							// send another response
-							hs.SendConnectResponse((float)NetTime.Now, false);
-							break;
-						default:
-							// weird
-							LogWarning("Weird situation; Connect() already in progress to remote endpoint; but hs status is " + hs.m_status);
-							break;
-					}
-					return hs;
-				}
+                if (m_handshakes.TryGetValue(remoteEndPoint, out NetConnection hs))
+                {
+                    // already trying to connect to that endpoint; make another try
+                    switch (hs.m_status)
+                    {
+                        case NetConnectionStatus.InitiatedConnect:
+                            // send another connect
+                            hs.m_connectRequested = true;
+                            break;
+                        case NetConnectionStatus.RespondedConnect:
+                            // send another response
+                            hs.SendConnectResponse((float)NetTime.Now, false);
+                            break;
+                        default:
+                            // weird
+                            LogWarning("Weird situation; Connect() already in progress to remote endpoint; but hs status is " + hs.m_status);
+                            break;
+                    }
+                    return hs;
+                }
 
-				NetConnection conn = new NetConnection(this, remoteEndPoint);
+                NetConnection conn = new NetConnection(this, remoteEndPoint);
 				conn.m_status = NetConnectionStatus.InitiatedConnect;
 				conn.m_localHailMessage = hailMessage;
 
@@ -312,9 +308,8 @@ namespace Lidgren.Network
 	{
 			// wrong thread - this miiiight crash with network thread... but what's a boy to do.
 			Array.Copy(arr, offset, m_sendBuffer, 0, length);
-			bool unused;
-			SendPacket(length, destination, 1, out unused);
-		}
+            SendPacket(length, destination, 1, out _);
+        }
 
 		/// <summary>
 		/// In DEBUG, throws an exception, in RELEASE logs an error message

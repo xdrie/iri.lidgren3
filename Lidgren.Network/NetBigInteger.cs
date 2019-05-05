@@ -1218,9 +1218,9 @@ namespace Lidgren.Network
 			}
 
 			u1 = (ulong)(uint)x[0];
-			u1 = u1 * u1;
+			u1 *= u1;
 			u2 = u1 >> 32;
-			u1 = u1 & IMASK;
+			u1 &= IMASK;
 
 			u1 += (ulong)(uint)w[wBase];
 

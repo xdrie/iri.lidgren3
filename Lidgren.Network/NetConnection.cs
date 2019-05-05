@@ -165,13 +165,11 @@ namespace Lidgren.Network
 				}
 			}
 
-			bool connectionReset; // TODO: handle connection reset
+            //
+            // Note: at this point m_sendBufferWritePtr and m_sendBufferNumMessages may be non-null; resends may already be queued up
+            //
 
-			//
-			// Note: at this point m_sendBufferWritePtr and m_sendBufferNumMessages may be non-null; resends may already be queued up
-			//
-
-			byte[] sendBuffer = m_peer.m_sendBuffer;
+            byte[] sendBuffer = m_peer.m_sendBuffer;
 			int mtu = m_currentMTU;
 
 			if ((frameCounter % m_messageCoalesceFrames) == 0) // coalesce a few frames
@@ -200,12 +198,11 @@ namespace Lidgren.Network
 					// write acks
 					for (int i = 0; i < acks; i++)
 					{
-						NetTuple<NetMessageType, int> tuple;
-						m_queuedOutgoingAcks.TryDequeue(out tuple);
+                        m_queuedOutgoingAcks.TryDequeue(out NetTuple<NetMessageType, int> tuple);
 
-						//m_peer.LogVerbose("Sending ack for " + tuple.Item1 + "#" + tuple.Item2);
+                        //m_peer.LogVerbose("Sending ack for " + tuple.Item1 + "#" + tuple.Item2);
 
-						sendBuffer[m_sendBufferWritePtr++] = (byte)tuple.Item1;
+                        sendBuffer[m_sendBufferWritePtr++] = (byte)tuple.Item1;
 						sendBuffer[m_sendBufferWritePtr++] = (byte)tuple.Item2;
 						sendBuffer[m_sendBufferWritePtr++] = (byte)(tuple.Item2 >> 8);
 					}
@@ -214,29 +211,28 @@ namespace Lidgren.Network
 					{
 						// send packet and go for another round of acks
 						NetException.Assert(m_sendBufferWritePtr > 0 && m_sendBufferNumMessages > 0);
-						m_peer.SendPacket(m_sendBufferWritePtr, m_remoteEndPoint, m_sendBufferNumMessages, out connectionReset);
+						m_peer.SendPacket(m_sendBufferWritePtr, m_remoteEndPoint, m_sendBufferNumMessages, out _);
 						m_statistics.PacketSent(m_sendBufferWritePtr, 1);
 						m_sendBufferWritePtr = 0;
 						m_sendBufferNumMessages = 0;
 					}
 				}
 
-				//
-				// Parse incoming acks (may trigger resends)
-				//
-				NetTuple<NetMessageType, int> incAck;
-				while (m_queuedIncomingAcks.TryDequeue(out incAck))
-				{
-					//m_peer.LogVerbose("Received ack for " + acktp + "#" + seqNr);
-					NetSenderChannelBase chan = m_sendChannels[(int)incAck.Item1 - 1];
+                //
+                // Parse incoming acks (may trigger resends)
+                //
+                while (m_queuedIncomingAcks.TryDequeue(out NetTuple<NetMessageType, int> incAck))
+                {
+                    //m_peer.LogVerbose("Received ack for " + acktp + "#" + seqNr);
+                    NetSenderChannelBase chan = m_sendChannels[(int)incAck.Item1 - 1];
 
-					// If we haven't sent a message on this channel there is no reason to ack it
-					if (chan == null)
-						continue;
+                    // If we haven't sent a message on this channel there is no reason to ack it
+                    if (chan == null)
+                        continue;
 
-					chan.ReceiveAcknowledge(now, incAck.Item2);
-				}
-			}
+                    chan.ReceiveAcknowledge(now, incAck.Item2);
+                }
+            }
 
 			//
 			// send queued messages
@@ -260,7 +256,7 @@ namespace Lidgren.Network
 			{
 				m_peer.VerifyNetworkThread();
 				NetException.Assert(m_sendBufferWritePtr > 0 && m_sendBufferNumMessages > 0);
-				m_peer.SendPacket(m_sendBufferWritePtr, m_remoteEndPoint, m_sendBufferNumMessages, out connectionReset);
+				m_peer.SendPacket(m_sendBufferWritePtr, m_remoteEndPoint, m_sendBufferNumMessages, out _);
 				m_statistics.PacketSent(m_sendBufferWritePtr, m_sendBufferNumMessages);
 				m_sendBufferWritePtr = 0;
 				m_sendBufferNumMessages = 0;
@@ -274,18 +270,14 @@ namespace Lidgren.Network
 			m_peer.VerifyNetworkThread();
 
 			int sz = om.GetEncodedSize();
-			//if (sz > m_currentMTU)
-			//	m_peer.LogWarning("Message larger than MTU! Fragmentation must have failed!");
 
-			bool connReset; // TODO: handle connection reset
-
-			// can fit this message together with previously written to buffer?
-			if (m_sendBufferWritePtr + sz > m_currentMTU)
+            // can fit this message together with previously written to buffer?
+            if (m_sendBufferWritePtr + sz > m_currentMTU)
 			{
 				if (m_sendBufferWritePtr > 0 && m_sendBufferNumMessages > 0)
 				{
 					// previous message in buffer; send these first
-					m_peer.SendPacket(m_sendBufferWritePtr, m_remoteEndPoint, m_sendBufferNumMessages, out connReset);
+					m_peer.SendPacket(m_sendBufferWritePtr, m_remoteEndPoint, m_sendBufferNumMessages, out _);
 					m_statistics.PacketSent(m_sendBufferWritePtr, m_sendBufferNumMessages);
 					m_sendBufferWritePtr = 0;
 					m_sendBufferNumMessages = 0;
@@ -299,7 +291,7 @@ namespace Lidgren.Network
 			if (m_sendBufferWritePtr > m_currentMTU)
 			{
 				// send immediately; we're already over MTU
-				m_peer.SendPacket(m_sendBufferWritePtr, m_remoteEndPoint, m_sendBufferNumMessages, out connReset);
+				m_peer.SendPacket(m_sendBufferWritePtr, m_remoteEndPoint, m_sendBufferNumMessages, out _);
 				m_statistics.PacketSent(m_sendBufferWritePtr, m_sendBufferNumMessages);
 				m_sendBufferWritePtr = 0;
 				m_sendBufferNumMessages = 0;

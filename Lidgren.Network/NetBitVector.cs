@@ -77,7 +77,7 @@ namespace Lidgren.Network
 
 			// special handling of last int
 			int cur = m_data[lenMinusOne];
-			cur = cur >> 1;
+			cur >>= 1;
 			cur |= firstBit << lastIndex;
 
 			m_data[lenMinusOne] = cur;

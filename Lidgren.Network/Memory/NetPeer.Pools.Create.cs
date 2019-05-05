@@ -28,8 +28,7 @@ namespace Lidgren.Network
         /// <param name="initialCapacity">initial capacity in bytes</param>
         public NetOutgoingMessage CreateMessage(int initialCapacity)
         {
-            NetOutgoingMessage retval;
-            if (m_outgoingMessagesPool == null || !m_outgoingMessagesPool.TryDequeue(out retval))
+            if (m_outgoingMessagesPool == null || !m_outgoingMessagesPool.TryDequeue(out NetOutgoingMessage retval))
                 retval = new NetOutgoingMessage();
 
             if (initialCapacity > 0)
@@ -40,8 +39,7 @@ namespace Lidgren.Network
 
         internal NetIncomingMessage CreateIncomingMessage(NetIncomingMessageType tp, byte[] useStorageData)
         {
-            NetIncomingMessage retval;
-            if (m_incomingMessagesPool == null || !m_incomingMessagesPool.TryDequeue(out retval))
+            if (m_incomingMessagesPool == null || !m_incomingMessagesPool.TryDequeue(out NetIncomingMessage retval))
                 retval = new NetIncomingMessage(tp);
             else
                 retval.m_incomingMessageType = tp;
@@ -51,8 +49,7 @@ namespace Lidgren.Network
 
         internal NetIncomingMessage CreateIncomingMessage(NetIncomingMessageType tp, int minimumByteSize)
         {
-            NetIncomingMessage retval;
-            if (m_incomingMessagesPool == null || !m_incomingMessagesPool.TryDequeue(out retval))
+            if (m_incomingMessagesPool == null || !m_incomingMessagesPool.TryDequeue(out NetIncomingMessage retval))
                 retval = new NetIncomingMessage(tp);
             else
                 retval.m_incomingMessageType = tp;

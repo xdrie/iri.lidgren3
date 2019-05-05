@@ -33,7 +33,7 @@ namespace Lidgren.Network
 	/// </summary>
 	public class NetUPnP
 	{
-		private const int c_discoveryTimeOutMillis = 1000;
+		private const int c_discoveryTimeOutMillis = 10;
 
 		private string m_serviceUrl;
 		private string m_serviceName = "";
@@ -42,17 +42,15 @@ namespace Lidgren.Network
 
 		internal float m_discoveryResponseDeadline;
 
-		private UPnPStatus m_status;
+        /// <summary>
+        /// Status of the UPnP capabilities of this NetPeer
+        /// </summary>
+        public UPnPStatus Status { get; private set; }
 
-		/// <summary>
-		/// Status of the UPnP capabilities of this NetPeer
-		/// </summary>
-		public UPnPStatus Status { get { return m_status; } }
-
-		/// <summary>
-		/// NetUPnP constructor
-		/// </summary>
-		public NetUPnP(NetPeer peer)
+        /// <summary>
+        /// NetUPnP constructor
+        /// </summary>
+        public NetUPnP(NetPeer peer)
 		{
 			m_peer = peer;
 			m_discoveryResponseDeadline = float.MinValue;
@@ -60,14 +58,13 @@ namespace Lidgren.Network
 
 		internal void Discover(NetPeer peer)
 		{
+			Status = UPnPStatus.Discovering;
 			string str =
                 "M-SEARCH * HTTP/1.1\r\n" +
                 "HOST: 239.255.255.250:1900\r\n" +
                 "ST:upnp:rootdevice\r\n" +
                 "MAN:\"ssdp:discover\"\r\n" +
                 "MX:3\r\n\r\n";
-
-			m_status = UPnPStatus.Discovering;
 
 			byte[] arr = System.Text.Encoding.UTF8.GetBytes(str);
 
@@ -79,8 +76,8 @@ namespace Lidgren.Network
 			// allow some extra time for router to respond
 			// System.Threading.Thread.Sleep(50);
 
-			m_discoveryResponseDeadline = (float)NetTime.Now + 6.0f; // arbitrarily chosen number, router gets 6 seconds to respond
-			m_status = UPnPStatus.Discovering;
+			m_discoveryResponseDeadline = (float)NetTime.Now + 8.0f; // arbitrarily chosen number, router gets 8 seconds to respond
+			Status = UPnPStatus.Discovering;
 		}
 
         internal void ExtractServiceUrl(string resp)
@@ -89,12 +86,12 @@ namespace Lidgren.Network
             try
             {
 #endif
-                XmlDocument desc = new XmlDocument();
+                var desc = new XmlDocument();
                 using (var rep = WebRequest.Create(resp).GetResponse())
                 using (var stream = rep.GetResponseStream())
                     desc.Load(stream);
 
-                XmlNamespaceManager nsMgr = new XmlNamespaceManager(desc.NameTable);
+                var nsMgr = new XmlNamespaceManager(desc.NameTable);
                 nsMgr.AddNamespace("tns", "urn:schemas-upnp-org:device-1-0");
                 XmlNode typen = desc.SelectSingleNode("//tns:device/tns:deviceType/text()", nsMgr);
                 if (!typen.Value.Contains("InternetGatewayDevice"))
@@ -113,7 +110,8 @@ namespace Lidgren.Network
 
                 m_serviceUrl = CombineUrls(resp, node.Value);
                 m_peer.LogDebug("UPnP service ready");
-                m_status = UPnPStatus.Available;
+
+                Status = UPnPStatus.Available;
                 m_discoveryComplete.Set();
 #if !DEBUG
             }
@@ -139,17 +137,19 @@ namespace Lidgren.Network
 
 		private bool CheckAvailability()
 		{
-			switch (m_status)
+			switch (Status)
 			{
 				case UPnPStatus.NotAvailable:
 					return false;
+
 				case UPnPStatus.Available:
 					return true;
+
 				case UPnPStatus.Discovering:
 					if (m_discoveryComplete.WaitOne(c_discoveryTimeOutMillis))
 						return true;
 					if (NetTime.Now > m_discoveryResponseDeadline)
-						m_status = UPnPStatus.NotAvailable;
+						Status = UPnPStatus.NotAvailable;
 					return false;
 			}
 			return false;
@@ -163,9 +163,8 @@ namespace Lidgren.Network
 			if (!CheckAvailability())
 				return false;
 
-			IPAddress mask;
-			var client = NetUtility.GetMyAddress(out mask);
-			if (client == null)
+            var client = NetUtility.GetMyAddress(out _);
+            if (client == null)
 				return false;
 
 			try
@@ -184,7 +183,6 @@ namespace Lidgren.Network
 					"AddPortMapping");
 
 				m_peer.LogDebug("Sent UPnP port forward request");
-				System.Threading.Thread.Sleep(50);
 			}
 			catch (Exception ex)
 			{
@@ -232,7 +230,7 @@ namespace Lidgren.Network
 				XmlDocument xdoc = SOAPRequest(m_serviceUrl, "<u:GetExternalIPAddress xmlns:u=\"urn:schemas-upnp-org:service:" +
                     m_serviceName + ":1\">" + "</u:GetExternalIPAddress>", "GetExternalIPAddress");
 
-                XmlNamespaceManager nsMgr = new XmlNamespaceManager(xdoc.NameTable);
+                var nsMgr = new XmlNamespaceManager(xdoc.NameTable);
 				nsMgr.AddNamespace("tns", "urn:schemas-upnp-org:device-1-0");
 				string ip = xdoc.SelectSingleNode("//NewExternalIPAddress/text()", nsMgr).Value;
 				return IPAddress.Parse(ip);
@@ -254,7 +252,7 @@ namespace Lidgren.Network
                 "</s:Body>" +
                 "</s:Envelope>";
 
-            var req = HttpWebRequest.Create(url);
+            var req = WebRequest.Create(url);
             req.Method = "POST";
             req.Headers.Add("SOAPACTION", "\"urn:schemas-upnp-org:service:" + m_serviceName + ":1#" + function + "\"");
             req.ContentType = "text/xml; charset=\"utf-8\"";
@@ -268,7 +266,7 @@ namespace Lidgren.Network
             using (var rep = req.GetResponse())
             using (var stream = rep.GetResponseStream())
             {
-                XmlDocument resp = new XmlDocument();
+                var resp = new XmlDocument();
                 resp.Load(stream);
                 return resp;
             }

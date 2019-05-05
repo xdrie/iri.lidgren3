@@ -59,12 +59,12 @@ namespace Lidgren.Network
 			float r = m_configuration.m_randomOneWayLatency;
 			if (m == 0.0f && r == 0.0f)
 			{
-				// no latency simulation
-				// LogVerbose("Sending packet " + numBytes + " bytes");
-				bool wasSent = ActuallySendPacket(m_sendBuffer, numBytes, target, out connectionReset);
-				// TODO: handle wasSent == false?
+                // no latency simulation
+                // LogVerbose("Sending packet " + numBytes + " bytes");
+                _ = ActuallySendPacket(m_sendBuffer, numBytes, target, out connectionReset);
+                // TODO: handle wasSent == false?
 
-				if (m_configuration.m_duplicates > 0.0f && MWCRandom.Instance.NextDouble() < m_configuration.m_duplicates)
+                if (m_configuration.m_duplicates > 0.0f && MWCRandom.Instance.NextDouble() < m_configuration.m_duplicates)
 					ActuallySendPacket(m_sendBuffer, numBytes, target, out connectionReset); // send it again!
 
 				return;
@@ -98,28 +98,26 @@ namespace Lidgren.Network
 				return;
 
 			double now = NetTime.Now;
-			bool connectionReset;
 
-		    RestartDelaySending:
-			foreach (DelayedPacket p in m_delayedPackets)
-			{
-				if (now > p.DelayedUntil)
-				{
-					ActuallySendPacket(p.Data, p.Data.Length, p.Target, out connectionReset);
-					m_delayedPackets.Remove(p);
-					goto RestartDelaySending;
-				}
-			}
-		}
+            RestartDelaySending:
+            foreach (DelayedPacket p in m_delayedPackets)
+            {
+                if (now > p.DelayedUntil)
+                {
+                    ActuallySendPacket(p.Data, p.Data.Length, p.Target, out bool connectionReset);
+                    m_delayedPackets.Remove(p);
+                    goto RestartDelaySending;
+                }
+            }
+        }
 
 		private void FlushDelayedPackets()
 		{
 			try
 			{
-				bool connectionReset;
-				foreach (DelayedPacket p in m_delayedPackets)
-					ActuallySendPacket(p.Data, p.Data.Length, p.Target, out connectionReset);
-				m_delayedPackets.Clear();
+                foreach (DelayedPacket p in m_delayedPackets)
+                    ActuallySendPacket(p.Data, p.Data.Length, p.Target, out bool connectionReset);
+                m_delayedPackets.Clear();
 			}
 			catch
             {

@@ -491,7 +491,7 @@ namespace Lidgren.Network
 			while (num1 >= 0x80)
 			{
 				this.Write((byte)(num1 | 0x80));
-				num1 = num1 >> 7;
+				num1 >>= 7;
 				retval++;
 			}
 			this.Write((byte)num1);
@@ -530,7 +530,7 @@ namespace Lidgren.Network
 			while (num1 >= 0x80)
 			{
 				this.Write((byte)(num1 | 0x80));
-				num1 = num1 >> 7;
+				num1 >>= 7;
 				retval++;
 			}
 			this.Write((byte)num1);

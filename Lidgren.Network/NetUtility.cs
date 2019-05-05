@@ -416,8 +416,7 @@ namespace Lidgren.Network
         /// </summary>
         public static bool IsLocal(IPAddress remote)
         {
-            IPAddress mask;
-            IPAddress local = GetMyAddress(out mask);
+            IPAddress local = GetMyAddress(out IPAddress mask);
 
             if (mask == null)
                 return false;

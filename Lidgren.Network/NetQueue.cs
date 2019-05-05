@@ -174,7 +174,7 @@ namespace Lidgren.Network
 		{
 			if (m_size == 0)
 			{
-				item = default(T);
+				item = default;
 				return false;
 			}
 
@@ -183,12 +183,12 @@ namespace Lidgren.Network
 			{
 				if (m_size == 0)
 				{
-					item = default(T);
+					item = default;
 					return false;
 				}
 
 				item = m_items[m_head];
-				m_items[m_head] = default(T);
+				m_items[m_head] = default;
 
 				m_head = (m_head + 1) % m_items.Length;
 				m_size--;
@@ -200,7 +200,7 @@ namespace Lidgren.Network
 #if DEBUG
 				throw;
 #else
-				item = default(T);
+				item = default;
 				return false;
 #endif
 			}
@@ -227,7 +227,7 @@ namespace Lidgren.Network
 					var item = m_items[m_head];
 					addTo.Add(item);
 
-					m_items[m_head] = default(T);
+					m_items[m_head] = default;
 					m_head = (m_head + 1) % m_items.Length;
 					m_size--;
 				}
@@ -245,13 +245,13 @@ namespace Lidgren.Network
 		public T TryPeek(int offset)
 		{
 			if (m_size == 0)
-				return default(T);
+				return default;
 
 			m_lock.EnterReadLock();
 			try
 			{
 				if (m_size == 0)
-					return default(T);
+					return default;
 				return m_items[(m_head + offset) % m_items.Length];
 			}
 			finally
@@ -324,7 +324,7 @@ namespace Lidgren.Network
 			try
 			{
 				for (int i = 0; i < m_items.Length; i++)
-					m_items[i] = default(T);
+					m_items[i] = default;
 				m_head = 0;
 				m_size = 0;
 			}
