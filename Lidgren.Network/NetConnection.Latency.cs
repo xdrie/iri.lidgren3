@@ -125,10 +125,9 @@ namespace Lidgren.Network
 			float resendDelay = GetResendDelay();
 			foreach (var chan in m_sendChannels)
 			{
-				var rchan = chan as NetReliableSenderChannel;
-				if (rchan != null)
-					rchan.m_resendDelay = resendDelay;
-			}
+                if (chan is NetReliableSenderChannel rchan)
+                    rchan.m_resendDelay = resendDelay;
+            }
 
 			// m_peer.LogVerbose("Timeout deadline pushed to  " + m_timeoutDeadline);
 

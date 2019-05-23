@@ -838,11 +838,10 @@ namespace Lidgren.Network
 			if (obj == this)
 				return true;
 
-			NetBigInteger biggie = obj as NetBigInteger;
-			if (biggie == null)
-				return false;
+            if (!(obj is NetBigInteger biggie))
+                return false;
 
-			if (biggie.m_sign != m_sign || biggie.m_magnitude.Length != m_magnitude.Length)
+            if (biggie.m_sign != m_sign || biggie.m_magnitude.Length != m_magnitude.Length)
 				return false;
 
 			for (int i = 0; i < m_magnitude.Length; i++)
