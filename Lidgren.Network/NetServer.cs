@@ -26,7 +26,7 @@ namespace Lidgren.Network
             var all = this.GetConnections();
             if (all.Count > 0)
                 SendMessage(msg, all, method, sequenceChannel);
-            ConnectionListPool.Return(all);
+            NetConnectionListPool.Return(all);
         }
 
 		/// <summary>
@@ -51,7 +51,7 @@ namespace Lidgren.Network
                     {
                         List<NetConnection> Exclude()
                         {
-                            var list = ConnectionListPool.Rent();
+                            var list = NetConnectionListPool.Rent();
                             foreach (var conn in all)
                                 if (conn != except)
                                     list.Add(conn);
@@ -60,11 +60,11 @@ namespace Lidgren.Network
 
                         var tmp = Exclude();
                         SendMessage(msg, tmp, method, sequenceChannel);
-                        ConnectionListPool.Return(tmp);
+                        NetConnectionListPool.Return(tmp);
                     }
                 }
             }
-            ConnectionListPool.Return(all);
+            NetConnectionListPool.Return(all);
         }
         
         /// <summary>

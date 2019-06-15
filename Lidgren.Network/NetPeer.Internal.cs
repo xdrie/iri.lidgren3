@@ -249,7 +249,7 @@ namespace Lidgren.Network
 			LogDebug("Shutting down...");
 
 			// disconnect and make one final heartbeat
-			var list = ConnectionListPool.Rent();
+			var list = NetConnectionListPool.Rent();
 			lock (m_connections)
 			{
 				foreach (var conn in m_connections)
@@ -267,7 +267,7 @@ namespace Lidgren.Network
 						conn.Shutdown(m_shutdownReason);
 				}
 			}
-            ConnectionListPool.Return(list);
+            NetConnectionListPool.Return(list);
 
 			FlushDelayedPackets();
 

@@ -76,7 +76,7 @@ namespace Lidgren.Network
         /// </summary>
         public List<NetConnection> GetConnections()
         {
-            var list = ConnectionListPool.Rent();
+            var list = NetConnectionListPool.Rent();
             lock (m_connections)
             {
                 foreach (var conn in m_connections)

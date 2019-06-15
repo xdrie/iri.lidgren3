@@ -60,10 +60,10 @@ namespace Lidgren.Network
                 if (recipient.m_status != NetConnectionStatus.Connected)
                     return NetSendResult.FailedNotConnected;
 
-                var tmp = ConnectionListPool.Rent();
+                var tmp = NetConnectionListPool.Rent();
                 tmp.Add(recipient);
                 var result = SendFragmentedMessage(msg, tmp, method, sequenceChannel);
-                ConnectionListPool.Return(tmp);
+                NetConnectionListPool.Return(tmp);
                 return result;
             }
         }

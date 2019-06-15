@@ -2,11 +2,11 @@
 
 namespace Lidgren.Network
 {
-    public static class ConnectionListPool
+    public static class NetConnectionListPool
     {
         private static Stack<List<NetConnection>> _pool;
 
-        static ConnectionListPool()
+        static NetConnectionListPool()
         {
             _pool = new Stack<List<NetConnection>>();
         }
