@@ -10,6 +10,11 @@ using System.Security.Cryptography;
 using System.Net.Sockets;
 using System.Collections.Generic;
 
+#if !__NOIPENDPOINT__
+using NetEndPoint = System.Net.IPEndPoint;
+using NetAddress = System.Net.IPAddress;
+#endif
+
 namespace Lidgren.Network
 {
 	public partial class NetPeer
@@ -112,47 +117,64 @@ namespace Lidgren.Network
 			}
 		}
 
-		private void BindSocket(bool reBind)
-		{
-			double now = NetTime.Now;
-			if (now - m_lastSocketBind < 1.0)
-			{
-				LogDebug("Suppressed socket rebind; last bound " + (now - m_lastSocketBind) + " seconds ago");
-				return; // only allow rebind once every second
-			}
-			m_lastSocketBind = now;
+        private void BindSocket(bool reBind)
+        {
+            double now = NetTime.Now;
+            if (now - m_lastSocketBind < 1.0)
+            {
+                LogDebug("Suppressed socket rebind; last bound " + (now - m_lastSocketBind) + " seconds ago");
+                return; // only allow rebind once every second
+            }
+            m_lastSocketBind = now;
 
-			if (m_socket == null)
-				m_socket = new Socket(AddressFamily.InterNetworkV6, SocketType.Dgram, ProtocolType.Udp);
+            using (var mutex = new Mutex(false, "Global\\lidgrenSocketBind"))
+            {
+                try
+                {
+                    mutex.WaitOne();
 
-			if (reBind)
-				m_socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, (int)1); 
+                    if (m_socket == null)
+                        m_socket = new Socket(m_configuration.LocalAddress.AddressFamily, SocketType.Dgram, ProtocolType.Udp);
 
-			m_socket.ReceiveBufferSize = m_configuration.ReceiveBufferSize;
-			m_socket.SendBufferSize = m_configuration.SendBufferSize;
-			m_socket.Blocking = false;
+                    if (reBind)
+                        m_socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, (int)1);
 
-		    m_socket.DualMode = true;
+                    m_socket.ReceiveBufferSize = m_configuration.ReceiveBufferSize;
+                    m_socket.SendBufferSize = m_configuration.SendBufferSize;
+                    m_socket.Blocking = false;
 
-			var ep = new IPEndPoint(m_configuration.LocalAddress.MapToIPv6(), reBind ? m_listenPort : m_configuration.Port);
-			m_socket.Bind(ep);
+                    if (m_configuration.DualStack && m_configuration.LocalAddress.AddressFamily == AddressFamily.InterNetworkV6)
+                        m_socket.DualMode = true;
 
-			try
-			{
-				const uint IOC_IN = 0x80000000;
-				const uint IOC_VENDOR = 0x18000000;
-				uint SIO_UDP_CONNRESET = IOC_IN | IOC_VENDOR | 12;
-				m_socket.IOControl((int)SIO_UDP_CONNRESET, new byte[] { Convert.ToByte(false) }, null);
-			}
-			catch
-			{
-				// ignore; SIO_UDP_CONNRESET not supported on this platform
-			}
+                    var localAddress = m_configuration.DualStack
+                        ? m_configuration.LocalAddress.MapToIPv6()
+                        : m_configuration.LocalAddress;
 
-			IPEndPoint boundEp = m_socket.LocalEndPoint as IPEndPoint;
-			LogDebug("Socket bound to " + boundEp + ": " + m_socket.IsBound);
-			m_listenPort = boundEp.Port;
-		}
+                    var ep = (EndPoint)new NetEndPoint(localAddress, reBind ? m_listenPort : m_configuration.Port);
+                    m_socket.Bind(ep);
+
+                    try
+                    {
+                        const uint IOC_IN = 0x80000000;
+                        const uint IOC_VENDOR = 0x18000000;
+                        uint SIO_UDP_CONNRESET = IOC_IN | IOC_VENDOR | 12;
+                        m_socket.IOControl((int)SIO_UDP_CONNRESET, new byte[] { Convert.ToByte(false) }, null);
+                    }
+                    catch
+                    {
+                        // ignore; SIO_UDP_CONNRESET not supported on this platform
+                    }
+                }
+                finally
+                {
+                    mutex.ReleaseMutex();
+                }
+            }
+
+            IPEndPoint boundEp = m_socket.LocalEndPoint as IPEndPoint;
+            LogDebug("Socket bound to " + boundEp + ": " + m_socket.IsBound);
+            m_listenPort = boundEp.Port;
+        }
 
 		private void InitializeNetwork()
 		{
@@ -180,34 +202,14 @@ namespace Lidgren.Network
 				m_readHelperMessage = new NetIncomingMessage(NetIncomingMessageType.Error);
 				m_readHelperMessage.m_data = m_receiveBuffer;
 
-				byte[] macBytes = new byte[8];
-				MWCRandom.Instance.NextBytes(macBytes);
+				byte[] macBytes = NetUtility.GetMacAddressBytes();
 
-#if IS_MAC_AVAILABLE
-				try
-				{
-					System.Net.NetworkInformation.PhysicalAddress pa = NetUtility.GetMacAddress();
-					if (pa != null)
-					{
-						macBytes = pa.GetAddressBytes();
-						LogVerbose("Mac address is " + NetUtility.ToHexString(macBytes));
-					}
-					else
-					{
-						LogWarning("Failed to get Mac address");
-					}
-				}
-				catch (NotSupportedException)
-				{
-					// not supported; lets just keep the random bytes set above
-				}
-#endif
-				IPEndPoint boundEp = m_socket.LocalEndPoint as IPEndPoint;
+				var boundEp = m_socket.LocalEndPoint as NetEndPoint;
 				byte[] epBytes = BitConverter.GetBytes(boundEp.GetHashCode());
 				byte[] combined = new byte[epBytes.Length + macBytes.Length];
 				Array.Copy(epBytes, 0, combined, 0, epBytes.Length);
 				Array.Copy(macBytes, 0, combined, epBytes.Length, macBytes.Length);
-				m_uniqueIdentifier = BitConverter.ToInt64(NetUtility.CreateSHA1Hash(combined), 0);
+				m_uniqueIdentifier = BitConverter.ToInt64(NetUtility.ComputeSHAHash(combined), 0);
 
 				m_status = NetPeerStatus.Running;
 			}

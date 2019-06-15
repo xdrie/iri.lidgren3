@@ -60,6 +60,7 @@
     <Compile Include="Language\ILibraryLanguage.cs" />
     <Compile Include="Language\LanguageManager.cs" />
     <Compile Include="Language\StringBuilderExtensions.cs" />
+    <Compile Include="Memory\ConnectionListPool.cs" />
     <Compile Include="Memory\NetPeer.Pools.Create.cs" />
     <Compile Include="Memory\NetPeer.Pools.cs" />
     <Compile Include="Memory\NetPeer.Pools.Recycle.cs" />

@@ -23,6 +23,10 @@ using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
 using System.Diagnostics;
+#if !__NOIPENDPOINT__
+using NetEndPoint = System.Net.IPEndPoint;
+using NetAddress = System.Net.IPAddress;
+#endif
 
 namespace Lidgren.Network
 {
@@ -30,14 +34,24 @@ namespace Lidgren.Network
 	{
 		private readonly List<DelayedPacket> m_delayedPackets = new List<DelayedPacket>();
 
-		private class DelayedPacket
-		{
-			public byte[] Data;
-			public double DelayedUntil;
-			public IPEndPoint Target;
-		}
+        //Avoids allocation on mapping to IPv6
+        private NetEndPoint _targetCopy = new NetEndPoint(NetAddress.Any, 0);
 
-		internal void SendPacket(int numBytes, IPEndPoint target, int numMessages, out bool connectionReset)
+        private readonly struct DelayedPacket
+		{
+			public byte[] Data { get; }
+            public double DelayedUntil { get; }
+            public NetEndPoint Target { get; }
+
+            public DelayedPacket(byte[] data, double delayedUntil, NetEndPoint target)
+            {
+                Data = data;
+                DelayedUntil = delayedUntil;
+                Target = target;
+            }
+        }
+
+		internal void SendPacket(int numBytes, NetEndPoint target, int numMessages, out bool connectionReset)
 		{
 			connectionReset = false;
 
@@ -74,18 +88,16 @@ namespace Lidgren.Network
 			if (m_configuration.m_duplicates > 0.0f && MWCRandom.Instance.NextSingle() < m_configuration.m_duplicates)
 				num++;
 
-			float delay = 0;
-			for (int i = 0; i < num; i++)
+            for (int i = 0; i < num; i++)
 			{
-				delay = m_configuration.m_minimumOneWayLatency + (MWCRandom.Instance.NextSingle() * m_configuration.m_randomOneWayLatency);
+                float delay = m_configuration.m_minimumOneWayLatency +
+                    (MWCRandom.Instance.NextSingle() * m_configuration.m_randomOneWayLatency);
 
-				// Enqueue delayed packet
-				DelayedPacket p = new DelayedPacket();
-				p.Target = target;
-				p.Data = new byte[numBytes];
-				Buffer.BlockCopy(m_sendBuffer, 0, p.Data, 0, numBytes);
-				p.DelayedUntil = NetTime.Now + delay;
+                var data = new byte[numBytes];
+                Buffer.BlockCopy(m_sendBuffer, 0, data, 0, numBytes);
 
+                // Enqueue delayed packet
+                var p = new DelayedPacket(data, NetTime.Now + delay, target);
 				m_delayedPackets.Add(p);
 			}
 
@@ -124,24 +136,34 @@ namespace Lidgren.Network
             }
 		}
 
-		internal bool ActuallySendPacket(byte[] data, int numBytes, IPEndPoint target, out bool connectionReset)
+		internal bool ActuallySendPacket(byte[] data, int numBytes, NetEndPoint target, out bool connectionReset)
 		{
 			connectionReset = false;
-            target = NetUtility.MapToIPv6(target);
+            NetAddress ba = default;
 
             try
 			{
-				// TODO: refactor this check outta here
-				if (target.Address == IPAddress.Broadcast)
-				{
-					// Some networks do not allow 
-					// a global broadcast so we use the BroadcastAddress from the configuration
-					// this can be resolved to a local broadcast addresss e.g 192.168.x.255                    
-					target.Address = m_configuration.BroadcastAddress;
-					m_socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
-				}
+				ba = NetUtility.GetCachedBroadcastAddress();
 
-				int bytesSent = m_socket.SendTo(data, 0, numBytes, SocketFlags.None, target);
+                // TODO: refactor this check outta here
+                if (target.Address.Equals(ba))
+                {
+                    // Some networks do not allow 
+                    // a global broadcast so we use the BroadcastAddress from the configuration
+                    // this can be resolved to a local broadcast addresss e.g 192.168.x.255                    
+                    _targetCopy.Address = m_configuration.BroadcastAddress;
+                    _targetCopy.Port = target.Port;
+                    m_socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
+                }
+                else if(m_configuration.DualStack && m_configuration.LocalAddress.AddressFamily == AddressFamily.InterNetworkV6)
+                    NetUtility.CopyEndpoint(target, _targetCopy); //Maps to IPv6 for Dual Mode
+                else
+                {
+	                _targetCopy.Port = target.Port;
+	                _targetCopy.Address = target.Address;
+                }
+
+                int bytesSent = m_socket.SendTo(data, 0, numBytes, SocketFlags.None, _targetCopy);
 				if (numBytes != bytesSent)
 					LogWarning("Failed to send the full " + numBytes + "; only " + bytesSent + " bytes sent in packet!");
 
@@ -169,13 +191,13 @@ namespace Lidgren.Network
 			}
 			finally
 			{
-				if (target.Address == IPAddress.Broadcast)
+				if (target.Address.Equals(ba))
 					m_socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, false);
 			}
 			return true;
 		}
 
-		internal bool SendMTUPacket(int numBytes, IPEndPoint target)
+		internal bool SendMTUPacket(int numBytes, NetEndPoint target)
 		{
 			try
 			{

@@ -27,6 +27,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Include="Platform\PlatformWin32.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <PackageReference Include="System.Memory" Version="4.5.2" />
   </ItemGroup>
 

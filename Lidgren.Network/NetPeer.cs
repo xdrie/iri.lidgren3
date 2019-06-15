@@ -3,6 +3,10 @@ using System.Threading;
 using System.Collections.Generic;
 using System.Net;
 
+#if !__NOIPENDPOINT__
+using NetEndPoint = System.Net.IPEndPoint;
+#endif
+
 namespace Lidgren.Network
 {
 	/// <summary>
@@ -16,7 +20,7 @@ namespace Lidgren.Network
         private object m_messageReceivedEventCreationLock = new object();
 
 		internal readonly List<NetConnection> m_connections;
-		private readonly Dictionary<IPEndPoint, NetConnection> m_connectionLookup;
+		private readonly Dictionary<NetEndPoint, NetConnection> m_connectionLookup;
 
 		private string m_shutdownReason;
 
@@ -104,11 +108,12 @@ namespace Lidgren.Network
 			m_configuration = config;
 			m_statistics = new NetPeerStatistics(this);
 			m_releasedIncomingMessages = new NetQueue<NetIncomingMessage>(8);
-			m_unsentUnconnectedMessages = new NetQueue<NetTuple<IPEndPoint, NetOutgoingMessage>>(4);
+			m_unsentUnconnectedMessages = new NetQueue<NetTuple<NetEndPoint, NetOutgoingMessage>>(4);
 			m_connections = new List<NetConnection>();
-            m_connectionLookup = new Dictionary<IPEndPoint, NetConnection>();
-			m_handshakes = new Dictionary<IPEndPoint, NetConnection>();
-			m_senderRemote = (EndPoint)new IPEndPoint(IPAddress.IPv6Any, 0);
+			m_connectionLookup = new Dictionary<NetEndPoint, NetConnection>();
+			m_handshakes = new Dictionary<NetEndPoint, NetConnection>();
+            var address = config.DualStack ? IPAddress.IPv6Any : IPAddress.Any;
+            m_senderRemote = (EndPoint)new NetEndPoint(address, 0);
 			m_status = NetPeerStatus.NotRunning;
 			m_receivedFragmentGroups = new Dictionary<NetConnection, Dictionary<int, ReceivedFragmentGroup>>();	
 		}
@@ -153,7 +158,7 @@ namespace Lidgren.Network
 		/// <summary>
 		/// Get the connection, if any, for a certain remote endpoint
 		/// </summary>
-		public NetConnection GetConnection(IPEndPoint ep)
+		public NetConnection GetConnection(NetEndPoint ep)
 		{
 
             // this should not pose a threading problem, m_connectionLookup is never added to concurrently
@@ -215,7 +220,7 @@ namespace Lidgren.Network
 		}
 
 		// send message immediately
-		internal void SendLibrary(NetOutgoingMessage msg, IPEndPoint recipient)
+		internal void SendLibrary(NetOutgoingMessage msg, NetEndPoint recipient)
 		{
 			VerifyNetworkThread();
 			NetException.Assert(msg.m_isSent == false);
@@ -229,7 +234,7 @@ namespace Lidgren.Network
 		/// </summary>
 		public NetConnection Connect(string host, int port)
 		{
-			return Connect(new IPEndPoint(NetUtility.Resolve(host), port), null);
+			return Connect(new NetEndPoint(NetUtility.Resolve(host), port), null);
 		}
 
 		/// <summary>
@@ -237,13 +242,13 @@ namespace Lidgren.Network
 		/// </summary>
 		public NetConnection Connect(string host, int port, NetOutgoingMessage hailMessage)
 		{
-			return Connect(new IPEndPoint(NetUtility.Resolve(host), port), hailMessage);
+			return Connect(new NetEndPoint(NetUtility.Resolve(host), port), hailMessage);
 		}
 
 		/// <summary>
 		/// Create a connection to a remote endpoint
 		/// </summary>
-		public NetConnection Connect(IPEndPoint remoteEndPoint)
+		public NetConnection Connect(NetEndPoint remoteEndPoint)
 		{
 			return Connect(remoteEndPoint, null);
 		}
@@ -251,14 +256,14 @@ namespace Lidgren.Network
 		/// <summary>
 		/// Create a connection to a remote endpoint
 		/// </summary>
-		public virtual NetConnection Connect(IPEndPoint remoteEndPoint, NetOutgoingMessage hailMessage)
+		public virtual NetConnection Connect(NetEndPoint remoteEndPoint, NetOutgoingMessage hailMessage)
 		{
 			if (remoteEndPoint == null)
-				throw new ArgumentNullException(nameof(remoteEndPoint));
+				throw new ArgumentNullException("remoteEndPoint");
+            if(m_configuration.DualStack)
+                remoteEndPoint = NetUtility.MapToIPv6(remoteEndPoint);
 
-            remoteEndPoint = NetUtility.MapToIPv6(remoteEndPoint);
-
-            lock (m_connections)
+			lock (m_connections)
 			{
 				if (m_status == NetPeerStatus.NotRunning)
 					throw new NetException("Must call Start() first");
@@ -304,7 +309,7 @@ namespace Lidgren.Network
 		/// <summary>
 		/// Send raw bytes; only used for debugging
 		/// </summary>
-		public void RawSend(byte[] arr, int offset, int length, IPEndPoint destination)
+		public void RawSend(byte[] arr, int offset, int length, NetEndPoint destination)
 	{
 			// wrong thread - this miiiight crash with network thread... but what's a boy to do.
 			Array.Copy(arr, offset, m_sendBuffer, 0, length);

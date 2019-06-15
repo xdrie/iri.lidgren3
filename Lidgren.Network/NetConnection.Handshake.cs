@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
 
 namespace Lidgren.Network
 {
@@ -418,15 +416,18 @@ namespace Lidgren.Network
 						return;
 					}
 					break;
+
 				case NetConnectionStatus.RespondedConnect:
 					// hello, wtf?
 					break;
+
 				case NetConnectionStatus.Disconnecting:
 				case NetConnectionStatus.Disconnected:
 				case NetConnectionStatus.ReceivedInitiation:
 				case NetConnectionStatus.None:
 					// wtf? anyway, bye!
 					break;
+
 				case NetConnectionStatus.Connected:
 					// my ConnectionEstablished must have been lost, send another one
 					SendConnectionEstablished();

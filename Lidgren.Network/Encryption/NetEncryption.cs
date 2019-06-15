@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Security.Cryptography;
-
+﻿
 namespace Lidgren.Network
 {
 	/// <summary>
@@ -19,9 +16,7 @@ namespace Lidgren.Network
 		/// </summary>
 		public NetEncryption(NetPeer peer)
 		{
-			if (peer == null)
-				throw new NetException("Peer must not be null");
-			m_peer = peer;
+            m_peer = peer ?? throw new NetException("Peer must not be null");
 		}
 
 		public void SetKey(string str)
