@@ -124,7 +124,7 @@
     <Compile Include="Properties\AssemblyInfo.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\..\MonoGame.Utilities\MonoGame.Utilities.csproj">
+    <ProjectReference Include="..\..\..\MonoGame.Utilities\MonoGame.Utilities.csproj">
       <Project>{de48723f-d255-49f6-8372-aef8b059d5e7}</Project>
       <Name>MonoGame.Utilities</Name>
     </ProjectReference>
