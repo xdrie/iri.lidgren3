@@ -35,9 +35,7 @@ namespace Lidgren.Network.Language
             }
             set
             {
-                if (value == null)
-                    throw new ArgumentNullException(nameof(value));
-                _current = value;
+                _current = value ?? throw new ArgumentNullException(nameof(value));
             }
         }
 
