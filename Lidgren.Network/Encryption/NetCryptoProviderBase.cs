@@ -1,7 +1,6 @@
 ﻿using System;
 using System.IO;
 using System.Security.Cryptography;
-using MonoGame.Utilities.Memory;
 
 namespace Lidgren.Network
 {
