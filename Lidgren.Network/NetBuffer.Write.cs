@@ -490,11 +490,11 @@ namespace Lidgren.Network
 			uint num1 = (uint)value;
 			while (num1 >= 0x80)
 			{
-				this.Write((byte)(num1 | 0x80));
+				Write((byte)(num1 | 0x80));
 				num1 >>= 7;
 				retval++;
 			}
-			this.Write((byte)num1);
+			Write((byte)num1);
 			return retval;
 		}
 
@@ -529,11 +529,11 @@ namespace Lidgren.Network
 			UInt64 num1 = (UInt64)value;
 			while (num1 >= 0x80)
 			{
-				this.Write((byte)(num1 | 0x80));
+				Write((byte)(num1 | 0x80));
 				num1 >>= 7;
 				retval++;
 			}
-			this.Write((byte)num1);
+			Write((byte)num1);
 			return retval;
 		}
 

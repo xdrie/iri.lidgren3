@@ -23,7 +23,7 @@ namespace Lidgren.Network
 		/// <param name="sequenceChannel">Which sequence channel to use for the message</param>
         public void SendToAll(NetOutgoingMessage msg, NetDeliveryMethod method, int sequenceChannel)
         {
-            var all = this.GetConnections();
+            var all = GetConnections();
             if (all.Count > 0)
                 SendMessage(msg, all, method, sequenceChannel);
             NetConnectionListPool.Return(all);
@@ -38,7 +38,7 @@ namespace Lidgren.Network
 		/// <param name="sequenceChannel">Which sequence channel to use for the message</param>
 		public void SendToAll(NetOutgoingMessage msg, NetConnection except, NetDeliveryMethod method, int sequenceChannel)
 		{
-			var all = this.GetConnections();
+			var all = GetConnections();
             if (all.Count > 0)
             {
                 if (except == null)

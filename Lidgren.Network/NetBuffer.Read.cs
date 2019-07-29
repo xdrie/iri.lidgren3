@@ -418,7 +418,7 @@ namespace Lidgren.Network
 			int num2 = 0;
 			while (m_bitLength - m_readPosition >= 8)
 			{
-				byte num3 = this.ReadByte();
+				byte num3 = ReadByte();
 				num1 |= (num3 & 0x7f) << num2;
 				num2 += 7;
 				if ((num3 & 0x80) == 0)
@@ -487,7 +487,7 @@ namespace Lidgren.Network
 				//if (num2 == 0x23)
 				//	throw new FormatException("Bad 7-bit encoded integer");
 
-				byte num3 = this.ReadByte();
+				byte num3 = ReadByte();
 				num1 |= ((UInt64)num3 & 0x7f) << num2;
 				num2 += 7;
 				if ((num3 & 0x80) == 0)

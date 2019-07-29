@@ -300,7 +300,7 @@ namespace Lidgren.Network
                                 NetIncomingMessage appMsg = m_peer.CreateIncomingMessage(NetIncomingMessageType.ConnectionApproval, (m_remoteHailMessage == null ? 0 : m_remoteHailMessage.LengthBytes));
                                 appMsg.m_receiveTime = now;
                                 appMsg.m_senderConnection = this;
-                                appMsg.m_senderEndPoint = this.m_remoteEndPoint;
+                                appMsg.m_senderEndPoint = m_remoteEndPoint;
                                 if (m_remoteHailMessage != null)
                                     appMsg.Write(m_remoteHailMessage.m_data, 0, m_remoteHailMessage.LengthBytes);
                                 SetStatus(NetConnectionStatus.RespondedAwaitingApproval, "Awaiting approval");
