@@ -15,9 +15,9 @@ namespace Lidgren.Network
 
 		private NetBitVector m_receivedAcks;
 
-		internal override int WindowSize { get { return m_windowSize; } }
+        internal override int WindowSize => m_windowSize;
 
-		internal NetUnreliableSenderChannel(NetConnection connection, int windowSize)
+        internal NetUnreliableSenderChannel(NetConnection connection, int windowSize)
 		{
 			m_connection = connection;
 			m_windowSize = windowSize;

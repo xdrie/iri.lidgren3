@@ -37,7 +37,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Gets the block size for this cipher
         /// </summary>
-        public override int BlockSize { get { return c_blockSize; } }
+        public override int BlockSize => c_blockSize;
 
         /// <summary>
         /// 16 byte key

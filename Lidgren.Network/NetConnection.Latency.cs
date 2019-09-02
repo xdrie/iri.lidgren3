@@ -12,18 +12,18 @@ namespace Lidgren.Network
 		// local time value + m_remoteTimeOffset = remote time value
 		internal double m_remoteTimeOffset;
 
-		/// <summary>
-		/// Gets the current average roundtrip time in seconds
-		/// </summary>
-		public float AverageRoundtripTime { get { return m_averageRoundtripTime; } }
+        /// <summary>
+        /// Gets the current average roundtrip time in seconds
+        /// </summary>
+        public float AverageRoundtripTime => m_averageRoundtripTime;
 
-		/// <summary>
-		/// Time offset between this peer and the remote peer
-		/// </summary>
-		public float RemoteTimeOffset { get { return (float)m_remoteTimeOffset; } }
+        /// <summary>
+        /// Time offset between this peer and the remote peer
+        /// </summary>
+        public float RemoteTimeOffset => (float)m_remoteTimeOffset;
 
-		// this might happen more than once
-		internal void InitializeRemoteTimeOffset(float remoteSendTime)
+        // this might happen more than once
+        internal void InitializeRemoteTimeOffset(float remoteSendTime)
 		{
 			m_remoteTimeOffset = (remoteSendTime + (m_averageRoundtripTime / 2.0)) - NetTime.Now;
 		}

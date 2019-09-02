@@ -108,7 +108,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads an Int16 without advancing the read pointer
         /// </summary>
-        public Int16 PeekInt16()
+        public short PeekInt16()
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 16, c_readOverflowError);
 			return (short)NetBitWriter.ReadUInt16(m_data, 16, m_readPosition);
@@ -118,7 +118,7 @@ namespace Lidgren.Network
 		/// Reads a UInt16 without advancing the read pointer
 		/// </summary>
 		[CLSCompliant(false)]
-		public UInt16 PeekUInt16()
+		public ushort PeekUInt16()
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 16, c_readOverflowError);
 			return (ushort)NetBitWriter.ReadUInt16(m_data, 16, m_readPosition);
@@ -127,16 +127,16 @@ namespace Lidgren.Network
 		/// <summary>
 		/// Reads an Int32 without advancing the read pointer
 		/// </summary>
-		public Int32 PeekInt32()
+		public int PeekInt32()
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 32, c_readOverflowError);
-			return (Int32)NetBitWriter.ReadUInt32(m_data, 32, m_readPosition);
+			return (int)NetBitWriter.ReadUInt32(m_data, 32, m_readPosition);
 		}
 
 		/// <summary>
 		/// Reads the specified number of bits into an Int32 without advancing the read pointer
 		/// </summary>
-		public Int32 PeekInt32(int numberOfBits)
+		public int PeekInt32(int numberOfBits)
 		{
 			NetException.Assert((numberOfBits > 0 && numberOfBits <= 32), "ReadInt() can only read between 1 and 32 bits");
 			NetException.Assert(m_bitLength - m_readPosition >= numberOfBits, c_readOverflowError);
@@ -163,7 +163,7 @@ namespace Lidgren.Network
 		/// Reads a UInt32 without advancing the read pointer
 		/// </summary>
 		[CLSCompliant(false)]
-		public UInt32 PeekUInt32()
+		public uint PeekUInt32()
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 32, c_readOverflowError);
 			return NetBitWriter.ReadUInt32(m_data, 32, m_readPosition);
@@ -173,7 +173,7 @@ namespace Lidgren.Network
 		/// Reads the specified number of bits into a UInt32 without advancing the read pointer
 		/// </summary>
 		[CLSCompliant(false)]
-		public UInt32 PeekUInt32(int numberOfBits)
+		public uint PeekUInt32(int numberOfBits)
 		{
 			NetException.Assert((numberOfBits > 0 && numberOfBits <= 32), "ReadUInt() can only read between 1 and 32 bits");
             //NetException.Assert(m_bitLength - m_readBitPtr >= numberOfBits, "tried to read past buffer size");
@@ -185,7 +185,7 @@ namespace Lidgren.Network
 		/// Reads a UInt64 without advancing the read pointer
 		/// </summary>
 		[CLSCompliant(false)]
-		public UInt64 PeekUInt64()
+		public ulong PeekUInt64()
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 64, c_readOverflowError);
 
@@ -198,7 +198,7 @@ namespace Lidgren.Network
 		/// <summary>
 		/// Reads an Int64 without advancing the read pointer
 		/// </summary>
-		public Int64 PeekInt64()
+		public long PeekInt64()
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 64, c_readOverflowError);
 			unchecked
@@ -211,7 +211,7 @@ namespace Lidgren.Network
 		/// Reads the specified number of bits into an UInt64 without advancing the read pointer
 		/// </summary>
 		[CLSCompliant(false)]
-		public UInt64 PeekUInt64(int numberOfBits)
+		public ulong PeekUInt64(int numberOfBits)
 		{
 			NetException.Assert((numberOfBits > 0 && numberOfBits <= 64), "ReadUInt() can only read between 1 and 64 bits");
 			NetException.Assert(m_bitLength - m_readPosition >= numberOfBits, c_readOverflowError);
@@ -231,7 +231,7 @@ namespace Lidgren.Network
 		/// <summary>
 		/// Reads the specified number of bits into an Int64 without advancing the read pointer
 		/// </summary>
-		public Int64 PeekInt64(int numberOfBits)
+		public long PeekInt64(int numberOfBits)
 		{
 			NetException.Assert(((numberOfBits > 0) && (numberOfBits < 65)), "ReadInt64(bits) can only read between 1 and 64 bits");
 			return (long)PeekUInt64(numberOfBits);

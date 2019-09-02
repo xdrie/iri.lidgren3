@@ -42,30 +42,30 @@ namespace Lidgren.Network
         /// <summary>
         /// Gets the current status of the connection (synced to the last status message read)
         /// </summary>
-        public NetConnectionStatus Status { get { return m_visibleStatus; } }
+        public NetConnectionStatus Status => m_visibleStatus;
 
-		/// <summary>
-		/// Gets various statistics for this connection
-		/// </summary>
-		public NetConnectionStatistics Statistics { get { return m_statistics; } }
+        /// <summary>
+        /// Gets various statistics for this connection
+        /// </summary>
+        public NetConnectionStatistics Statistics => m_statistics;
 
-		/// <summary>
-		/// Gets the remote endpoint for the connection
-		/// </summary>
-		public IPEndPoint RemoteEndPoint { get { return m_remoteEndPoint; } }
+        /// <summary>
+        /// Gets the remote endpoint for the connection
+        /// </summary>
+        public IPEndPoint RemoteEndPoint => m_remoteEndPoint;
 
-		/// <summary>
-		/// Gets the unique identifier of the remote NetPeer for this connection
-		/// </summary>
-		public long RemoteUniqueIdentifier { get { return m_remoteUniqueIdentifier; } }
+        /// <summary>
+        /// Gets the unique identifier of the remote NetPeer for this connection
+        /// </summary>
+        public long RemoteUniqueIdentifier => m_remoteUniqueIdentifier;
 
-		/// <summary>
-		/// Gets the local hail message that was sent as part of the handshake
-		/// </summary>
-		public NetOutgoingMessage LocalHailMessage { get { return m_localHailMessage; } }
+        /// <summary>
+        /// Gets the local hail message that was sent as part of the handshake
+        /// </summary>
+        public NetOutgoingMessage LocalHailMessage => m_localHailMessage;
 
-		// gets the time before automatically resending an unacked message
-		internal float GetResendDelay()
+        // gets the time before automatically resending an unacked message
+        internal float GetResendDelay()
 		{
 			float avgRtt = m_averageRoundtripTime;
 			if (avgRtt <= 0)

@@ -75,7 +75,7 @@ namespace Lidgren.Network
             return adr == null ? null : new NetEndPoint(adr, port);
         }
 
-        public static IPAddress GetCachedBroadcastAddress()
+        public static NetAddress GetCachedBroadcastAddress()
         {
             if (s_broadcastAddress == null)
                 s_broadcastAddress = GetBroadcastAddress();
@@ -296,7 +296,7 @@ namespace Lidgren.Network
             return (numBits + 7) / 8;
         }
 
-        internal static UInt32 SwapByteOrder(UInt32 value)
+        internal static uint SwapByteOrder(uint value)
         {
             return
                 ((value & 0xff000000) >> 24) |
@@ -305,7 +305,7 @@ namespace Lidgren.Network
                 ((value & 0x000000ff) << 24);
         }
 
-        internal static UInt64 SwapByteOrder(UInt64 value)
+        internal static ulong SwapByteOrder(ulong value)
         {
             return
                 ((value & 0xff00000000000000L) >> 56) |
@@ -331,7 +331,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Convert a hexadecimal string to a byte array
         /// </summary>
-        public static byte[] ToByteArray(String hexString)
+        public static byte[] ToByteArray(string hexString)
         {
             byte[] retval = new byte[hexString.Length / 2];
             for (int i = 0; i < hexString.Length; i += 2)
@@ -465,7 +465,7 @@ namespace Lidgren.Network
         /// </summary>
         /// <param name="src">Source.</param>
         /// <param name="dst">Destination.</param>
-        internal static void CopyEndpoint(IPEndPoint src, IPEndPoint dst)
+        internal static void CopyEndpoint(NetEndPoint src, NetEndPoint dst)
         {
             dst.Port = src.Port;
             if (src.AddressFamily == AddressFamily.InterNetwork)
@@ -477,10 +477,10 @@ namespace Lidgren.Network
         /// <summary>
         /// Maps the IPEndPoint object to an IPv6 address. Has allocation
         /// </summary>
-        internal static IPEndPoint MapToIPv6(IPEndPoint endPoint)
+        internal static NetEndPoint MapToIPv6(NetEndPoint endPoint)
         {
             if (endPoint.AddressFamily == AddressFamily.InterNetwork)
-                return new IPEndPoint(endPoint.Address.MapToIPv6(), endPoint.Port);
+                return new NetEndPoint(endPoint.Address.MapToIPv6(), endPoint.Port);
             return endPoint;
         }
     }

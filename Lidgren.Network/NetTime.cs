@@ -33,10 +33,10 @@ namespace Lidgren.Network
 		private static readonly long s_timeInitialized = Stopwatch.GetTimestamp();
 		private static readonly double s_dInvFreq = 1.0 / (double)Stopwatch.Frequency;
 
-		/// <summary>
-		/// Get number of seconds since the application started
-		/// </summary>
-		public static double Now { get { return (double)(Stopwatch.GetTimestamp() - s_timeInitialized) * s_dInvFreq; } }
+        /// <summary>
+        /// Get number of seconds since the application started
+        /// </summary>
+        public static double Now => (double)(Stopwatch.GetTimestamp() - s_timeInitialized) * s_dInvFreq;
 #else
 		private static readonly uint s_timeInitialized = (uint)Environment.TickCount;
 
@@ -46,10 +46,10 @@ namespace Lidgren.Network
 		public static double Now { get { return (double)((uint)Environment.TickCount - s_timeInitialized) / 1000.0; } }
 #endif
 
-		/// <summary>
-		/// Given seconds it will output a human friendly readable string (milliseconds if less than 60 seconds)
-		/// </summary>
-		public static string ToReadable(double seconds)
+        /// <summary>
+        /// Given seconds it will output a human friendly readable string (milliseconds if less than 60 seconds)
+        /// </summary>
+        public static string ToReadable(double seconds)
 		{
 			if (seconds > 60)
 				return TimeSpan.FromSeconds(seconds).ToString();

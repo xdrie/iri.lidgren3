@@ -46,7 +46,7 @@ namespace Lidgren.Network
             }
 
             // add true payload length last
-            msg.Write((UInt32)payloadBitLength);
+            msg.Write((uint)payloadBitLength);
 
             return true;
         }

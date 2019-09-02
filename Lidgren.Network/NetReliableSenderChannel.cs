@@ -18,9 +18,9 @@ namespace Lidgren.Network
 
 		internal float m_resendDelay;
 
-		internal override int WindowSize { get { return m_windowSize; } }
+        internal override int WindowSize => m_windowSize;
 
-		internal NetReliableSenderChannel(NetConnection connection, int windowSize)
+        internal NetReliableSenderChannel(NetConnection connection, int windowSize)
 		{
 			m_connection = connection;
 			m_windowSize = windowSize;

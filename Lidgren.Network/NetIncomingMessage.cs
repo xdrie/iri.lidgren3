@@ -36,37 +36,37 @@ namespace Lidgren.Network
 		internal bool m_isFragment;
 		internal double m_receiveTime;
 
-		/// <summary>
-		/// Gets the type of this incoming message
-		/// </summary>
-		public NetIncomingMessageType MessageType { get { return m_incomingMessageType; } }
+        /// <summary>
+        /// Gets the type of this incoming message
+        /// </summary>
+        public NetIncomingMessageType MessageType => m_incomingMessageType;
 
-		/// <summary>
-		/// Gets the delivery method this message was sent with (if user data)
-		/// </summary>
-		public NetDeliveryMethod DeliveryMethod { get { return NetUtility.GetDeliveryMethod(m_receivedMessageType); } }
+        /// <summary>
+        /// Gets the delivery method this message was sent with (if user data)
+        /// </summary>
+        public NetDeliveryMethod DeliveryMethod => NetUtility.GetDeliveryMethod(m_receivedMessageType);
 
-		/// <summary>
-		/// Gets the sequence channel this message was sent with (if user data)
-		/// </summary>
-		public int SequenceChannel { get { return (int)m_receivedMessageType - (int)NetUtility.GetDeliveryMethod(m_receivedMessageType); } }
+        /// <summary>
+        /// Gets the sequence channel this message was sent with (if user data)
+        /// </summary>
+        public int SequenceChannel => (int)m_receivedMessageType - (int)NetUtility.GetDeliveryMethod(m_receivedMessageType);
 
-		/// <summary>
-		/// IPEndPoint of sender, if any
-		/// </summary>
-		public IPEndPoint SenderEndPoint { get { return m_senderEndPoint; } }
+        /// <summary>
+        /// IPEndPoint of sender, if any
+        /// </summary>
+        public IPEndPoint SenderEndPoint => m_senderEndPoint;
 
-		/// <summary>
-		/// NetConnection of sender, if any
-		/// </summary>
-		public NetConnection SenderConnection { get { return m_senderConnection; } }
+        /// <summary>
+        /// NetConnection of sender, if any
+        /// </summary>
+        public NetConnection SenderConnection => m_senderConnection;
 
-		/// <summary>
-		/// What local time the message was received from the network
-		/// </summary>
-		public double ReceiveTime { get { return m_receiveTime; } }
+        /// <summary>
+        /// What local time the message was received from the network
+        /// </summary>
+        public double ReceiveTime => m_receiveTime;
 
-		internal NetIncomingMessage()
+        internal NetIncomingMessage()
 		{
 		}
 

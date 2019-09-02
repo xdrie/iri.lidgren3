@@ -13,13 +13,13 @@ namespace Lidgren.Network
 		internal float m_lastHandshakeSendTime;
 		internal int m_handshakeAttempts;
 
-		/// <summary>
-		/// The message that the remote part specified via Connect() or Approve() - can be null.
-		/// </summary>
-		public NetIncomingMessage RemoteHailMessage { get { return m_remoteHailMessage; } }
+        /// <summary>
+        /// The message that the remote part specified via Connect() or Approve() - can be null.
+        /// </summary>
+        public NetIncomingMessage RemoteHailMessage => m_remoteHailMessage;
 
-		// heartbeat called when connection still is in m_handshakes of NetPeer
-		internal void UnconnectedHeartbeat(float now)
+        // heartbeat called when connection still is in m_handshakes of NetPeer
+        internal void UnconnectedHeartbeat(float now)
 		{
 			m_peer.VerifyNetworkThread();
 

@@ -11,19 +11,19 @@ namespace Lidgren.Network
 	public static partial class NetUtility
 	{
 		private static readonly long s_timeInitialized = Stopwatch.GetTimestamp();
-		private static readonly double s_dInvFreq = 1.0 / (double)Stopwatch.Frequency;
+		private static readonly double s_dInvFreq = 1.0 / Stopwatch.Frequency;
         private static readonly SHA256 s_sha = SHA256.Create();
 
         [CLSCompliant(false)]
 		public static ulong GetPlatformSeed(int seedInc)
 		{
-			ulong seed = (ulong)System.Diagnostics.Stopwatch.GetTimestamp();
+			ulong seed = (ulong)Stopwatch.GetTimestamp();
 			return seed ^ ((ulong)Environment.WorkingSet + (ulong)seedInc);
 		}
 
-		public static double Now { get { return (double)(Stopwatch.GetTimestamp() - s_timeInitialized) * s_dInvFreq; } }
+        public static double Now => (Stopwatch.GetTimestamp() - s_timeInitialized) * s_dInvFreq;
 
-		private static NetworkInterface GetNetworkInterface()
+        private static NetworkInterface GetNetworkInterface()
 		{
 			var computerProperties = IPGlobalProperties.GetIPGlobalProperties();
 			if (computerProperties == null)
@@ -36,12 +36,16 @@ namespace Lidgren.Network
 			NetworkInterface best = null;
 			foreach (NetworkInterface adapter in nics)
 			{
-				if (adapter.NetworkInterfaceType == NetworkInterfaceType.Loopback || adapter.NetworkInterfaceType == NetworkInterfaceType.Unknown)
+				if (adapter.NetworkInterfaceType == NetworkInterfaceType.Loopback ||
+                    adapter.NetworkInterfaceType == NetworkInterfaceType.Unknown)
 					continue;
+
 				if (!adapter.Supports(NetworkInterfaceComponent.IPv4))
 					continue;
+
 				if (best == null)
 					best = adapter;
+
 				if (adapter.OperationalStatus != OperationalStatus.Up)
 					continue;
 
@@ -49,7 +53,9 @@ namespace Lidgren.Network
 				IPInterfaceProperties properties = adapter.GetIPProperties();
 				foreach (UnicastIPAddressInformation unicastAddress in properties.UnicastAddresses)
 				{
-					if (unicastAddress != null && unicastAddress.Address != null && unicastAddress.Address.AddressFamily == AddressFamily.InterNetwork)
+					if (unicastAddress != null && 
+                        unicastAddress.Address != null &&
+                        unicastAddress.Address.AddressFamily == AddressFamily.InterNetwork)
 					{
 						// Yes it does, return this network interface.
 						return adapter;
@@ -60,7 +66,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// If available, returns the bytes of the physical (MAC) address for the first usable network interface
+		/// If available, returns the bytes of the physical (MAC) address for the first usable network interface.
 		/// </summary>
 		public static byte[] GetMacAddressBytes()
 		{
@@ -90,9 +96,8 @@ namespace Lidgren.Network
 
 					byte[] broadcastAddress = new byte[ipAdressBytes.Length];
 					for (int i = 0; i < broadcastAddress.Length; i++)
-					{
 						broadcastAddress[i] = (byte)(ipAdressBytes[i] | (subnetMaskBytes[i] ^ 255));
-					}
+
 					return new IPAddress(broadcastAddress);
 				}
 			}
@@ -100,7 +105,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Gets my local IPv4 address (not necessarily external) and subnet mask
+		/// Gets my local IPv4 address (not necessarily external) and subnet mask.
 		/// </summary>
 		public static IPAddress GetMyAddress(out IPAddress mask)
 		{
@@ -114,7 +119,9 @@ namespace Lidgren.Network
 			IPInterfaceProperties properties = ni.GetIPProperties();
 			foreach (UnicastIPAddressInformation unicastAddress in properties.UnicastAddresses)
 			{
-				if (unicastAddress != null && unicastAddress.Address != null && unicastAddress.Address.AddressFamily == AddressFamily.InterNetwork)
+				if (unicastAddress != null &&
+                    unicastAddress.Address != null &&
+                    unicastAddress.Address.AddressFamily == AddressFamily.InterNetwork)
 				{
 					mask = unicastAddress.IPv4Mask;
 					return unicastAddress.Address;
@@ -123,11 +130,6 @@ namespace Lidgren.Network
 
 			mask = null;
 			return null;
-		}
-
-		public static void Sleep(int milliseconds)
-		{
-			System.Threading.Thread.Sleep(milliseconds);
 		}
 
 		public static IPAddress CreateAddressFromBytes(byte[] bytes)

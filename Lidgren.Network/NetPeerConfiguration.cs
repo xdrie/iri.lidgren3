@@ -137,19 +137,16 @@ namespace Lidgren.Network
 			m_isLocked = true;
 		}
 
-		/// <summary>
-		/// Gets the identifier of this application;
+        /// <summary>
+        /// Gets the identifier of this application;
         /// the library can only connect to matching app identifier peers.
-		/// </summary>
-		public string AppIdentifier
-		{
-			get { return m_appIdentifier; }
-		}
+        /// </summary>
+        public string AppIdentifier => m_appIdentifier;
 
-		/// <summary>
-		/// Enables receiving of the specified type of message.
-		/// </summary>
-		public void EnableMessageType(NetIncomingMessageType type)
+        /// <summary>
+        /// Enables receiving of the specified type of message.
+        /// </summary>
+        public void EnableMessageType(NetIncomingMessageType type)
 		{
 			m_disabledTypes &= (~type);
 		}
@@ -174,7 +171,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Gets if receiving of the specified type of message is enabled.
+		/// Gets whether receiving of the specified message type is enabled.
 		/// </summary>
 		public bool IsMessageTypeEnabled(NetIncomingMessageType type)
 		{
@@ -185,151 +182,151 @@ namespace Lidgren.Network
 		/// Gets or sets the behaviour of unreliable sends above MTU.
 		/// </summary>
 		public NetUnreliableSizeBehaviour UnreliableSizeBehaviour
-		{
-			get { return m_unreliableSizeBehaviour; }
-			set { m_unreliableSizeBehaviour = value; }
-		}
+        {
+            get => m_unreliableSizeBehaviour;
+            set => m_unreliableSizeBehaviour = value;
+        }
 
         /// <summary>
         /// Gets or sets the name of the library network thread.
         /// Cannot be changed once <see cref="NetPeer"/> is initialized.
         /// </summary>
         public string NetworkThreadName
-		{
-			get { return m_networkThreadName; }
-			set
-			{
-				if (m_isLocked)
-					throw new NetException(
+        {
+            get => m_networkThreadName;
+            set
+            {
+                if (m_isLocked)
+                    throw new NetException(
                         "NetworkThreadName may not be set after the NetPeer which uses the configuration has been started");
-				m_networkThreadName = value;
-			}
-		}
+                m_networkThreadName = value;
+            }
+        }
 
         /// <summary>
         /// Gets or sets the maximum amount of connections this peer can hold.
         /// Cannot be changed once <see cref="NetPeer"/> is initialized.
         /// </summary>
         public int MaximumConnections
-		{
-			get { return m_maximumConnections; }
-			set
-			{
-				if (m_isLocked)
-					throw new NetException(c_isLockedMessage);
-				m_maximumConnections = value;
-			}
-		}
+        {
+            get => m_maximumConnections;
+            set
+            {
+                if (m_isLocked)
+                    throw new NetException(c_isLockedMessage);
+                m_maximumConnections = value;
+            }
+        }
 
         /// <summary>
         /// Gets or sets the maximum amount of bytes to send in a single packet, excluding IP, UDP and Lidgren headers.
         /// Cannot be changed once <see cref="NetPeer"/> is initialized.
         /// </summary>
         public int MaximumTransmissionUnit
-		{
-			get { return m_maximumTransmissionUnit; }
-			set
-			{
-				if (m_isLocked)
-					throw new NetException(c_isLockedMessage);
-				if (value < 1 || value >= ((ushort.MaxValue + 1) / 8))
-					throw new NetException("MaximumTransmissionUnit must be between 1 and " + (((ushort.MaxValue + 1) / 8) - 1) + " bytes");
-				m_maximumTransmissionUnit = value;
-			}
-		}
+        {
+            get => m_maximumTransmissionUnit;
+            set
+            {
+                if (m_isLocked)
+                    throw new NetException(c_isLockedMessage);
+                if (value < 1 || value >= ((ushort.MaxValue + 1) / 8))
+                    throw new NetException("MaximumTransmissionUnit must be between 1 and " + (((ushort.MaxValue + 1) / 8) - 1) + " bytes");
+                m_maximumTransmissionUnit = value;
+            }
+        }
 
         /// <summary>
         /// Gets or sets the default capacity for messages created by <see cref="NetPeer.CreateMessage()"/>.
         /// </summary>
         public int DefaultOutgoingMessageCapacity
-		{
-			get { return m_defaultOutgoingMessageCapacity; }
-			set { m_defaultOutgoingMessageCapacity = value; }
-		}
+        {
+            get => m_defaultOutgoingMessageCapacity;
+            set => m_defaultOutgoingMessageCapacity = value;
+        }
 
-		/// <summary>
-		/// Gets or sets the time between latency calculating pings.
-		/// </summary>
-		public float PingInterval
-		{
-			get { return m_pingInterval; }
-			set { m_pingInterval = value; }
-		}
+        /// <summary>
+        /// Gets or sets the time between latency calculating pings.
+        /// </summary>
+        public float PingInterval
+        {
+            get => m_pingInterval;
+            set => m_pingInterval = value;
+        }
 
-		/// <summary>
-		/// Gets or sets if the library should recycling messages to avoid excessive garbage collection.
+        /// <summary>
+        /// Gets or sets if the library should recycling messages to avoid excessive garbage collection.
         /// Cannot be changed once <see cref="NetPeer"/> is initialized.
-		/// </summary>
-		public bool UseMessageRecycling
-		{
-			get { return m_useMessageRecycling; }
-			set
-			{
-				if (m_isLocked)
-					throw new NetException(c_isLockedMessage);
-				m_useMessageRecycling = value;
-			}
-		}
+        /// </summary>
+        public bool UseMessageRecycling
+        {
+            get => m_useMessageRecycling;
+            set
+            {
+                if (m_isLocked)
+                    throw new NetException(c_isLockedMessage);
+                m_useMessageRecycling = value;
+            }
+        }
 
-		/// <summary>
-		/// Gets or sets the number of seconds timeout will be postponed on a successful ping/pong.
-		/// </summary>
-		public float ConnectionTimeout
-		{
-			get { return m_connectionTimeout; }
-			set
-			{
-				if (value < m_pingInterval)
-					throw new NetException("Connection timeout cannot be lower than ping interval!");
-				m_connectionTimeout = value;
-			}
-		}
+        /// <summary>
+        /// Gets or sets the number of seconds timeout will be postponed on a successful ping/pong.
+        /// </summary>
+        public float ConnectionTimeout
+        {
+            get => m_connectionTimeout;
+            set
+            {
+                if (value < m_pingInterval)
+                    throw new NetException("Connection timeout cannot be lower than ping interval!");
+                m_connectionTimeout = value;
+            }
+        }
 
-		/// <summary>
-		/// Enables UPnP support; enabling port forwarding and getting external IP.
-		/// </summary>
-		public bool EnableUPnP
-		{
-			get { return m_enableUPnP; }
-			set
-			{
-				if (m_isLocked)
-					throw new NetException(c_isLockedMessage);
-				m_enableUPnP = value;
-			}
-		}
+        /// <summary>
+        /// Enables UPnP support; enabling port forwarding and getting external IP.
+        /// </summary>
+        public bool EnableUPnP
+        {
+            get => m_enableUPnP;
+            set
+            {
+                if (m_isLocked)
+                    throw new NetException(c_isLockedMessage);
+                m_enableUPnP = value;
+            }
+        }
 
         /// <summary>
         /// Enables or disables automatic flushing of the send queue.
         /// If disabled, you must manully call <see cref="NetPeer.FlushSendQueue"/> to flush sent messages to network.
         /// </summary>
         public bool AutoFlushSendQueue
-		{
-			get { return m_autoFlushSendQueue; }
-			set { m_autoFlushSendQueue = value; }
-		}
+        {
+            get => m_autoFlushSendQueue;
+            set => m_autoFlushSendQueue = value;
+        }
 
         /// <summary>
         /// Gets or sets the local <see cref="IPAddress"/> to bind to. Defaults to <see cref="IPAddress.IPv6Any"/>.
         /// Cannot be changed once <see cref="NetPeer"/> is initialized.
         /// </summary>
         public IPAddress LocalAddress
-		{
-			get { return m_localAddress; }
-			set
-			{
-				if (m_isLocked)
-					throw new NetException(c_isLockedMessage);
-				m_localAddress = value;
-			}
-		}
+        {
+            get => m_localAddress;
+            set
+            {
+                if (m_isLocked)
+                    throw new NetException(c_isLockedMessage);
+                m_localAddress = value;
+            }
+        }
 
         /// <summary>
         /// Gets or sets a value indicating whether the library should use IPv6 dual stack mode
         /// </summary>
         public bool DualStack
         {
-            get { return m_dualStack;  }
+            get => m_dualStack;
             set
             {
                 if (m_isLocked)
@@ -346,176 +343,173 @@ namespace Lidgren.Network
         /// Gets or sets the local broadcast address to use when broadcasting
         /// </summary>
         public IPAddress BroadcastAddress
-		{
-			get { return m_broadcastAddress; }
-			set
-			{
-				if (m_isLocked)
-					throw new NetException(c_isLockedMessage);
-				m_broadcastAddress = value;
-			}
-		}
+        {
+            get => m_broadcastAddress;
+            set
+            {
+                if (m_isLocked)
+                    throw new NetException(c_isLockedMessage);
+                m_broadcastAddress = value;
+            }
+        }
 
         /// <summary>
         /// Gets or sets the local port to bind to. Defaults to 0.
         /// Cannot be changed once <see cref="NetPeer"/> is initialized.
         /// </summary>
         public int Port
-		{
-			get { return m_port; }
-			set
-			{
-				if (m_isLocked)
-					throw new NetException(c_isLockedMessage);
-				m_port = value;
-			}
-		}
+        {
+            get => m_port;
+            set
+            {
+                if (m_isLocked)
+                    throw new NetException(c_isLockedMessage);
+                m_port = value;
+            }
+        }
 
         /// <summary>
         /// Gets or sets the size in bytes of the receiving buffer. Defaults to 131071 bytes.
         /// Cannot be changed once <see cref="NetPeer"/> is initialized.
         /// </summary>
         public int ReceiveBufferSize
-		{
-			get { return m_receiveBufferSize; }
-			set
-			{
-				if (m_isLocked)
-					throw new NetException(c_isLockedMessage);
-				m_receiveBufferSize = value;
-			}
-		}
+        {
+            get => m_receiveBufferSize;
+            set
+            {
+                if (m_isLocked)
+                    throw new NetException(c_isLockedMessage);
+                m_receiveBufferSize = value;
+            }
+        }
 
         /// <summary>
         /// Gets or sets the size in bytes of the sending buffer. Defaults to 131071 bytes.
         /// Cannot be changed once <see cref="NetPeer"/> is initialized.
         /// </summary>
         public int SendBufferSize
-		{
-			get { return m_sendBufferSize; }
-			set
-			{
-				if (m_isLocked)
-					throw new NetException(c_isLockedMessage);
-				m_sendBufferSize = value;
-			}
-		}
+        {
+            get => m_sendBufferSize;
+            set
+            {
+                if (m_isLocked)
+                    throw new NetException(c_isLockedMessage);
+                m_sendBufferSize = value;
+            }
+        }
 
         /// <summary>
         /// Gets or sets if the <see cref="NetPeer"/> should accept incoming connections.
         /// This is automatically set to true in <see cref="NetServer"/> and false in <see cref="NetClient"/>.
         /// </summary>
         public bool AcceptIncomingConnections
-		{
-			get { return m_acceptIncomingConnections; }
-			set { m_acceptIncomingConnections = value; }
-		}
+        {
+            get => m_acceptIncomingConnections;
+            set => m_acceptIncomingConnections = value;
+        }
 
-		/// <summary>
-		/// Gets or sets the number of seconds between handshake attempts.
-		/// </summary>
-		public float ResendHandshakeInterval
-		{
-			get { return m_resendHandshakeInterval; }
-			set { m_resendHandshakeInterval = value; }
-		}
+        /// <summary>
+        /// Gets or sets the number of seconds between handshake attempts.
+        /// </summary>
+        public float ResendHandshakeInterval
+        {
+            get => m_resendHandshakeInterval;
+            set => m_resendHandshakeInterval = value;
+        }
 
-		/// <summary>
-		/// Gets or sets the maximum number of handshake attempts before failing to connect.
-		/// </summary>
-		public int MaximumHandshakeAttempts
-		{
-			get { return m_maximumHandshakeAttempts; }
-			set
-			{
-				if (value < 1)
-					throw new NetException("MaximumHandshakeAttempts must be at least 1.");
-				m_maximumHandshakeAttempts = value;
-			}
-		}
+        /// <summary>
+        /// Gets or sets the maximum number of handshake attempts before failing to connect.
+        /// </summary>
+        public int MaximumHandshakeAttempts
+        {
+            get => m_maximumHandshakeAttempts;
+            set
+            {
+                if (value < 1)
+                    throw new NetException("MaximumHandshakeAttempts must be at least 1.");
+                m_maximumHandshakeAttempts = value;
+            }
+        }
 
         /// <summary>
         /// Gets or sets if the <see cref="NetPeer"/> should send large messages
         /// to try to expand the maximum transmission unit size.
         /// </summary>
         public bool AutoExpandMTU
-		{
-			get { return m_autoExpandMTU; }
-			set
-			{
-				if (m_isLocked)
-					throw new NetException(c_isLockedMessage);
-				m_autoExpandMTU = value;
-			}
-		}
+        {
+            get => m_autoExpandMTU;
+            set
+            {
+                if (m_isLocked)
+                    throw new NetException(c_isLockedMessage);
+                m_autoExpandMTU = value;
+            }
+        }
 
-		/// <summary>
-		/// Gets or sets how often to send large messages
+        /// <summary>
+        /// Gets or sets how often to send large messages
         /// to expand MTU if <see cref="AutoExpandMTU"/> is enabled.
-		/// </summary>
-		public float ExpandMTUFrequency
-		{
-			get { return m_expandMTUFrequency; }
-			set { m_expandMTUFrequency = value; }
-		}
+        /// </summary>
+        public float ExpandMTUFrequency
+        {
+            get => m_expandMTUFrequency;
+            set => m_expandMTUFrequency = value;
+        }
 
-		/// <summary>
-		/// Gets or sets the number of failed expand MTU attempts to perform before setting final MTU.
-		/// </summary>
-		public int ExpandMTUFailAttempts
-		{
-			get { return m_expandMTUFailAttempts; }
-			set { m_expandMTUFailAttempts = value; }
-		}
-        
-		/// <summary>
-		/// Gets or sets the simulated amount of sent packets lost from 0.0 to 1.0.
-		/// </summary>
-		public float SimulatedLoss
-		{
-			get { return m_loss; }
-			set { m_loss = value; }
-		}
+        /// <summary>
+        /// Gets or sets the number of failed expand MTU attempts to perform before setting final MTU.
+        /// </summary>
+        public int ExpandMTUFailAttempts
+        {
+            get => m_expandMTUFailAttempts;
+            set => m_expandMTUFailAttempts = value;
+        }
 
-		/// <summary>
-		/// Gets or sets the minimum simulated amount of one way latency for sent packets in seconds.
-		/// </summary>
-		public float SimulatedMinimumLatency
-		{
-			get { return m_minimumOneWayLatency; }
-			set { m_minimumOneWayLatency = value; }
-		}
+        /// <summary>
+        /// Gets or sets the simulated amount of sent packets lost from 0.0 to 1.0.
+        /// </summary>
+        public float SimulatedLoss
+        {
+            get => m_loss;
+            set => m_loss = value;
+        }
 
-		/// <summary>
-		/// Gets or sets the simulated added random amount of one way latency for sent packets in seconds.
-		/// </summary>
-		public float SimulatedRandomLatency
-		{
-			get { return m_randomOneWayLatency; }
-			set { m_randomOneWayLatency = value; }
-		}
+        /// <summary>
+        /// Gets or sets the minimum simulated amount of one way latency for sent packets in seconds.
+        /// </summary>
+        public float SimulatedMinimumLatency
+        {
+            get => m_minimumOneWayLatency;
+            set => m_minimumOneWayLatency = value;
+        }
 
-		/// <summary>
-		/// Gets the average simulated one way latency in seconds.
-		/// </summary>
-		public float SimulatedAverageLatency
-		{
-			get { return m_minimumOneWayLatency + (m_randomOneWayLatency * 0.5f); }
-		}
+        /// <summary>
+        /// Gets or sets the simulated added random amount of one way latency for sent packets in seconds.
+        /// </summary>
+        public float SimulatedRandomLatency
+        {
+            get => m_randomOneWayLatency;
+            set => m_randomOneWayLatency = value;
+        }
 
-		/// <summary>
-		/// Gets or sets the simulated amount of duplicated packets from 0.0 to 1.0.
-		/// </summary>
-		public float SimulatedDuplicatesChance
-		{
-			get { return m_duplicates; }
-			set { m_duplicates = value; }
-		}
+        /// <summary>
+        /// Gets the average simulated one way latency in seconds.
+        /// </summary>
+        public float SimulatedAverageLatency => m_minimumOneWayLatency + (m_randomOneWayLatency * 0.5f);
 
-		/// <summary>
-		/// Creates a memberwise shallow clone of this configuration.
-		/// </summary>
-		public NetPeerConfiguration Clone()
+        /// <summary>
+        /// Gets or sets the simulated amount of duplicated packets from 0.0 to 1.0.
+        /// </summary>
+        public float SimulatedDuplicatesChance
+        {
+            get => m_duplicates;
+            set => m_duplicates = value;
+        }
+
+        /// <summary>
+        /// Creates a memberwise shallow clone of this configuration.
+        /// </summary>
+        public NetPeerConfiguration Clone()
 		{
 			NetPeerConfiguration retval = MemberwiseClone() as NetPeerConfiguration;
 			retval.m_isLocked = false;

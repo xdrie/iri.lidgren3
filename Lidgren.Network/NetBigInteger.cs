@@ -150,7 +150,7 @@ namespace Lidgren.Network
 			}
 
 			// strip leading zeros from the string str
-			while (index < str.Length && Int32.Parse(str[index].ToString(), style) == 0)
+			while (index < str.Length && int.Parse(str[index].ToString(), style) == 0)
 			{
 				index++;
 			}
@@ -885,9 +885,7 @@ namespace Lidgren.Network
 				hc ^= m_magnitude[0];
 
 				if (m_magnitude.Length > 1)
-				{
 					hc ^= m_magnitude[m_magnitude.Length - 1];
-				}
 			}
 
 			return m_sign < 0 ? ~hc : hc;
@@ -905,16 +903,13 @@ namespace Lidgren.Network
 		}
 
 		public int IntValue
-		{
-			get
-			{
-				return m_sign == 0 ? 0
-					: m_sign > 0 ? m_magnitude[m_magnitude.Length - 1]
-					: -m_magnitude[m_magnitude.Length - 1];
-			}
-		}
-	
-		public NetBigInteger Max(NetBigInteger value)
+        {
+            get => m_sign == 0 ? 0
+                    : m_sign > 0 ? m_magnitude[m_magnitude.Length - 1]
+                    : -m_magnitude[m_magnitude.Length - 1];
+        }
+
+        public NetBigInteger Max(NetBigInteger value)
 		{
 			return CompareTo(value) > 0 ? this : value;
 		}
@@ -1867,13 +1862,10 @@ namespace Lidgren.Network
 			return new NetBigInteger(m_sign, res, false);
 		}
 
-		public int SignValue
-		{
-			get { return m_sign; }
-		}
+        public int SignValue => m_sign;
 
-		// returns x = x - y - we assume x is >= y
-		private static int[] Subtract(int xStart, int[] x, int yStart, int[] y)
+        // returns x = x - y - we assume x is >= y
+        private static int[] Subtract(int xStart, int[] x, int yStart, int[] y)
 		{
 			Debug.Assert(yStart < y.Length);
 			Debug.Assert(x.Length - xStart >= y.Length - yStart);

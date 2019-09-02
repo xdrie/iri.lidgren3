@@ -34,9 +34,9 @@ namespace Lidgren.Network
 
 		internal readonly NetPeerConfiguration m_configuration;
 		private readonly NetQueue<NetIncomingMessage> m_releasedIncomingMessages;
-		internal readonly NetQueue<NetTuple<IPEndPoint, NetOutgoingMessage>> m_unsentUnconnectedMessages;
+		internal readonly NetQueue<NetTuple<NetEndPoint, NetOutgoingMessage>> m_unsentUnconnectedMessages;
 
-		internal Dictionary<IPEndPoint, NetConnection> m_handshakes;
+		internal Dictionary<NetEndPoint, NetConnection> m_handshakes;
 
 		internal readonly NetPeerStatistics m_statistics;
 		internal long m_uniqueIdentifier;
@@ -45,15 +45,15 @@ namespace Lidgren.Network
 		private AutoResetEvent m_messageReceivedEvent;
 		private List<NetTuple<SynchronizationContext, SendOrPostCallback>> m_receiveCallbacks;
 
-		/// <summary>
-		/// Gets the socket, if Start() has been called
-		/// </summary>
-		public Socket Socket { get { return m_socket; } }
+        /// <summary>
+        /// Gets the socket, if Start() has been called
+        /// </summary>
+        public Socket Socket => m_socket;
 
-		/// <summary>
-		/// Call this to register a callback for when a new message arrives
-		/// </summary>
-		public void RegisterReceivedCallback(SendOrPostCallback callback, SynchronizationContext syncContext = null)
+        /// <summary>
+        /// Call this to register a callback for when a new message arrives
+        /// </summary>
+        public void RegisterReceivedCallback(SendOrPostCallback callback, SynchronizationContext syncContext = null)
 		{
 			if (syncContext == null)
 				syncContext = SynchronizationContext.Current;
@@ -171,7 +171,7 @@ namespace Lidgren.Network
                 }
             }
 
-            IPEndPoint boundEp = m_socket.LocalEndPoint as IPEndPoint;
+            NetEndPoint boundEp = m_socket.LocalEndPoint as NetEndPoint;
             LogDebug("Socket bound to " + boundEp + ": " + m_socket.IsBound);
             m_listenPort = boundEp.Port;
         }
@@ -394,7 +394,7 @@ namespace Lidgren.Network
 				m_executeFlushSendQueue = false;
 
                 // send unsent unconnected messages
-                while (m_unsentUnconnectedMessages.TryDequeue(out NetTuple<IPEndPoint, NetOutgoingMessage> unsent))
+                while (m_unsentUnconnectedMessages.TryDequeue(out NetTuple<NetEndPoint, NetOutgoingMessage> unsent))
                 {
                     NetOutgoingMessage om = unsent.Item2;
 
@@ -455,9 +455,9 @@ namespace Lidgren.Network
 				if (bytesReceived < NetConstants.HeaderByteSize)
 					return;
 
-				//LogVerbose("Received " + bytesReceived + " bytes");
+                //LogVerbose("Received " + bytesReceived + " bytes");
 
-				IPEndPoint ipsender = (IPEndPoint)m_senderRemote;
+                NetEndPoint ipsender = (NetEndPoint)m_senderRemote;
 
 				if (m_upnp != null && now < m_upnp.m_discoveryResponseDeadline && bytesReceived > 32)
 				{
@@ -594,7 +594,7 @@ namespace Lidgren.Network
 			m_executeFlushSendQueue = true;
 		}
 
-		internal void HandleIncomingDiscoveryRequest(double now, IPEndPoint senderEndPoint, int ptr, int payloadByteLength)
+		internal void HandleIncomingDiscoveryRequest(double now, NetEndPoint senderEndPoint, int ptr, int payloadByteLength)
 		{
 			if (m_configuration.IsMessageTypeEnabled(NetIncomingMessageType.DiscoveryRequest))
 			{
@@ -608,7 +608,7 @@ namespace Lidgren.Network
 			}
 		}
 
-		internal void HandleIncomingDiscoveryResponse(double now, IPEndPoint senderEndPoint, int ptr, int payloadByteLength)
+		internal void HandleIncomingDiscoveryResponse(double now, NetEndPoint senderEndPoint, int ptr, int payloadByteLength)
 		{
 			if (m_configuration.IsMessageTypeEnabled(NetIncomingMessageType.DiscoveryResponse))
 			{
@@ -622,7 +622,7 @@ namespace Lidgren.Network
 			}
 		}
 
-		private void ReceivedUnconnectedLibraryMessage(double now, IPEndPoint senderEndPoint, NetMessageType tp, int ptr, int payloadByteLength)
+		private void ReceivedUnconnectedLibraryMessage(double now, NetEndPoint senderEndPoint, NetMessageType tp, int ptr, int payloadByteLength)
 		{
             if (m_handshakes.TryGetValue(senderEndPoint, out NetConnection shake))
             {

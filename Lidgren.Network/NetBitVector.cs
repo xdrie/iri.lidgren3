@@ -31,15 +31,15 @@ namespace Lidgren.Network
 		private readonly int[] m_data;
 		private int m_numBitsSet;
 
-		/// <summary>
-		/// Gets the number of bits/booleans stored in this vector
-		/// </summary>
-		public int Capacity { get { return m_capacity; } }
+        /// <summary>
+        /// Gets the number of bits/booleans stored in this vector
+        /// </summary>
+        public int Capacity => m_capacity;
 
-		/// <summary>
-		/// NetBitVector constructor
-		/// </summary>
-		public NetBitVector(int bitsCapacity)
+        /// <summary>
+        /// NetBitVector constructor
+        /// </summary>
+        public NetBitVector(int bitsCapacity)
 		{
 			m_capacity = bitsCapacity;
 			m_data = new int[(bitsCapacity + 31) / 32];
@@ -141,15 +141,15 @@ namespace Lidgren.Network
 		/// </summary>
 		[System.Runtime.CompilerServices.IndexerName("Bit")]
 		public bool this[int index]
-		{
-			get { return Get(index); }
-			set { Set(index, value); }
-		}
+        {
+            get => Get(index);
+            set => Set(index, value);
+        }
 
-		/// <summary>
-		/// Sets all bits/booleans to zero/false
-		/// </summary>
-		public void Clear()
+        /// <summary>
+        /// Sets all bits/booleans to zero/false
+        /// </summary>
+        public void Clear()
 		{
 			Array.Clear(m_data, 0, m_data.Length);
 			m_numBitsSet = 0;

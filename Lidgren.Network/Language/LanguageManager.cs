@@ -33,10 +33,7 @@ namespace Lidgren.Network.Language
 
                 return _current;
             }
-            set
-            {
-                _current = value ?? throw new ArgumentNullException(nameof(value));
-            }
+            set => _current = value ?? throw new ArgumentNullException(nameof(value));
         }
 
         private class DefaultLanguage : ILibraryLanguage

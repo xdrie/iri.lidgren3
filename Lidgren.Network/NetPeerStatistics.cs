@@ -66,47 +66,47 @@ namespace Lidgren.Network
 			m_totalBytesAllocated = 0;
 		}
 
-		/// <summary>
-		/// Gets the number of sent packets since the NetPeer was initialized
-		/// </summary>
-		public int SentPackets { get { return m_sentPackets; } }
+        /// <summary>
+        /// Gets the number of sent packets since the NetPeer was initialized
+        /// </summary>
+        public int SentPackets => m_sentPackets;
 
-		/// <summary>
-		/// Gets the number of received packets since the NetPeer was initialized
-		/// </summary>
-		public int ReceivedPackets { get { return m_receivedPackets; } }
+        /// <summary>
+        /// Gets the number of received packets since the NetPeer was initialized
+        /// </summary>
+        public int ReceivedPackets => m_receivedPackets;
 
-		/// <summary>
-		/// Gets the number of sent messages since the NetPeer was initialized
-		/// </summary>
-		public int SentMessages { get { return m_sentMessages; } }
+        /// <summary>
+        /// Gets the number of sent messages since the NetPeer was initialized
+        /// </summary>
+        public int SentMessages => m_sentMessages;
 
-		/// <summary>
-		/// Gets the number of received messages since the NetPeer was initialized
-		/// </summary>
-		public int ReceivedMessages { get { return m_receivedMessages; } }
+        /// <summary>
+        /// Gets the number of received messages since the NetPeer was initialized
+        /// </summary>
+        public int ReceivedMessages => m_receivedMessages;
 
-		/// <summary>
-		/// Gets the number of sent bytes since the NetPeer was initialized
-		/// </summary>
-		public int SentBytes { get { return m_sentBytes; } }
+        /// <summary>
+        /// Gets the number of sent bytes since the NetPeer was initialized
+        /// </summary>
+        public int SentBytes => m_sentBytes;
 
-		/// <summary>
-		/// Gets the number of received bytes since the NetPeer was initialized
-		/// </summary>
-		public int ReceivedBytes { get { return m_receivedBytes; } }
+        /// <summary>
+        /// Gets the number of received bytes since the NetPeer was initialized
+        /// </summary>
+        public int ReceivedBytes => m_receivedBytes;
 
-		/// <summary>
-		/// Gets the number of bytes allocated (and possibly garbage collected) for message storage
-		/// </summary>
-		public long StorageBytesAllocated { get { return m_totalBytesAllocated; } }
+        /// <summary>
+        /// Gets the number of bytes allocated (and possibly garbage collected) for message storage
+        /// </summary>
+        public long StorageBytesAllocated => m_totalBytesAllocated;
 
-		/// <summary>
-		/// Gets the number of bytes in the recycled pool
-		/// </summary>
-		public int BytesInRecyclePool { get { return m_peer.m_bytesInPool; } }
-        
-		internal void PacketSent(int numBytes, int numMessages)
+        /// <summary>
+        /// Gets the number of bytes in the recycled pool
+        /// </summary>
+        public int BytesInRecyclePool => m_peer.m_bytesInPool;
+
+        internal void PacketSent(int numBytes, int numMessages)
 		{
 			m_sentPackets++;
 			m_sentBytes += numBytes;

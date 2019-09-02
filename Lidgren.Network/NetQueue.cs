@@ -239,26 +239,42 @@ namespace Lidgren.Network
 			}
 		}
 
-		/// <summary>
-		/// Returns default(T) if queue is empty
-		/// </summary>
-		public T TryPeek(int offset)
+        /// <summary>
+        /// Tries to get a value without dequeuing it at a given offset.
+        /// </summary>
+        /// <param name="offset">The offset of the item.</param>
+        /// <param name="value">The peek result.</param>
+        /// <returns>Whether the peek returned a value.</returns>
+		public bool TryPeek(int offset, out T value)
 		{
-			if (m_size == 0)
-				return default;
+            value = default;
+            if (m_size == 0)
+				return false;
 
 			m_lock.EnterReadLock();
 			try
 			{
 				if (m_size == 0)
-					return default;
-				return m_items[(m_head + offset) % m_items.Length];
+					return false;
+
+                value = m_items[(m_head + offset) % m_items.Length];
+                return true;
 			}
 			finally
 			{
 				m_lock.ExitReadLock();
 			}
 		}
+
+        /// <summary>
+        /// Tries to get a value without dequeuing, returning <see langword="default"/> if queue is empty.
+        /// </summary>
+        public T Peek(int offset)
+        {
+            if (TryPeek(offset, out var value))
+                return value;
+            return default;
+        }
 
 		/// <summary>
 		/// Determines whether an item is in the queue
