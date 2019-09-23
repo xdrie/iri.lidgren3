@@ -24,7 +24,7 @@ namespace Lidgren.Network
 	public partial class NetBuffer
 	{
 		/// <summary>
-		/// Writes all public and private declared instance fields of the object in alphabetical order using reflection
+		/// Writes all public and private declared instance fields of the object in alphabetical order using reflection.
 		/// </summary>
 		public void WriteAllFields(object ob)
 		{
@@ -32,7 +32,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Writes all fields with specified binding in alphabetical order using reflection
+		/// Writes all fields with specified binding in alphabetical order using reflection.
 		/// </summary>
 		public void WriteAllFields(object ob, BindingFlags flags)
 		{
@@ -56,7 +56,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Writes all public and private declared instance properties of the object in alphabetical order using reflection
+		/// Writes all public and private declared instance properties of the object in alphabetical order using reflection.
 		/// </summary>
 		public void WriteAllProperties(object ob)
 		{
@@ -64,7 +64,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Writes all properties with specified binding in alphabetical order using reflection
+		/// Writes all properties with specified binding in alphabetical order using reflection.
 		/// </summary>
 		public void WriteAllProperties(object ob, BindingFlags flags)
 		{

@@ -1,20 +1,18 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Reflection;
 using System.Net;
 
 namespace Lidgren.Network
 {
-	/// <summary>
-	/// Base class for NetIncomingMessage and NetOutgoingMessage
-	/// </summary>
-	public partial class NetBuffer
+    /// <summary>
+    /// Base class for <see cref="NetIncomingMessage"/> and <see cref="NetOutgoingMessage"/>.
+    /// </summary>
+    public partial class NetBuffer
 	{
-		private const string c_readOverflowError = "Trying to read past the buffer size - likely caused by mismatching Write/Reads, different size or order.";
+		private const string c_readOverflowError = 
+            "Trying to read past the buffer size - likely caused by mismatching Write/Reads, different size or order.";
 
         /// <summary>
-        /// Reads a byte and casts it to <see cref="NetConnectionStatus"/>.
+        /// Reads one <see cref="byte"/> and casts it to <see cref="NetConnectionStatus"/>.
         /// </summary>
         public NetConnectionStatus ReadStatus()
         {
@@ -22,7 +20,7 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Reads a boolean value (stored as a single bit) written using <see cref="Write(bool)"/>.
+        /// Reads a 1-bit <see cref="bool"/> value written by <see cref="Write(bool)"/>.
         /// </summary>
         public bool ReadBoolean()
 		{
@@ -33,7 +31,7 @@ namespace Lidgren.Network
 		}
 		
 		/// <summary>
-		/// Reads a byte
+		/// Reads a <see cref="byte"/>.
 		/// </summary>
 		public byte ReadByte()
 		{
@@ -43,10 +41,10 @@ namespace Lidgren.Network
 			return retval;
 		}
 
-		/// <summary>
-		/// Reads a byte and returns true or false for success
-		/// </summary>
-		public bool ReadByte(out byte result)
+        /// <summary>
+        /// Reads a <see cref="byte"/> and returns whether the read succeeded.
+        /// </summary>
+        public bool TryReadByte(out byte result)
 		{
 			if (m_bitLength - m_readPosition < 8)
 			{
@@ -59,7 +57,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads a signed byte
+		/// Reads a <see cref="sbyte"/>.
 		/// </summary>
 		[CLSCompliant(false)]
 		public sbyte ReadSByte()
@@ -71,7 +69,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads 1 to 8 bits into a byte
+		/// Reads 1 to 8 bits into a <see cref="byte"/>.
 		/// </summary>
 		public byte ReadByte(int numberOfBits)
 		{
@@ -81,10 +79,10 @@ namespace Lidgren.Network
 			return retval;
 		}
 
-		/// <summary>
-		/// Reads the specified number of bytes and returns true for success
-		/// </summary>
-		public bool ReadBytes(int numberOfBytes, out byte[] result)
+        /// <summary>
+        /// Reads the specified number of bytes and returns whether the read succeeded.
+        /// </summary>
+        public bool ReadBytes(int numberOfBytes, out byte[] result)
 		{
 			if (m_bitLength - m_readPosition + 7 < (numberOfBytes * 8))
 			{
@@ -98,6 +96,9 @@ namespace Lidgren.Network
 			return true;
 		}
 
+        /// <summary>
+        /// Reads a block of bytes from the stream.
+        /// </summary>
         public byte[] ReadBytes(int count)
         {
             byte[] bytes = new byte[count];
@@ -106,7 +107,7 @@ namespace Lidgren.Network
         }
         
         /// <summary>
-        /// Reads a block of bytes from the stream and writes the data in a given buffer.
+        /// Reads a block of bytes from the stream and writes the data to a given buffer.
         /// </summary>
         /// <param name="span">The destination span.</param>
 		public int Read(Span<byte> span)
@@ -133,7 +134,7 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Reads the specified number of bits into a preallocated array
+        /// Reads the specified number of bits into a given buffer.
         /// </summary>
         /// <param name="span">The destination span.</param>
         /// <param name="numberOfBits">The number of bits to read</param>
@@ -153,7 +154,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads a 16 bit signed integer written using Write(Int16)
+		/// Reads a 16 bit <see cref="short"/> written by <see cref="Write(short)"/>.
 		/// </summary>
 		public short ReadInt16()
 		{
@@ -163,10 +164,10 @@ namespace Lidgren.Network
 			return (short)retval;
 		}
 
-		/// <summary>
-		/// Reads a 16 bit unsigned integer written using Write(UInt16)
-		/// </summary>
-		[CLSCompliant(false)]
+        /// <summary>
+        /// Reads a 16 bit <see cref="ushort"/> written by <see cref="Write(ushort)"/>.
+        /// </summary>
+        [CLSCompliant(false)]
 		public ushort ReadUInt16()
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 16, c_readOverflowError);
@@ -175,10 +176,10 @@ namespace Lidgren.Network
 			return (ushort)retval;
 		}
 
-		/// <summary>
-		/// Reads a 32 bit signed integer written using Write(Int32)
-		/// </summary>
-		public int ReadInt32()
+        /// <summary>
+        /// Reads a 32 bit <see cref="int"/> written by <see cref="Write(int)"/>.
+        /// </summary>
+        public int ReadInt32()
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 32, c_readOverflowError);
 			uint retval = NetBitWriter.ReadUInt32(m_data, 32, m_readPosition);
@@ -187,7 +188,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads a 32 bit signed integer written using Write(Int32)
+        /// Reads a 32 bit <see cref="int"/> written by <see cref="Write(int)"/>.
 		/// </summary>
 		[CLSCompliant(false)]
 		public bool ReadInt32(out int result)
@@ -197,14 +198,13 @@ namespace Lidgren.Network
 				result = 0;
 				return false;
 			}
-
 			result = (int)NetBitWriter.ReadUInt32(m_data, 32, m_readPosition);
 			m_readPosition += 32;
 			return true;
 		}
 
 		/// <summary>
-		/// Reads a signed integer stored in 1 to 32 bits, written using Write(Int32, Int32)
+		/// Reads a <see cref="int"/> stored in 1 to 32 bits, written by <see cref="Write(int, int)"/>.
 		/// </summary>
 		public int ReadInt32(int numberOfBits)
 		{
@@ -230,10 +230,10 @@ namespace Lidgren.Network
 			}
 		}
 
-		/// <summary>
-		/// Reads an 32 bit unsigned integer written using Write(UInt32)
-		/// </summary>
-		[CLSCompliant(false)]
+        /// <summary>
+        /// Reads a <see cref="uint"/> written by <see cref="Write(uint)"/>.
+        /// </summary>
+        [CLSCompliant(false)]
 		public uint ReadUInt32()
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 32, c_readOverflowError);
@@ -242,10 +242,10 @@ namespace Lidgren.Network
 			return retval;
 		}
 
-		/// <summary>
-		/// Reads an 32 bit unsigned integer written using Write(UInt32) and returns true for success
-		/// </summary>
-		[CLSCompliant(false)]
+        /// <summary>
+        /// Reads a 32 bit <see cref="uint"/> written by <see cref="Write(uint)"/> and returns whether the read succeeded.
+        /// </summary>
+        [CLSCompliant(false)]
 		public bool ReadUInt32(out uint result)
 		{
 			if (m_bitLength - m_readPosition < 32)
@@ -259,7 +259,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads an unsigned integer stored in 1 to 32 bits, written using Write(UInt32, Int32)
+		/// Reads an <see cref="uint"/> stored in 1 to 32 bits, written by <see cref="Write(uint, int)"/>.
 		/// </summary>
 		[CLSCompliant(false)]
 		public uint ReadUInt32(int numberOfBits)
@@ -273,7 +273,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads a 64 bit unsigned integer written using Write(UInt64)
+		/// Reads a 64 bit <see cref="ulong"/> written by <see cref="Write(ulong)"/>.
 		/// </summary>
 		[CLSCompliant(false)]
 		public ulong ReadUInt64()
@@ -290,10 +290,10 @@ namespace Lidgren.Network
 			return retval;
 		}
 
-		/// <summary>
-		/// Reads a 64 bit signed integer written using Write(Int64)
-		/// </summary>
-		public long ReadInt64()
+        /// <summary>
+        /// Reads a 64 bit <see cref="long"/> written by <see cref="Write(long)"/>.
+        /// </summary>
+        public long ReadInt64()
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 64, c_readOverflowError);
 			unchecked
@@ -305,7 +305,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads an unsigned integer stored in 1 to 64 bits, written using Write(UInt64, Int32)
+		/// Reads an <see cref="ulong"/> stored in 1 to 64 bits, written by <see cref="Write(ulong, int)"/>.
 		/// </summary>
 		[CLSCompliant(false)]
 		public ulong ReadUInt64(int numberOfBits)
@@ -327,27 +327,27 @@ namespace Lidgren.Network
 			return retval;
 		}
 
-		/// <summary>
-		/// Reads a signed integer stored in 1 to 64 bits, written using Write(Int64, Int32)
-		/// </summary>
-		public long ReadInt64(int numberOfBits)
+        /// <summary>
+        /// Reads a <see cref="long"/> stored in 1 to 64 bits, written by <see cref="Write(long, int)"/>.
+        /// </summary>
+        public long ReadInt64(int numberOfBits)
 		{
 			NetException.Assert(((numberOfBits > 0) && (numberOfBits <= 64)), "ReadInt64(bits) can only read between 1 and 64 bits");
 			return (long)ReadUInt64(numberOfBits);
 		}
 
-		/// <summary>
-		/// Reads a 32 bit floating point value written using Write(Single)
-		/// </summary>
-		public float ReadFloat()
+        /// <summary>
+        /// Reads a 32 bit <see cref="float"/> written by <see cref="Write(Single)"/>.
+        /// </summary>
+        public float ReadFloat()
 		{
 			return ReadSingle();
 		}
 
-		/// <summary>
-		/// Reads a 32 bit floating point value written using Write(Single)
-		/// </summary>
-		public float ReadSingle()
+        /// <summary>
+        /// Reads a 32 bit <see cref="float"/> written by <see cref="Write(Single)"/>.
+        /// </summary>
+        public float ReadSingle()
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 32, c_readOverflowError);
 
@@ -362,10 +362,10 @@ namespace Lidgren.Network
 			return BitConverter.ToSingle(bytes, 0);
 		}
 
-		/// <summary>
-		/// Reads a 32 bit floating point value written using Write(Single)
-		/// </summary>
-		public bool ReadSingle(out float result)
+        /// <summary>
+        /// Reads a 32 bit <see cref="float"/> written by <see cref="Write(Single)"/>.
+        /// </summary>
+        public bool ReadSingle(out float result)
 		{
 			if (m_bitLength - m_readPosition < 32)
 			{
@@ -385,10 +385,10 @@ namespace Lidgren.Network
 			return true;
 		}
 
-		/// <summary>
-		/// Reads a 64 bit floating point value written using Write(Double)
-		/// </summary>
-		public double ReadDouble()
+        /// <summary>
+        /// Reads a 64 bit <see cref="double"/> written by <see cref="Write(double)"/>.
+        /// </summary>
+        public double ReadDouble()
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 64, c_readOverflowError);
 
@@ -404,14 +404,10 @@ namespace Lidgren.Network
 			return BitConverter.ToDouble(bytes, 0);
 		}
 
-		//
-		// Variable bit count
-		//
-
-		/// <summary>
-		/// Reads a variable sized UInt32 written using WriteVariableUInt32()
-		/// </summary>
-		[CLSCompliant(false)]
+        /// <summary>
+        /// Reads a variable sized <see cref="uint"/> written by <see cref="WriteVariableUInt32"/>.
+        /// </summary>
+        [CLSCompliant(false)]
 		public uint ReadVariableUInt32()
 		{
 			int num1 = 0;
@@ -430,7 +426,8 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads a variable sized UInt32 written using WriteVariableUInt32() and returns true for success
+        /// Reads a variable sized <see cref="uint"/> written by <see cref="WriteVariableUInt32"/>
+        /// and returns whether the read succeeded.
 		/// </summary>
 		[CLSCompliant(false)]
 		public bool ReadVariableUInt32(out uint result)
@@ -439,7 +436,7 @@ namespace Lidgren.Network
 			int num2 = 0;
 			while (m_bitLength - m_readPosition >= 8)
 			{
-                if (ReadByte(out byte num3) == false)
+                if (TryReadByte(out byte num3) == false)
                 {
                     result = 0;
                     return false;
@@ -456,28 +453,28 @@ namespace Lidgren.Network
 			return false;
 		}
 
-		/// <summary>
-		/// Reads a variable sized Int32 written using WriteVariableInt32()
-		/// </summary>
-		public int ReadVariableInt32()
+        /// <summary>
+        /// Reads a variable sized <see cref="int"/> written by <see cref="WriteVariableInt32"/>.
+        /// </summary>
+        public int ReadVariableInt32()
 		{
 			uint n = ReadVariableUInt32();
 			return (int)(n >> 1) ^ -(int)(n & 1); // decode zigzag
 		}
 
-		/// <summary>
-		/// Reads a variable sized Int64 written using WriteVariableInt64()
-		/// </summary>
-		public long ReadVariableInt64()
+        /// <summary>
+        /// Reads a variable sized <see cref="long"/> written by <see cref="WriteVariableInt64"/>.
+        /// </summary>
+        public long ReadVariableInt64()
 		{
             ulong n = ReadVariableUInt64();
 			return (long)(n >> 1) ^ -(long)(n & 1); // decode zigzag
 		}
 
-		/// <summary>
-		/// Reads a variable sized UInt32 written using WriteVariableInt64()
-		/// </summary>
-		[CLSCompliant(false)]
+        /// <summary>
+        /// Reads a variable sized <see cref="ulong"/> written by <see cref="WriteVariableInt64"/>.
+        /// </summary>
+        [CLSCompliant(false)]
 		public ulong ReadVariableUInt64()
 		{
             ulong num1 = 0;
@@ -498,38 +495,38 @@ namespace Lidgren.Network
 			return num1;
 		}
 
-		/// <summary>
-		/// Reads a 32 bit floating point value written using WriteSignedSingle()
-		/// </summary>
-		/// <param name="numberOfBits">The number of bits used when writing the value</param>
-		/// <returns>A floating point value larger or equal to -1 and smaller or equal to 1</returns>
-		public float ReadSignedSingle(int numberOfBits)
+        /// <summary>
+        /// Reads a 32 bit <see cref="float"/> written by <see cref="WriteSignedSingle"/>.
+        /// </summary>
+        /// <param name="numberOfBits">The number of bits used when writing the value</param>
+        /// <returns>A floating point value larger or equal to -1 and smaller or equal to 1</returns>
+        public float ReadSignedSingle(int numberOfBits)
 		{
 			uint encodedVal = ReadUInt32(numberOfBits);
 			int maxVal = (1 << numberOfBits) - 1;
-			return ((float)(encodedVal + 1) / (float)(maxVal + 1) - 0.5f) * 2.0f;
+			return ((encodedVal + 1) / (float)(maxVal + 1) - 0.5f) * 2.0f;
 		}
 
-		/// <summary>
-		/// Reads a 32 bit floating point value written using WriteUnitSingle()
-		/// </summary>
-		/// <param name="numberOfBits">The number of bits used when writing the value</param>
-		/// <returns>A floating point value larger or equal to 0 and smaller or equal to 1</returns>
-		public float ReadUnitSingle(int numberOfBits)
+        /// <summary>
+        /// Reads a 32 bit <see cref="float"/> written by <see cref="WriteUnitSingle"/>.
+        /// </summary>
+        /// <param name="numberOfBits">The number of bits used when writing the value</param>
+        /// <returns>A floating point value larger or equal to 0 and smaller or equal to 1</returns>
+        public float ReadUnitSingle(int numberOfBits)
 		{
 			uint encodedVal = ReadUInt32(numberOfBits);
 			int maxVal = (1 << numberOfBits) - 1;
 			return (float)(encodedVal + 1) / (float)(maxVal + 1);
 		}
 
-		/// <summary>
-		/// Reads a 32 bit floating point value written using WriteRangedSingle()
-		/// </summary>
-		/// <param name="min">The minimum value used when writing the value</param>
-		/// <param name="max">The maximum value used when writing the value</param>
-		/// <param name="numberOfBits">The number of bits used when writing the value</param>
-		/// <returns>A floating point value larger or equal to MIN and smaller or equal to MAX</returns>
-		public float ReadRangedSingle(float min, float max, int numberOfBits)
+        /// <summary>
+        /// Reads a 32 bit <see cref="float"/> written by <see cref="WriteRangedSingle"/>.
+        /// </summary>
+        /// <param name="min">The minimum value used when writing the value</param>
+        /// <param name="max">The maximum value used when writing the value</param>
+        /// <param name="numberOfBits">The number of bits used when writing the value</param>
+        /// <returns>A floating point value larger or equal to MIN and smaller or equal to MAX</returns>
+        public float ReadRangedSingle(float min, float max, int numberOfBits)
 		{
 			float range = max - min;
 			int maxVal = (1 << numberOfBits) - 1;
@@ -538,13 +535,13 @@ namespace Lidgren.Network
 			return min + (unit * range);
 		}
 
-		/// <summary>
-		/// Reads a 32 bit integer value written using WriteRangedInteger()
-		/// </summary>
-		/// <param name="min">The minimum value used when writing the value</param>
-		/// <param name="max">The maximum value used when writing the value</param>
-		/// <returns>A signed integer value larger or equal to MIN and smaller or equal to MAX</returns>
-		public int ReadRangedInteger(int min, int max)
+        /// <summary>
+        /// Reads a 32 bit <see cref="int"/> written by <see cref="WriteRangedInteger"/>.
+        /// </summary>
+        /// <param name="min">The minimum value used when writing the value</param>
+        /// <param name="max">The maximum value used when writing the value</param>
+        /// <returns>A signed integer value larger or equal to MIN and smaller or equal to MAX</returns>
+        public int ReadRangedInteger(int min, int max)
 		{
 			uint range = (uint)(max - min);
 			int numBits = NetUtility.BitsToHoldUInt(range);
@@ -553,10 +550,10 @@ namespace Lidgren.Network
 			return (int)(min + rvalue);
 		}
 
-		/// <summary>
-		/// Reads a string written using Write(string)
-		/// </summary>
-		public string ReadString()
+        /// <summary>
+        /// Reads a <see cref="string"/> written by <see cref="Write(string)"/>.
+        /// </summary>
+        public string ReadString()
 		{
 			int byteLen = (int)ReadVariableUInt32();
 			if (byteLen <= 0)
@@ -586,10 +583,11 @@ namespace Lidgren.Network
 			return System.Text.Encoding.UTF8.GetString(bytes, 0, bytes.Length);
 		}
 
-		/// <summary>
-		/// Reads a string written using Write(string) and returns true for success
-		/// </summary>
-		public bool ReadString(out string result)
+        /// <summary>
+        /// Reads a <see cref="string"/> written by <see cref="Write(string)"/> 
+        /// and returns whether the read succeeded.
+        /// </summary>
+        public bool ReadString(out string result)
 		{
             if (ReadVariableUInt32(out uint byteLen) == false)
             {
@@ -627,12 +625,13 @@ namespace Lidgren.Network
 			return true;
 		}
 
-		/// <summary>
-		/// Reads a value, in local time comparable to NetTime.Now, written using WriteTime() for the connection supplied
-		/// </summary>
-		public double ReadTime(NetConnection connection, bool highPrecision)
+        /// <summary>
+        /// Reads a value, in local time comparable to <see cref="NetTime.Now"/>,
+        /// written by <see cref="WriteTime(bool)"/> for the given <see cref="NetConnection"/>.
+        /// </summary>
+        public double ReadTime(NetConnection connection, bool highPrecision)
 		{
-			double remoteTime = (highPrecision ? ReadDouble() : (double)ReadSingle());
+			double remoteTime = highPrecision ? ReadDouble() : ReadSingle();
 
 			if (connection == null)
 				throw new NetException("Cannot call ReadTime() on message without a connected sender (ie. unconnected messages)");
@@ -642,15 +641,18 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads a stored endpoint description
+		/// Reads a stored <see cref="IPEndPoint"/> description.
 		/// </summary>
 		public IPEndPoint ReadIPEndPoint()
 		{
             IPAddress address = ReadIPAddress();
-			int port = (int)ReadUInt16();
+			int port = ReadUInt16();
 			return new IPEndPoint(address, port);
 		}
 
+        /// <summary>
+        /// Reads a stored <see cref="IPAddress"/>.
+        /// </summary>
         public IPAddress ReadIPAddress()
         {
             byte len = ReadByte();
@@ -659,7 +661,7 @@ namespace Lidgren.Network
         }
 
 		/// <summary>
-		/// Pads data with enough bits to reach a full byte. Decreases cpu usage for subsequent byte writes.
+		/// Pads data with enough bits to reach a full <see cref="byte"/>. Decreases CPU usage for subsequent byte writes.
 		/// </summary>
 		public void SkipPadBits()
 		{
@@ -667,7 +669,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Pads data with enough bits to reach a full byte. Decreases cpu usage for subsequent byte writes.
+		/// Pads data with enough bits to reach a full <see cref="byte"/>. Decreases CPU usage for subsequent byte writes.
 		/// </summary>
 		public void ReadPadBits()
 		{

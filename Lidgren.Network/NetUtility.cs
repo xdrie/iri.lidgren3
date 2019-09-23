@@ -56,13 +56,9 @@ namespace Lidgren.Network
             ResolveAsync(ipOrHost, delegate (NetAddress adr)
             {
                 if (adr == null)
-                {
                     callback(null);
-                }
                 else
-                {
                     callback(new NetEndPoint(adr, port));
-                }
             });
         }
 

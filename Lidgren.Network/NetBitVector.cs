@@ -32,12 +32,12 @@ namespace Lidgren.Network
 		private int m_numBitsSet;
 
         /// <summary>
-        /// Gets the number of bits/booleans stored in this vector
+        /// Gets the number of bits/booleans stored in this vector.
         /// </summary>
         public int Capacity => m_capacity;
 
         /// <summary>
-        /// NetBitVector constructor
+        /// NetBitVector constructor.
         /// </summary>
         public NetBitVector(int bitsCapacity)
 		{
@@ -46,7 +46,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Returns true if all bits/booleans are set to zero/false
+		/// Returns true if all bits/booleans are set to zero/false.
 		/// </summary>
 		public bool IsEmpty()
 		{
@@ -54,7 +54,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Returns the number of bits/booleans set to one/true
+		/// Returns the number of bits/booleans set to one/true.
 		/// </summary>
 		/// <returns></returns>
 		public int Count()
@@ -63,7 +63,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Shift all bits one step down, cycling the first bit to the top
+		/// Shift all bits one step down, cycling the first bit to the top.
 		/// </summary>
 		public void RotateDown()
 		{
@@ -84,7 +84,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Gets the first (lowest) index set to true
+		/// Gets the first (lowest) index set to true.
 		/// </summary>
 		public int GetFirstSetIndex()
 		{
@@ -105,7 +105,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Gets the bit/bool at the specified index
+		/// Gets the bit/bool at the specified index.
 		/// </summary>
 		public bool Get(int bitIndex)
 		{
@@ -115,7 +115,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Sets or clears the bit/bool at the specified index
+		/// Sets or clears the bit/bool at the specified index.
 		/// </summary>
 		public void Set(int bitIndex, bool value)
 		{
@@ -137,7 +137,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Gets the bit/bool at the specified index
+		/// Gets the bit/bool at the specified index.
 		/// </summary>
 		[System.Runtime.CompilerServices.IndexerName("Bit")]
 		public bool this[int index]
@@ -147,7 +147,7 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Sets all bits/booleans to zero/false
+        /// Sets all bits/booleans to zero/false.
         /// </summary>
         public void Clear()
 		{
@@ -157,7 +157,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Returns a string that represents this object
+		/// Returns a string that represents this object.
 		/// </summary>
 		public override string ToString()
 		{

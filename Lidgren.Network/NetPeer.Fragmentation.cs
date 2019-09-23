@@ -4,12 +4,18 @@ using System.Collections.Generic;
 
 namespace Lidgren.Network
 {
-	internal class ReceivedFragmentGroup
+	internal readonly struct ReceivedFragmentGroup
 	{
 		//public float LastReceived;
-		public byte[] Data;
-		public NetBitVector ReceivedChunks;
-	}
+		public readonly byte[] Data;
+		public readonly NetBitVector ReceivedChunks;
+
+        public ReceivedFragmentGroup(byte[] data, NetBitVector receivedChunks)
+        {
+            Data = data;
+            ReceivedChunks = receivedChunks;
+        }
+    }
 
 	public partial class NetPeer
 	{
@@ -18,7 +24,8 @@ namespace Lidgren.Network
 		private Dictionary<NetConnection, Dictionary<int, ReceivedFragmentGroup>> m_receivedFragmentGroups;
 
 		// on user thread
-		private NetSendResult SendFragmentedMessage(NetOutgoingMessage msg, List<NetConnection> recipients, NetDeliveryMethod method, int sequenceChannel)
+		private NetSendResult SendFragmentedMessage(
+            NetOutgoingMessage msg, List<NetConnection> recipients, NetDeliveryMethod method, int sequenceChannel)
 		{
 			// Note: this group id is PER SENDING/NetPeer; ie. same id is sent to all recipients;
 			// this should be ok however; as long as recipients differentiate between same id but different sender
@@ -81,19 +88,15 @@ namespace Lidgren.Network
 		{
 			VerifyNetworkThread();
 
-            //
             // read fragmentation header and combine fragments
-            //
             int ptr = NetFragmentationHelper.ReadHeader(
                 im.m_data, 0,
                 out int group,
                 out int totalBits,
                 out int chunkByteSize,
-                out int chunkNumber
-            );
+                out int chunkNumber);
 
             NetException.Assert(im.LengthBytes > ptr);
-
 			NetException.Assert(group > 0);
 			NetException.Assert(totalBits > 0);
 			NetException.Assert(chunkByteSize > 0);
@@ -111,18 +114,16 @@ namespace Lidgren.Network
 				return;
 			}
 
-            if (!m_receivedFragmentGroups.TryGetValue(im.SenderConnection, out Dictionary<int, ReceivedFragmentGroup> groups))
+            if (!m_receivedFragmentGroups.TryGetValue(im.SenderConnection, out var groups))
             {
                 groups = new Dictionary<int, ReceivedFragmentGroup>();
-                m_receivedFragmentGroups[im.SenderConnection] = groups;
+                m_receivedFragmentGroups.Add(im.SenderConnection, groups);
             }
 
             if (!groups.TryGetValue(group, out ReceivedFragmentGroup info))
             {
-                info = new ReceivedFragmentGroup();
-                info.Data = new byte[totalBytes];
-                info.ReceivedChunks = new NetBitVector(totalNumChunks);
-                groups[group] = info;
+                info = new ReceivedFragmentGroup(new byte[totalBytes], new NetBitVector(totalNumChunks));
+                groups.Add(group, info);
             }
 
             info.ReceivedChunks[chunkNumber] = true;
@@ -133,7 +134,8 @@ namespace Lidgren.Network
 			Buffer.BlockCopy(im.m_data, ptr, info.Data, offset, im.LengthBytes - ptr);
 
 			int cnt = info.ReceivedChunks.Count();
-			//LogVerbose("Found fragment #" + chunkNumber + " in group " + group + " offset " + offset + " of total bits " + totalBits + " (total chunks done " + cnt + ")");
+            //LogVerbose("Found fragment #" + chunkNumber + " in group " + group + " offset " + 
+            //    offset + " of total bits " + totalBits + " (total chunks done " + cnt + ")");
 
 			LogVerbose("Received fragment " + chunkNumber + " of " + totalNumChunks + " (" + cnt + " chunks received)");
 
@@ -154,7 +156,6 @@ namespace Lidgren.Network
 				// data has been copied; recycle this incoming message
 				Recycle(im);
 			}
-
 			return;
 		}
 	}

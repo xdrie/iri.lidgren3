@@ -23,7 +23,7 @@ using System.Diagnostics;
 namespace Lidgren.Network
 {
 	/// <summary>
-	/// Outgoing message used to send data to remote peer(s)
+	/// Outgoing message used to send data to remote peers.
 	/// </summary>
 	[DebuggerDisplay("LengthBits={LengthBits}")]
 	public sealed class NetOutgoingMessage : NetBuffer
@@ -84,7 +84,8 @@ namespace Lidgren.Network
 				//
 				// write fragmentation header
 				//
-				ptr = NetFragmentationHelper.WriteHeader(intoBuffer, ptr, m_fragmentGroup, m_fragmentGroupTotalBits, m_fragmentChunkByteSize, m_fragmentChunkNumber);
+				ptr = NetFragmentationHelper.WriteHeader(
+                    intoBuffer, ptr, m_fragmentGroup, m_fragmentGroupTotalBits, m_fragmentChunkByteSize, m_fragmentChunkNumber);
 				int hdrLen = ptr - wasPtr - 2;
 
 				// update length
@@ -108,13 +109,15 @@ namespace Lidgren.Network
 		{
 			int retval = NetConstants.UnfragmentedMessageHeaderSize; // regular headers
 			if (m_fragmentGroup != 0)
-				retval += NetFragmentationHelper.GetFragmentationHeaderSize(m_fragmentGroup, m_fragmentGroupTotalBits / 8, m_fragmentChunkByteSize, m_fragmentChunkNumber);
+				retval += NetFragmentationHelper.GetFragmentationHeaderSize(
+                    m_fragmentGroup, m_fragmentGroupTotalBits / 8, m_fragmentChunkByteSize, m_fragmentChunkNumber);
 			retval += LengthBytes;
 			return retval;
 		}
 
 		/// <summary>
-		/// Encrypt this message using the provided algorithm; no more writing can be done before sending it or the message will be corrupt!
+		/// Encrypt this message using the provided algorithm.
+        /// No more writing can be done before sending it or the message will be corrupt.
 		/// </summary>
 		public bool Encrypt(NetEncryption encryption)
 		{
@@ -122,7 +125,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Returns a string that represents this object
+		/// Returns a <see cref="string"/> that represents this object.
 		/// </summary>
 		public override string ToString()
 		{

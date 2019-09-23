@@ -10,7 +10,7 @@ using NetEndPoint = System.Net.IPEndPoint;
 namespace Lidgren.Network
 {
 	/// <summary>
-	/// Represents a local peer capable of holding zero, one or more connections to remote peers
+	/// Represents a local peer capable of holding zero, one or more connections to remote peers.
 	/// </summary>
 	public partial class NetPeer
 	{
@@ -25,7 +25,7 @@ namespace Lidgren.Network
 		private string m_shutdownReason;
 
         /// <summary>
-        /// Gets the NetPeerStatus of the NetPeer
+        /// Gets the <see cref="NetPeerStatus"/> of the <see cref="NetPeer"/>.
         /// </summary>
         public NetPeerStatus Status => m_status;
 
@@ -52,27 +52,31 @@ namespace Lidgren.Network
 		}
 
         /// <summary>
-        /// Gets a unique identifier for this NetPeer based on Mac address and ip/port. Note! Not available until Start() has been called!
+        /// Gets a unique identifier for this <see cref="NetPeer"/> based on Mac address and IP/port. 
+        /// <para>Note: Not available until <see cref="Start"/> has been called.</para>
         /// </summary>
         public long UniqueIdentifier => m_uniqueIdentifier;
 
         /// <summary>
-        /// Gets the port number this NetPeer is listening and sending on, if Start() has been called
+        /// Gets the port number this <see cref="NetPeer"/> is listening and sending on,
+        /// if <see cref="Start"/> has been called.
         /// </summary>
         public int Port => m_listenPort;
 
         /// <summary>
-        /// Returns an UPnP object if enabled in the NetPeerConfiguration
+        /// Returns an <see cref="NetUPnP"/> object if enabled in the <see cref="NetPeerConfiguration"/>.
         /// </summary>
         public NetUPnP UPnP => m_upnp;
 
         /// <summary>
-        /// Gets or sets the application defined object containing data about the peer
+        /// Gets or sets the application defined object containing data about the peer.
         /// </summary>
         public object Tag { get; set; }
 
         /// <summary>
-        /// Gets a copy of the list of connections.
+        /// Gets a list of the current connections.
+        /// The <see cref="List{T}"/> is rented from the 
+        /// <see cref="NetConnectionListPool"/> and recycling it is advised.
         /// </summary>
         public List<NetConnection> GetConnections()
         {
@@ -86,22 +90,22 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Gets the number of active connections
+        /// Gets the number of active connections.
         /// </summary>
         public int ConnectionCount => m_connections.Count;
 
         /// <summary>
-        /// Statistics on this NetPeer since it was initialized
+        /// Statistics on this <see cref="NetPeer"/> since it was initialized.
         /// </summary>
         public NetPeerStatistics Statistics => m_statistics;
 
         /// <summary>
-        /// Gets the configuration used to instanciate this NetPeer
+        /// Gets the configuration used to instantiate this <see cref="NetPeer"/>.
         /// </summary>
         public NetPeerConfiguration Configuration => m_configuration;
 
         /// <summary>
-        /// NetPeer constructor
+        /// NetPeer constructor.
         /// </summary>
         public NetPeer(NetPeerConfiguration config)
 		{
@@ -113,13 +117,13 @@ namespace Lidgren.Network
 			m_connectionLookup = new Dictionary<NetEndPoint, NetConnection>();
 			m_handshakes = new Dictionary<NetEndPoint, NetConnection>();
             var address = config.DualStack ? IPAddress.IPv6Any : IPAddress.Any;
-            m_senderRemote = (EndPoint)new NetEndPoint(address, 0);
+            m_senderRemote = new NetEndPoint(address, 0);
 			m_status = NetPeerStatus.NotRunning;
 			m_receivedFragmentGroups = new Dictionary<NetConnection, Dictionary<int, ReceivedFragmentGroup>>();	
 		}
 
 		/// <summary>
-		/// Binds to socket and spawns the networking thread
+		/// Binds to socket and spawns the networking thread.
 		/// </summary>
 		public void Start()
 		{
@@ -156,7 +160,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Get the connection, if any, for a certain remote endpoint
+		/// Gets the connection for a certain remote endpoint. Can return <see langword="null"/>.
 		/// </summary>
 		public NetConnection GetConnection(NetEndPoint ep)
 		{
@@ -169,7 +173,8 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Read a pending message from any connection, blocking up to maxMillis if needed
+		/// Read a pending message from any connection, 
+        /// blocking up to <paramref name="maxMillis"/> if needed.
 		/// </summary>
 		public NetIncomingMessage WaitMessage(int maxMillis)
 		{
@@ -182,7 +187,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Read a pending message from any connection, if any
+		/// Read a pending message from any connection, if any.
 		/// </summary>
 		public NetIncomingMessage ReadMessage()
 		{
@@ -198,7 +203,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Read a pending message from any connection, if any
+		/// Read a pending message from any connection, if any.
 		/// </summary>
 		public int ReadMessages(IList<NetIncomingMessage> addTo)
 		{
@@ -230,7 +235,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Create a connection to a remote endpoint
+		/// Create a connection to a remote endpoint.
 		/// </summary>
 		public NetConnection Connect(string host, int port)
 		{
@@ -238,7 +243,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Create a connection to a remote endpoint
+		/// Create a connection to a remote endpoint.
 		/// </summary>
 		public NetConnection Connect(string host, int port, NetOutgoingMessage hailMessage)
 		{
@@ -254,7 +259,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Create a connection to a remote endpoint
+		/// Create a connection to a remote endpoint.
 		/// </summary>
 		public virtual NetConnection Connect(NetEndPoint remoteEndPoint, NetOutgoingMessage hailMessage)
 		{
@@ -307,7 +312,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Send raw bytes; only used for debugging
+		/// Send raw bytes; only used for debugging.
 		/// </summary>
 		public void RawSend(byte[] arr, int offset, int length, NetEndPoint destination)
 	{
@@ -330,16 +335,16 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Disconnects all active connections and closes the socket
+		/// Disconnects all active connections and closes the socket.
 		/// </summary>
-		public void Shutdown(string bye)
+		public void Shutdown(string reason)
 		{
 			// called on user thread
 			if (m_socket == null)
 				return; // already shut down
 
 			LogDebug("Shutdown requested");
-			m_shutdownReason = bye;
+			m_shutdownReason = reason;
 			m_status = NetPeerStatus.ShutdownRequested;
 		}
 	}

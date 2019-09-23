@@ -14,7 +14,9 @@ namespace Lidgren.Network
 		internal int m_handshakeAttempts;
 
         /// <summary>
-        /// The message that the remote part specified via Connect() or Approve() - can be null.
+        /// The message that the remote part specified via
+        /// <see cref="NetPeer"/>.Connect or <see cref="NetPeer"/>.Approve,
+        /// can be <see langword="null"/>.
         /// </summary>
         public NetIncomingMessage RemoteHailMessage => m_remoteHailMessage;
 
@@ -72,13 +74,16 @@ namespace Lidgren.Network
 					case NetConnectionStatus.InitiatedConnect:
 						SendConnect(now);
 						break;
+
 					case NetConnectionStatus.RespondedConnect:
 						SendConnectResponse(now, true);
 						break;
+
 					case NetConnectionStatus.RespondedAwaitingApproval:
 						// awaiting approval
 						m_lastHandshakeSendTime = now; // postpone handshake resend
 						break;
+
 					case NetConnectionStatus.None:
 					case NetConnectionStatus.ReceivedInitiation:
 					default:
@@ -233,7 +238,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Approves this connection; sending a connection response to the remote host
+		/// Approves this connection; sending a connection response to the remote host.
 		/// </summary>
 		/// <param name="localHail">The local hail message that will be set as RemoteHailMessage on the remote host</param>
 		public void Approve(NetOutgoingMessage localHail)
@@ -250,7 +255,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Denies this connection; disconnecting it
+		/// Denies this connection; disconnecting it.
 		/// </summary>
 		public void Deny()
 		{
@@ -258,9 +263,11 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Denies this connection; disconnecting it
+		/// Denies this connection; disconnecting it.
 		/// </summary>
-		/// <param name="reason">The stated reason for the disconnect, readable as a string in the StatusChanged message on the remote host</param>
+		/// <param name="reason">
+        /// The stated reason for the disconnect, readable as a string in the StatusChanged message on the remote host.
+        /// </param>
 		public void Deny(string reason)
 		{
 			// send disconnect; remove from handshakes
@@ -325,6 +332,7 @@ namespace Lidgren.Network
                     }
                     m_peer.LogDebug("Unhandled Connect: " + tp + ", status is " + m_status + " length: " + payloadLength);
                     break;
+
                 case NetMessageType.ConnectResponse:
                     HandleConnectResponse(now, tp, ptr, payloadLength);
                     break;
@@ -335,20 +343,23 @@ namespace Lidgren.Network
                         case NetConnectionStatus.Connected:
                             // ok...
                             break;
+
                         case NetConnectionStatus.Disconnected:
                         case NetConnectionStatus.Disconnecting:
                         case NetConnectionStatus.None:
                             // too bad, almost made it
                             break;
+
                         case NetConnectionStatus.ReceivedInitiation:
                             // uh, a little premature... ignore
                             break;
+
                         case NetConnectionStatus.InitiatedConnect:
                             // weird, should have been RespondedConnect...
                             break;
+
                         case NetConnectionStatus.RespondedConnect:
                             // awesome
-
                             NetIncomingMessage msg = m_peer.SetupReadHelperMessage(ptr, payloadLength);
                             InitializeRemoteTimeOffset(msg.ReadSingle());
 
@@ -470,20 +481,20 @@ namespace Lidgren.Network
 		}
 		
 		/// <summary>
-		/// Disconnect from the remote peer
+		/// Disconnect from the remote peer.
 		/// </summary>
-		/// <param name="byeMessage">the message to send with the disconnect message</param>
-		public void Disconnect(string byeMessage)
+		/// <param name="reason">The string to send with the disconnect message.</param>
+		public void Disconnect(string reason)
 		{
 			// user or library thread
 			if (m_status == NetConnectionStatus.None || m_status == NetConnectionStatus.Disconnected)
 				return;
 
 			m_peer.LogVerbose("Disconnect requested for " + this);
-			m_disconnectMessage = byeMessage;
+			m_disconnectMessage = reason;
 
 			if (m_status != NetConnectionStatus.Disconnected && m_status != NetConnectionStatus.None)
-				SetStatus(NetConnectionStatus.Disconnecting, byeMessage);
+				SetStatus(NetConnectionStatus.Disconnecting, reason);
 
 			m_handshakeAttempts = 0;
 			m_disconnectRequested = true;

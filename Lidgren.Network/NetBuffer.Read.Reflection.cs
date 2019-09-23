@@ -24,7 +24,7 @@ namespace Lidgren.Network
 	public partial class NetBuffer
 	{
 		/// <summary>
-		/// Reads all public and private declared instance fields of the object in alphabetical order using reflection
+		/// Reads all public and private declared instance fields of the object in alphabetical order using reflection.
 		/// </summary>
 		public void ReadAllFields(object target)
 		{
@@ -32,7 +32,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads all fields with the specified binding of the object in alphabetical order using reflection
+		/// Reads all fields with the specified binding of the object in alphabetical order using reflection.
 		/// </summary>
 		public void ReadAllFields(object target, BindingFlags flags)
 		{
@@ -61,7 +61,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads all public and private declared instance fields of the object in alphabetical order using reflection
+		/// Reads all public and private declared instance fields of the object in alphabetical order using reflection.
 		/// </summary>
 		public void ReadAllProperties(object target)
 		{
@@ -69,7 +69,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads all fields with the specified binding of the object in alphabetical order using reflection
+		/// Reads all fields with the specified binding of the object in alphabetical order using reflection.
 		/// </summary>
 		public void ReadAllProperties(object target, BindingFlags flags)
 		{

@@ -27,19 +27,19 @@ namespace Lidgren.Network
 		{
 			m_remoteTimeOffset = (remoteSendTime + (m_averageRoundtripTime / 2.0)) - NetTime.Now;
 		}
-		
-		/// <summary>
-		/// Gets local time value comparable to NetTime.Now from a remote value
-		/// </summary>
-		public double GetLocalTime(double remoteTimestamp)
+
+        /// <summary>
+        /// Gets local time value comparable to <see cref="NetTime.Now"/> from a remote value.
+        /// </summary>
+        public double GetLocalTime(double remoteTimestamp)
 		{
 			return remoteTimestamp - m_remoteTimeOffset;
 		}
 
-		/// <summary>
-		/// Gets the remote time value for a local time value produced by NetTime.Now
-		/// </summary>
-		public double GetRemoteTime(double localTimestamp)
+        /// <summary>
+        /// Gets the remote time value for a local time value produced by <see cref="NetTime.Now"/>.
+        /// </summary>
+        public double GetRemoteTime(double localTimestamp)
 		{
 			return localTimestamp + m_remoteTimeOffset;
 		}

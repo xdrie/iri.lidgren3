@@ -18,23 +18,22 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 using System;
-using System.Diagnostics;
-using System.Net;
 
 namespace Lidgren.Network
 {
 	public partial class NetBuffer
 	{
-		/// <summary>
-		/// Gets the internal data buffer
-		/// </summary>
-		public byte[] PeekDataBuffer()
+        /// <summary>
+        /// Gets the underlying data buffer. This array is recycled so do not keep 
+        /// references to it after recycling the <see cref="NetBuffer"/>.
+        /// </summary>
+        public byte[] PeekDataBuffer()
         {
             return m_data;
         }
         
 		/// <summary>
-		/// Reads a 1-bit Boolean without advancing the read pointer
+		/// Reads a 1-bit <see cref="bool"/> without advancing the read pointer.
 		/// </summary>
 		public bool PeekBoolean()
 		{
@@ -43,7 +42,7 @@ namespace Lidgren.Network
 		}
         
 		/// <summary>
-		/// Reads a Byte without advancing the read pointer
+		/// Reads a <see cref="byte"/> without advancing the read pointer.
 		/// </summary>
 		public byte PeekByte()
 		{
@@ -52,7 +51,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads an SByte without advancing the read pointer
+		/// Reads an <see cref="sbyte"/> without advancing the read pointer.
 		/// </summary>
 		[CLSCompliant(false)]
 		public sbyte PeekSByte()
@@ -62,7 +61,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads the specified number of bits into a Byte without advancing the read pointer
+		/// Reads the specified number of bits into a <see cref="byte"/> without advancing the read pointer.
 		/// </summary>
 		public byte PeekByte(int numberOfBits)
 		{
@@ -70,7 +69,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads the specified number of bytes without advancing the read pointer
+		/// Reads the specified number of bytes without advancing the read pointer.
 		/// </summary>
 		public byte[] PeekBytes(int numberOfBytes)
 		{
@@ -81,6 +80,9 @@ namespace Lidgren.Network
 			return retval;
 		}
 
+        /// <summary>
+        /// Reads the specified number of bytes without advancing the read pointer.
+        /// </summary>
         public void PeekBytes(byte[] buffer, int offset, int count)
         {
             NetException.Assert(offset + count <= buffer.Length);
@@ -88,7 +90,7 @@ namespace Lidgren.Network
         }
 
 		/// <summary>
-		/// Reads the specified number of bytes without advancing the read pointer
+		/// Reads the specified number of bytes without advancing the read pointer.
 		/// </summary>
 		public void PeekBytes(Span<byte> span)
 		{
@@ -106,7 +108,7 @@ namespace Lidgren.Network
         }
         
         /// <summary>
-        /// Reads an Int16 without advancing the read pointer
+        /// Reads an <see cref="short"/> without advancing the read pointer.
         /// </summary>
         public short PeekInt16()
 		{
@@ -115,17 +117,17 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads a UInt16 without advancing the read pointer
+		/// Reads a <see cref="ushort"/> without advancing the read pointer.
 		/// </summary>
 		[CLSCompliant(false)]
 		public ushort PeekUInt16()
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 16, c_readOverflowError);
-			return (ushort)NetBitWriter.ReadUInt16(m_data, 16, m_readPosition);
+			return NetBitWriter.ReadUInt16(m_data, 16, m_readPosition);
 		}
         
 		/// <summary>
-		/// Reads an Int32 without advancing the read pointer
+		/// Reads an <see cref="int"/> without advancing the read pointer.
 		/// </summary>
 		public int PeekInt32()
 		{
@@ -134,7 +136,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads the specified number of bits into an Int32 without advancing the read pointer
+		/// Reads the specified number of bits into an <see cref="int"/> without advancing the read pointer.
 		/// </summary>
 		public int PeekInt32(int numberOfBits)
 		{
@@ -160,7 +162,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads a UInt32 without advancing the read pointer
+		/// Reads a <see cref="uint"/> without advancing the read pointer.
 		/// </summary>
 		[CLSCompliant(false)]
 		public uint PeekUInt32()
@@ -170,7 +172,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads the specified number of bits into a UInt32 without advancing the read pointer
+		/// Reads the specified number of bits into a <see cref="uint"/> without advancing the read pointer.
 		/// </summary>
 		[CLSCompliant(false)]
 		public uint PeekUInt32(int numberOfBits)
@@ -182,7 +184,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads a UInt64 without advancing the read pointer
+		/// Reads a <see cref="ulong"/> without advancing the read pointer.
 		/// </summary>
 		[CLSCompliant(false)]
 		public ulong PeekUInt64()
@@ -196,7 +198,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads an Int64 without advancing the read pointer
+		/// Reads an <see cref="long"/> without advancing the read pointer.
 		/// </summary>
 		public long PeekInt64()
 		{
@@ -208,7 +210,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads the specified number of bits into an UInt64 without advancing the read pointer
+		/// Reads the specified number of bits into an <see cref="ulong"/> without advancing the read pointer.
 		/// </summary>
 		[CLSCompliant(false)]
 		public ulong PeekUInt64(int numberOfBits)
@@ -218,7 +220,7 @@ namespace Lidgren.Network
             
 			if (numberOfBits <= 32)
 			{
-				return (ulong)NetBitWriter.ReadUInt32(m_data, numberOfBits, m_readPosition);
+				return NetBitWriter.ReadUInt32(m_data, numberOfBits, m_readPosition);
 			}
 			else
 			{
@@ -229,16 +231,17 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads the specified number of bits into an Int64 without advancing the read pointer
+		/// Reads the specified number of bits into an <see cref="long"/> without advancing the read pointer.
 		/// </summary>
 		public long PeekInt64(int numberOfBits)
 		{
-			NetException.Assert(((numberOfBits > 0) && (numberOfBits < 65)), "ReadInt64(bits) can only read between 1 and 64 bits");
+			NetException.Assert((numberOfBits > 0) && (numberOfBits < 65), "ReadInt64(bits) can only read between 1 and 64 bits");
 			return (long)PeekUInt64(numberOfBits);
 		}
         
 		/// <summary>
-		/// Reads a 32-bit Single without advancing the read pointer
+		/// Reads a 32-bit <see cref="float"/> without advancing the read pointer.
+        /// <para></para>
 		/// </summary>
 		public float PeekFloat()
 		{
@@ -246,41 +249,35 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads a 32-bit Single without advancing the read pointer
+		/// Reads a 32-bit <see cref="float"/> without advancing the read pointer.
 		/// </summary>
 		public float PeekSingle()
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 32, c_readOverflowError);
 
 			if ((m_readPosition & 7) == 0) // read directly
-			{
-				float retval = BitConverter.ToSingle(m_data, m_readPosition >> 3);
-				return retval;
-			}
+				return BitConverter.ToSingle(m_data, m_readPosition >> 3);
 
 			byte[] bytes = PeekBytes(4);
 			return BitConverter.ToSingle(bytes, 0);
 		}
 
 		/// <summary>
-		/// Reads a 64-bit Double without advancing the read pointer
+		/// Reads a 64-bit <see cref="double"/> without advancing the read pointer.
 		/// </summary>
 		public double PeekDouble()
 		{
 			NetException.Assert(m_bitLength - m_readPosition >= 64, c_readOverflowError);
 
 			if ((m_readPosition & 7) == 0) // read directly
-			{
-                // read directly
                 return BitConverter.ToDouble(m_data, m_readPosition >> 3);
-			}
 
 			byte[] bytes = PeekBytes(8);
 			return BitConverter.ToDouble(bytes, 0);
 		}
 
 		/// <summary>
-		/// Reads a string without advancing the read pointer
+		/// Reads a <see cref="string"/> without advancing the read pointer.
 		/// </summary>
 		public string PeekString()
 		{

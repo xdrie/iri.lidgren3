@@ -7,7 +7,7 @@ namespace Lidgren.Network
 	public partial class NetPeer
 	{
 		/// <summary>
-		/// Send NetIntroduction to hostExternal and clientExternal; introducing client to host
+		/// Send NetIntroduction to hostExternal and clientExternal; introducing client to host.
 		/// </summary>
 		public void Introduce(
 			IPEndPoint hostInternal,

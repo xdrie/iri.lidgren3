@@ -25,14 +25,18 @@ namespace Lidgren.Network
 		internal int m_currentMTU;
 
         /// <summary>
-        /// Gets the current MTU in bytes. If PeerConfiguration.AutoExpandMTU is false, this will be PeerConfiguration.MaximumTransmissionUnit.
+        /// Gets the current MTU in bytes. 
+        /// If <see cref="NetPeerConfiguration.AutoExpandMTU"/> is false,
+        /// this will be <see cref="NetPeerConfiguration.MaximumTransmissionUnit"/>.
         /// </summary>
         public int CurrentMTU => m_currentMTU;
 
         internal void InitExpandMTU(double now)
 		{
-			m_lastSentMTUAttemptTime = now + m_peerConfiguration.m_expandMTUFrequency + 1.5f + m_averageRoundtripTime; // wait a tiny bit before starting to expand mtu
-			m_largestSuccessfulMTU = 512;
+            // wait a tiny bit before starting to expand mtu
+            m_lastSentMTUAttemptTime = now + m_peerConfiguration.m_expandMTUFrequency + 1.5f + m_averageRoundtripTime;
+
+            m_largestSuccessfulMTU = 512;
 			m_smallestFailedMTU = -1;
 			m_currentMTU = m_peerConfiguration.MaximumTransmissionUnit;
 		}

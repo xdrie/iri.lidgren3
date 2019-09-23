@@ -23,7 +23,7 @@ using System.Diagnostics;
 namespace Lidgren.Network
 {
 	/// <summary>
-	/// Incoming message either sent from a remote peer or generated within the library
+	/// Incoming message either sent from a remote peer or generated within the library.
 	/// </summary>
 	[DebuggerDisplay("Type={MessageType} LengthBits={LengthBits}")]
 	public sealed class NetIncomingMessage : NetBuffer
@@ -37,32 +37,32 @@ namespace Lidgren.Network
 		internal double m_receiveTime;
 
         /// <summary>
-        /// Gets the type of this incoming message
+        /// Gets the type of this incoming message.
         /// </summary>
         public NetIncomingMessageType MessageType => m_incomingMessageType;
 
         /// <summary>
-        /// Gets the delivery method this message was sent with (if user data)
+        /// Gets the delivery method this message was sent with (if user data).
         /// </summary>
         public NetDeliveryMethod DeliveryMethod => NetUtility.GetDeliveryMethod(m_receivedMessageType);
 
         /// <summary>
-        /// Gets the sequence channel this message was sent with (if user data)
+        /// Gets the sequence channel this message was sent with (if user data).
         /// </summary>
         public int SequenceChannel => (int)m_receivedMessageType - (int)NetUtility.GetDeliveryMethod(m_receivedMessageType);
 
         /// <summary>
-        /// IPEndPoint of sender, if any
+        /// Gets the <see cref="IPEndPoint"/> of the sender, if any.
         /// </summary>
         public IPEndPoint SenderEndPoint => m_senderEndPoint;
 
         /// <summary>
-        /// NetConnection of sender, if any
+        /// Gets the <see cref="NetConnection"/> of the sender, if any.
         /// </summary>
         public NetConnection SenderConnection => m_senderConnection;
 
         /// <summary>
-        /// What local time the message was received from the network
+        /// Gets at what local time the message was received from the network.
         /// </summary>
         public double ReceiveTime => m_receiveTime;
 
@@ -86,26 +86,27 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Decrypt a message
+		/// Try to decrypt the message with the specified encryption algorithm.
 		/// </summary>
-		/// <param name="encryption">The encryption algorithm used to encrypt the message</param>
-		/// <returns>true on success</returns>
+		/// <param name="encryption">The encryption algorithm used to encrypt the message.</param>
+		/// <returns>Whether the decryption succeeded.</returns>
 		public bool Decrypt(NetEncryption encryption)
 		{
 			return encryption.Decrypt(this);
 		}
 
-		/// <summary>
-		/// Reads a value, in local time comparable to NetTime.Now, written using WriteTime()
-		/// Must have a connected sender
-		/// </summary>
-		public double ReadTime(bool highPrecision)
+        /// <summary>
+        /// Reads a value, in local time comparable to <see cref="NetTime.Now"/>,
+        /// written by <see cref="NetBuffer.WriteTime(bool)"/>.
+        /// This requires a sender connection.
+        /// </summary>
+        public double ReadTime(bool highPrecision)
 		{
 			return ReadTime(m_senderConnection, highPrecision);
 		}
 
 		/// <summary>
-		/// Returns a string that represents this object
+		/// Returns a <see cref="string"/> that represents this object.
 		/// </summary>
 		public override string ToString()
 		{

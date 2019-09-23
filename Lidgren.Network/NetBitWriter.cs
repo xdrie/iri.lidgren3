@@ -20,19 +20,17 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 using System;
-using System.Collections.Generic;
-
 using System.Diagnostics;
 
 namespace Lidgren.Network
 {
 	/// <summary>
-	/// Helper class for NetBuffer to write/read bits
+	/// Helper class for <see cref="NetBuffer"/> to write/read bits.
 	/// </summary>
 	public static class NetBitWriter
 	{
 		/// <summary>
-		/// Read 1-8 bits from a buffer into a byte
+		/// Read 1-8 bits from a buffer into a byte.
 		/// </summary>
 		public static byte ReadByte(byte[] fromBuffer, int numberOfBits, int readBitOffset)
 		{
@@ -65,7 +63,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Read bytes from a buffer
+		/// Read bytes from a buffer.
 		/// </summary>
 		public static void ReadBytes(byte[] fromBuffer, int readBitOffset, Span<byte> destination)
 		{
@@ -98,7 +96,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Write 0-8 bits of data to buffer
+		/// Write 0-8 bits of data to buffer.
 		/// </summary>
 		public static void WriteByte(byte source, int numberOfBits, byte[] destination, int destBitOffset)
 		{
@@ -151,7 +149,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Write several whole bytes
+		/// Write several whole bytes.
 		/// </summary>
 		public static void WriteBytes(ReadOnlySpan<byte> source, byte[] destination, int destBitOffset)
 		{
@@ -184,7 +182,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads an unsigned 16 bit integer
+		/// Reads an unsigned 16 bit integer.
 		/// </summary>
 		[CLSCompliant(false)]
 #if UNSAFE
@@ -230,7 +228,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads the specified number of bits into an UInt32
+		/// Reads the specified number of bits into an UInt32.
 		/// </summary>
 		[CLSCompliant(false)]
 #if UNSAFE
@@ -296,7 +294,7 @@ namespace Lidgren.Network
 		}
         
 		/// <summary>
-		/// Writes an unsigned 16 bit integer
+		/// Writes an unsigned 16 bit integer.
 		/// </summary>
 		[CLSCompliant(false)]
 		public static void WriteUInt16(ushort source, int numberOfBits, byte[] destination, int destinationBitOffset)
@@ -313,19 +311,19 @@ namespace Lidgren.Network
 #endif
 			if (numberOfBits <= 8)
 			{
-				NetBitWriter.WriteByte((byte)source, numberOfBits, destination, destinationBitOffset);
+                WriteByte((byte)source, numberOfBits, destination, destinationBitOffset);
 				return;
 			}
 
-			NetBitWriter.WriteByte((byte)source, 8, destination, destinationBitOffset);
+            WriteByte((byte)source, 8, destination, destinationBitOffset);
 
 			numberOfBits -= 8;
 			if (numberOfBits > 0)
-				NetBitWriter.WriteByte((byte)(source >> 8), numberOfBits, destination, destinationBitOffset + 8);
+                WriteByte((byte)(source >> 8), numberOfBits, destination, destinationBitOffset + 8);
 		}
 
 		/// <summary>
-		/// Writes the specified number of bits into a byte array
+		/// Writes the specified number of bits into a byte array.
 		/// </summary>
 		[CLSCompliant(false)]
 		public static int WriteUInt32(uint source, int numberOfBits, byte[] destination, int destinationBitOffset)
@@ -341,37 +339,37 @@ namespace Lidgren.Network
 			int returnValue = destinationBitOffset + numberOfBits;
 			if (numberOfBits <= 8)
 			{
-				NetBitWriter.WriteByte((byte)source, numberOfBits, destination, destinationBitOffset);
+                WriteByte((byte)source, numberOfBits, destination, destinationBitOffset);
 				return returnValue;
 			}
-			NetBitWriter.WriteByte((byte)source, 8, destination, destinationBitOffset);
+            WriteByte((byte)source, 8, destination, destinationBitOffset);
 			destinationBitOffset += 8;
 			numberOfBits -= 8;
 
 			if (numberOfBits <= 8)
 			{
-				NetBitWriter.WriteByte((byte)(source >> 8), numberOfBits, destination, destinationBitOffset);
+                WriteByte((byte)(source >> 8), numberOfBits, destination, destinationBitOffset);
 				return returnValue;
 			}
-			NetBitWriter.WriteByte((byte)(source >> 8), 8, destination, destinationBitOffset);
+            WriteByte((byte)(source >> 8), 8, destination, destinationBitOffset);
 			destinationBitOffset += 8;
 			numberOfBits -= 8;
 
 			if (numberOfBits <= 8)
 			{
-				NetBitWriter.WriteByte((byte)(source >> 16), numberOfBits, destination, destinationBitOffset);
+                WriteByte((byte)(source >> 16), numberOfBits, destination, destinationBitOffset);
 				return returnValue;
 			}
-			NetBitWriter.WriteByte((byte)(source >> 16), 8, destination, destinationBitOffset);
+            WriteByte((byte)(source >> 16), 8, destination, destinationBitOffset);
 			destinationBitOffset += 8;
 			numberOfBits -= 8;
 
-			NetBitWriter.WriteByte((byte)(source >> 24), numberOfBits, destination, destinationBitOffset);
+            WriteByte((byte)(source >> 24), numberOfBits, destination, destinationBitOffset);
 			return returnValue;
 		}
 
 		/// <summary>
-		/// Writes the specified number of bits into a byte array
+		/// Writes the specified number of bits into a byte array.
 		/// </summary>
 		[CLSCompliant(false)]
 		public static int WriteUInt64(ulong source, int numberOfBits, byte[] destination, int destinationBitOffset)
@@ -394,10 +392,10 @@ namespace Lidgren.Network
                 byte s = (byte)(source >> (i * 8));
                 if (numberOfBits <= 8)
                 {
-                    NetBitWriter.WriteByte(s, numberOfBits, destination, destinationBitOffset);
+                    WriteByte(s, numberOfBits, destination, destinationBitOffset);
                     return returnValue;
                 }
-                NetBitWriter.WriteByte(s, 8, destination, destinationBitOffset);
+                WriteByte(s, 8, destination, destinationBitOffset);
                 destinationBitOffset += 8;
                 numberOfBits -= 8;
             }
@@ -405,12 +403,8 @@ namespace Lidgren.Network
 			return returnValue;
 		}
 
-		//
-		// Variable size
-		//
-
 		/// <summary>
-		/// Write Base128 encoded variable sized unsigned integer
+		/// Write Base128 encoded variable sized unsigned integer.
 		/// </summary>
 		/// <returns>number of bytes written</returns>
 		[CLSCompliant(false)]
@@ -429,7 +423,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads a UInt32 written using WriteUnsignedVarInt(); will increment offset!
+		/// Reads a UInt32 written using WriteUnsignedVarInt(); will increment offset.
 		/// </summary>
 		[CLSCompliant(false)]
 		public static uint ReadVariableUInt32(byte[] buffer, ref int offset)

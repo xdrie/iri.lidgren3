@@ -18,12 +18,11 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 using System;
 using System.Diagnostics;
-using System.Runtime.Serialization;
 
 namespace Lidgren.Network
 {
 	/// <summary>
-	/// Exception thrown in the Lidgren Network Library
+	/// Exception thrown in the Lidgren Network Library.
 	/// </summary>
 	public sealed class NetException : Exception
 	{
@@ -49,7 +48,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Throws an exception, in DEBUG only, if first parameter is false
+		/// Throws an exception, in DEBUG only, if first parameter is false.
 		/// </summary>
 		[Conditional("DEBUG")]
 		public static void Assert(bool isOk, string message)
@@ -59,7 +58,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Throws an exception, in DEBUG only, if first parameter is false
+		/// Throws an exception, in DEBUG only, if first parameter is false.
 		/// </summary>
 		[Conditional("DEBUG")]
 		public static void Assert(bool isOk)

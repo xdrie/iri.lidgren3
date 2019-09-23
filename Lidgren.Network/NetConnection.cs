@@ -40,27 +40,27 @@ namespace Lidgren.Network
         public NetPeer Peer => m_peer;
 
         /// <summary>
-        /// Gets the current status of the connection (synced to the last status message read)
+        /// Gets the current status of the connection (synced to the last status message read).
         /// </summary>
         public NetConnectionStatus Status => m_visibleStatus;
 
         /// <summary>
-        /// Gets various statistics for this connection
+        /// Gets various statistics for this connection.
         /// </summary>
         public NetConnectionStatistics Statistics => m_statistics;
 
         /// <summary>
-        /// Gets the remote endpoint for the connection
+        /// Gets the remote endpoint for the connection.
         /// </summary>
         public IPEndPoint RemoteEndPoint => m_remoteEndPoint;
 
         /// <summary>
-        /// Gets the unique identifier of the remote NetPeer for this connection
+        /// Gets the unique identifier of the remote <see cref="NetPeer"/> for this connection.
         /// </summary>
         public long RemoteUniqueIdentifier => m_remoteUniqueIdentifier;
 
         /// <summary>
-        /// Gets the local hail message that was sent as part of the handshake
+        /// Gets the local hail message that was sent as part of the handshake.
         /// </summary>
         public NetOutgoingMessage LocalHailMessage => m_localHailMessage;
 
@@ -90,7 +90,8 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Change the internal endpoint to this new one. Used when, during handshake, a switch in port is detected (due to NAT)
+		/// Change the internal endpoint to this new one.
+        /// Used when, during handshake, a switch in port is detected (due to NAT).
 		/// </summary>
 		internal void MutateEndPoint(IPEndPoint endPoint)
 		{
@@ -165,10 +166,8 @@ namespace Lidgren.Network
 				}
 			}
 
-            //
             // Note: at this point m_sendBufferWritePtr and m_sendBufferNumMessages may be non-null; resends may already be queued up
-            //
-
+            
             byte[] sendBuffer = m_peer.m_sendBuffer;
 			int mtu = m_currentMTU;
 
@@ -299,7 +298,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Send a message to this remote connection
+		/// Send a message to this remote connection.
 		/// </summary>
 		/// <param name="msg">The message to send</param>
 		/// <param name="method">How to deliver the message</param>
@@ -407,6 +406,7 @@ namespace Lidgren.Network
 					m_disconnectReqSendBye = false;
 					//ExecuteDisconnect(msg.ReadString(), false);
 					break;
+
 				case NetMessageType.Acknowledge:
 					for (int i = 0; i < payloadLength; i+=3)
 					{
@@ -418,19 +418,23 @@ namespace Lidgren.Network
 						m_queuedIncomingAcks.Enqueue(new NetTuple<NetMessageType, int>(acktp, seqNr));
 					}
 					break;
+
 				case NetMessageType.Ping:
 					int pingNr = m_peer.m_receiveBuffer[ptr++];
 					SendPong(pingNr);
 					break;
+
 				case NetMessageType.Pong:
 					NetIncomingMessage pmsg = m_peer.SetupReadHelperMessage(ptr, payloadLength);
 					int pongNr = pmsg.ReadByte();
 					float remoteSendTime = pmsg.ReadSingle();
 					ReceivedPong(now, pongNr, remoteSendTime);
 					break;
+
 				case NetMessageType.ExpandMTURequest:
 					SendMTUSuccess(payloadLength);
 					break;
+
 				case NetMessageType.ExpandMTUSuccess:
 					if (m_peer.Configuration.AutoExpandMTU == false)
 					{
@@ -441,10 +445,12 @@ namespace Lidgren.Network
 					int size = emsg.ReadInt32();
 					HandleExpandMTUSuccess(now, size);
 					break;
+
 				case NetMessageType.NatIntroduction:
 					// Unusual situation where server is actually already known, but got a nat introduction - oh well, lets handle it as usual
 					m_peer.HandleNatIntroduction(ptr);
 					break;
+
 				default:
 					m_peer.LogWarning("Connection received unhandled library message: " + tp);
 					break;
@@ -506,8 +512,8 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Zero windowSize indicates that the channel is not yet instantiated (used)
-		/// Negative freeWindowSlots means this amount of messages are currently queued but delayed due to closed window
+		/// Zero <paramref name="windowSize"/> indicates that the channel is not yet been instantiated (used).
+		/// Negative <paramref name="freeWindowSlots"/> means this amount of messages are currently queued but delayed due to closed window.
 		/// </summary>
 		public void GetSendQueueInfo(NetDeliveryMethod method, int sequenceChannel, out int windowSize, out int freeWindowSlots)
 		{
@@ -540,7 +546,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Returns a string that represents this object
+		/// Returns a <see cref="string"/> that represents this object.
 		/// </summary>
 		public override string ToString()
 		{
