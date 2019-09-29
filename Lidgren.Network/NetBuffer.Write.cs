@@ -527,7 +527,7 @@ namespace Lidgren.Network
 		{
 			NetException.Assert(((value >= -1.0) && (value <= 1.0)), " WriteSignedSingle() must be passed a float in the range -1 to 1; val is " + value);
 
-			float unit = (value + 1.0f) * 0.5f;
+			float unit = (value + 1f) * 0.5f;
 			int maxVal = (1 << numberOfBits) - 1;
 			uint writeVal = (uint)(unit * (float)maxVal);
 

@@ -11,7 +11,7 @@ namespace Lidgren.Network
 			Finished
 		}
 
-		private const int c_protocolMaxMTU = (int)((((float)ushort.MaxValue / 8.0f) - 1.0f));
+		private const int c_protocolMaxMTU = (int)((((float)ushort.MaxValue / 8.0f) - 1f));
 
 		private ExpandMTUStatus m_expandMTUStatus;
 

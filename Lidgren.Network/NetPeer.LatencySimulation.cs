@@ -57,7 +57,7 @@ namespace Lidgren.Network
 
 			// simulate loss
 			float loss = m_configuration.m_loss;
-			if (loss > 0.0f)
+			if (loss > 0f)
 			{
 				if ((float)MWCRandom.Instance.NextDouble() < loss)
 				{
@@ -71,21 +71,21 @@ namespace Lidgren.Network
 			// simulate latency
 			float m = m_configuration.m_minimumOneWayLatency;
 			float r = m_configuration.m_randomOneWayLatency;
-			if (m == 0.0f && r == 0.0f)
+			if (m == 0f && r == 0f)
 			{
                 // no latency simulation
                 // LogVerbose("Sending packet " + numBytes + " bytes");
                 _ = ActuallySendPacket(m_sendBuffer, numBytes, target, out connectionReset);
                 // TODO: handle wasSent == false?
 
-                if (m_configuration.m_duplicates > 0.0f && MWCRandom.Instance.NextDouble() < m_configuration.m_duplicates)
+                if (m_configuration.m_duplicates > 0f && MWCRandom.Instance.NextDouble() < m_configuration.m_duplicates)
 					ActuallySendPacket(m_sendBuffer, numBytes, target, out connectionReset); // send it again!
 
 				return;
 			}
 
 			int num = 1;
-			if (m_configuration.m_duplicates > 0.0f && MWCRandom.Instance.NextSingle() < m_configuration.m_duplicates)
+			if (m_configuration.m_duplicates > 0f && MWCRandom.Instance.NextSingle() < m_configuration.m_duplicates)
 				num++;
 
             for (int i = 0; i < num; i++)

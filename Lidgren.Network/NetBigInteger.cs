@@ -468,7 +468,7 @@ namespace Lidgren.Network
 				: value.Add(One).m_magnitude;
 
 			bool resultNeg = m_sign < 0 && value.m_sign < 0;
-			int resultLength = System.Math.Max(aMag.Length, bMag.Length);
+			int resultLength = Math.Max(aMag.Length, bMag.Length);
 			int[] resultMag = new int[resultLength];
 
 			int aStart = resultMag.Length - aMag.Length;
@@ -1584,7 +1584,7 @@ namespace Lidgren.Network
 				return ZeroMagnitude;
 
 			int numWords = (n + BitsPerInt - 1) / BitsPerInt;
-			numWords = System.Math.Min(numWords, m_magnitude.Length);
+			numWords = Math.Min(numWords, m_magnitude.Length);
 			int[] result = new int[numWords];
 
 			Array.Copy(m_magnitude, m_magnitude.Length - numWords, result, 0, numWords);

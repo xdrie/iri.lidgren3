@@ -88,12 +88,12 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Returns random value is greater or equal than 0.0f and less than 1.0f
+		/// Returns random value is greater or equal than 0f and less than 1f
 		/// </summary>
 		public float NextSingle()
 		{
 			var retval = (float)(c_realUnitInt * NextInt32());
-			if (retval == 1.0f)
+			if (retval == 1f)
 				return NextSingle();
 			return retval;
 		}

@@ -124,10 +124,10 @@ namespace Lidgren.Network
 			m_expandMTUFailAttempts = 5;
 			m_unreliableSizeBehaviour = NetUnreliableSizeBehaviour.IgnoreMTU;
 
-			m_loss = 0.0f;
-			m_minimumOneWayLatency = 0.0f;
-			m_randomOneWayLatency = 0.0f;
-			m_duplicates = 0.0f;
+			m_loss = 0f;
+			m_minimumOneWayLatency = 0f;
+			m_randomOneWayLatency = 0f;
+			m_duplicates = 0f;
 
 			m_isLocked = false;
 		}
