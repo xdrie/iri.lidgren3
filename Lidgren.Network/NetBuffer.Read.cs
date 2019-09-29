@@ -337,7 +337,7 @@ namespace Lidgren.Network
 		}
 
         /// <summary>
-        /// Reads a 32 bit <see cref="float"/> written by <see cref="Write(Single)"/>.
+        /// Reads a 32 bit <see cref="float"/> written by <see cref="Write(float)"/>.
         /// </summary>
         public float ReadFloat()
 		{
@@ -345,7 +345,7 @@ namespace Lidgren.Network
 		}
 
         /// <summary>
-        /// Reads a 32 bit <see cref="float"/> written by <see cref="Write(Single)"/>.
+        /// Reads a 32 bit <see cref="float"/> written by <see cref="Write(float)"/>.
         /// </summary>
         public float ReadSingle()
 		{
@@ -363,7 +363,7 @@ namespace Lidgren.Network
 		}
 
         /// <summary>
-        /// Reads a 32 bit <see cref="float"/> written by <see cref="Write(Single)"/>.
+        /// Reads a 32 bit <see cref="float"/> written by <see cref="Write(float)"/>.
         /// </summary>
         public bool ReadSingle(out float result)
 		{
