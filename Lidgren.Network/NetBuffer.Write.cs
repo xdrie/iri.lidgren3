@@ -32,13 +32,13 @@ namespace Lidgren.Network
     internal struct SingleUIntUnion
 	{
 		/// <summary>
-		/// Value as a 32 bit float.
+		/// Value as a 32-bit float.
 		/// </summary>
 		[FieldOffset(0)]
 		public float SingleValue;
 
 		/// <summary>
-		/// Value as an unsigned 32 bit integer.
+		/// Value as an unsigned 32-bit integer.
 		/// </summary>
 		[FieldOffset(0)]
 		public uint UIntValue;
@@ -51,13 +51,13 @@ namespace Lidgren.Network
     internal struct DoubleULongUnion
     {
         /// <summary>
-        /// Value as a 64 bit float.
+        /// Value as a 64-bit float.
         /// </summary>
         [FieldOffset(0)]
         public double DoubleValue;
 
         /// <summary>
-        /// Value as an unsigned 64 bit integer.
+        /// Value as an unsigned 64-bit integer.
         /// </summary>
         [FieldOffset(0)]
         public ulong ULongValue;
@@ -162,7 +162,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Writes an 16 bit <see cref="ushort"/>.
+		/// Writes an 16-bit <see cref="ushort"/>.
 		/// </summary>
 		/// <param name="source"></param>
 		[CLSCompliant(false)]
@@ -174,7 +174,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Writes a 16 bit <see cref="uint"/> at a given offset in the buffer.
+		/// Writes a 16-bit <see cref="uint"/> at a given offset in the buffer.
 		/// </summary>
 		[CLSCompliant(false)]
 		public void WriteAt(int offset, ushort source)
@@ -198,7 +198,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Writes a 16 bit <see cref="short"/>.
+		/// Writes a 16-bit <see cref="short"/>.
 		/// </summary>
 		public void Write(short source)
 		{
@@ -208,7 +208,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Writes a 16 bit <see cref="int"/> at a given offset in the buffer.
+		/// Writes a 16-bit <see cref="int"/> at a given offset in the buffer.
 		/// </summary>
 		public void WriteAt(int offset, short source)
 		{
@@ -220,7 +220,7 @@ namespace Lidgren.Network
 
 #if UNSAFE
 		/// <summary>
-		/// Writes a 32 bit <see cref="int"/>.
+		/// Writes a 32-bit <see cref="int"/>.
 		/// </summary>
 		public unsafe void Write(Int32 source)
 		{
@@ -240,7 +240,7 @@ namespace Lidgren.Network
 		}
 #else
         /// <summary>
-        /// Writes a 32 bit <see cref="int"/>.
+        /// Writes a 32-bit <see cref="int"/>.
         /// </summary>
         public void Write(int source)
 		{
@@ -251,7 +251,7 @@ namespace Lidgren.Network
 #endif
 
         /// <summary>
-        /// Writes a 32 bit <see cref="int"/> at a given offset in the buffer.
+        /// Writes a 32-bit <see cref="int"/> at a given offset in the buffer.
         /// </summary>
         public void WriteAt(int offset, int source)
 		{
@@ -263,7 +263,7 @@ namespace Lidgren.Network
 
 #if UNSAFE
 		/// <summary>
-		/// Writes a 32 bit <see cref="uint"/>.
+		/// Writes a 32-bit <see cref="uint"/>.
 		/// </summary>
 		public unsafe void Write(UInt32 source)
 		{
@@ -286,7 +286,7 @@ namespace Lidgren.Network
 		}
 #else
         /// <summary>
-        /// Writes a 32 bit <see cref="uint"/>.
+        /// Writes a 32-bit <see cref="uint"/>.
         /// </summary>
         [CLSCompliant(false)]
 		public void Write(uint source)
@@ -298,7 +298,7 @@ namespace Lidgren.Network
 #endif
 
         /// <summary>
-        /// Writes a 32 bit <see cref="uint"/> at a given offset in the buffer.
+        /// Writes a 32-bit <see cref="uint"/> at a given offset in the buffer.
         /// </summary>
         [CLSCompliant(false)]
 		public void WriteAt(int offset, uint source)
@@ -345,7 +345,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Writes a 64 bit <see cref="ulong"/>.
+		/// Writes a 64-bit <see cref="ulong"/>.
 		/// </summary>
 		[CLSCompliant(false)]
 		public void Write(ulong source)
@@ -356,7 +356,7 @@ namespace Lidgren.Network
 		}
 
         /// <summary>
-        /// Writes a 64 bit <see cref="ulong"/> at a given offset in the buffer.
+        /// Writes a 64-bit <see cref="ulong"/> at a given offset in the buffer.
         /// </summary>
         [CLSCompliant(false)]
 		public void WriteAt(int offset, ulong source)
@@ -379,7 +379,7 @@ namespace Lidgren.Network
 		}
 
         /// <summary>
-        /// Writes a 64 bit <see cref="long"/>.
+        /// Writes a 64-bit <see cref="long"/>.
         /// </summary>
         public void Write(long source)
 		{
@@ -402,7 +402,7 @@ namespace Lidgren.Network
 
 #if UNSAFE
 		/// <summary>
-		/// Writes a 32 bit <see cref="float"/>.
+		/// Writes a 32-bit <see cref="float"/>.
 		/// </summary>
 		public unsafe void Write(float source)
 		{
@@ -414,7 +414,7 @@ namespace Lidgren.Network
 		}
 #else
         /// <summary>
-        /// Writes a 32 bit <see cref="float"/>.
+        /// Writes a 32-bit <see cref="float"/>.
         /// </summary>
         public void Write(float source)
 		{
@@ -433,7 +433,7 @@ namespace Lidgren.Network
 
 #if UNSAFE
 		/// <summary>
-		/// Writes a 64 bit <see cref="double"/>.
+		/// Writes a 64-bit <see cref="double"/>.
 		/// </summary>
 		public unsafe void Write(double source)
 		{
@@ -445,7 +445,7 @@ namespace Lidgren.Network
 		}
 #else
         /// <summary>
-		/// Writes a 64 bit <see cref="double"/>.
+		/// Writes a 64-bit <see cref="double"/>.
 		/// </summary>
 		public void Write(double source)
         {

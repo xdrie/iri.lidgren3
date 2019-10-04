@@ -4,14 +4,14 @@ using System.Threading;
 namespace Lidgren.Network
 {
 	/// <summary>
-	/// Class for generating random seeds
+	/// Helper for generating random integer numbers.
 	/// </summary>
 	public static class NetRandomSeed
 	{
 		private static int m_seedIncrement = -1640531527;
 
 		/// <summary>
-		/// Generates a 32 bit random seed
+		/// Generates a 32-bit random seed.
 		/// </summary>
 		[CLSCompliant(false)]
 		public static uint GetUInt32()
@@ -23,7 +23,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Generates a 64 bit random seed
+		/// Generates a 64-bit random seed.
 		/// </summary>
 		[CLSCompliant(false)]
 		public static ulong GetUInt64()

@@ -1,23 +1,21 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Threading;
 
 namespace Lidgren.Network
 {
-	/// <summary>
-	/// NetRandom base class
-	/// </summary>
-	public abstract class NetRandom : Random
+    /// <summary>
+    /// <see cref="NetRandom"/> base class.
+    /// </summary>
+    public abstract class NetRandom : Random
 	{
-		/// <summary>
-		/// Get global instance of NetRandom (uses MWCRandom)
-		/// </summary>
-		public static NetRandom Instance = new MWCRandom();
+        /// <summary>
+        /// Get global instance of <see cref="NetRandom "/> (uses <see cref="MWCRandom"/>),
+        /// </summary>
+        public static NetRandom Instance = new MWCRandom();
 
 		private const double c_realUnitInt = 1.0 / ((double)int.MaxValue + 1.0);
 
 		/// <summary>
-		/// Constructor with randomized seed
+		/// Constructor with randomized seed.
 		/// </summary>
 		public NetRandom()
 		{
@@ -25,7 +23,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Constructor with provided 32 bit seed
+		/// Constructor with provided 32-bit seed.
 		/// </summary>
 		public NetRandom(int seed)
 		{
@@ -33,7 +31,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// (Re)initialize this instance with provided 32 bit seed
+		/// (Re)initialize this instance with provided 32-bit seed..
 		/// </summary>
 		[CLSCompliant(false)]
 		public virtual void Initialize(uint seed)
@@ -42,10 +40,11 @@ namespace Lidgren.Network
 			throw new NotImplementedException("Implement this in inherited classes");
 		}
 
-		/// <summary>
-		/// Generates a random value from UInt32.MinValue to UInt32.MaxValue, inclusively
-		/// </summary>
-		[CLSCompliant(false)]
+        /// <summary>
+        /// Generates a random value from <see cref="uint.MinValue"/> 
+        /// to <see cref="uint.MaxValue"/>, inclusively.
+        /// </summary>
+        [CLSCompliant(false)]
 		public virtual uint NextUInt32()
 		{
 			// should be abstract, but non-CLS compliant methods can't be abstract!
@@ -53,7 +52,8 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Generates a random value that is greater or equal than 0 and less than Int32.MaxValue
+		/// Generates a random value that is greater or equal than 
+        /// zero and less than <see cref="int.MaxValue"/>.
 		/// </summary>
 		public override int Next()
 		{
@@ -63,10 +63,11 @@ namespace Lidgren.Network
 			return retval;
 		}
 
-		/// <summary>
-		/// Generates a random value greater or equal than 0 and less or equal than Int32.MaxValue (inclusively)
-		/// </summary>
-		public int NextInt32()
+        /// <summary>
+        /// Generates a random value greater or equal than 
+        /// zero and less or equal than <see cref="int.MaxValue"/> (inclusively)-
+        /// </summary>
+        public int NextInt32()
 		{
 			return (int)(0x7FFFFFFF & NextUInt32());
 		}
@@ -80,7 +81,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Returns random value is greater or equal than 0.0 and less than 1.0
+		/// Returns random value is greater or equal than 0.0 and less than 1.0.
 		/// </summary>
 		protected override double Sample()
 		{
@@ -88,7 +89,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Returns random value is greater or equal than 0f and less than 1f
+		/// Returns random value is greater or equal than 0f and less than 1f.
 		/// </summary>
 		public float NextSingle()
 		{
@@ -99,25 +100,28 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Returns a random value is greater or equal than 0 and less than maxValue
+		/// Returns a random value is greater or equal to
+        /// 0 and less than <paramref name="maxValue"/>.
 		/// </summary>
 		public override int Next(int maxValue)
 		{
 			return (int)(NextDouble() * maxValue);
 		}
 
-		/// <summary>
-		/// Returns a random value is greater or equal than minValue and less than maxValue
-		/// </summary>
-		public override int Next(int minValue, int maxValue)
+        /// <summary>
+        /// Returns a random value is greater or equal to 
+        /// <paramref name="minValue"/> and less than <paramref name="maxValue"/>.
+        /// </summary>
+        public override int Next(int minValue, int maxValue)
 		{
             return minValue + (int)(NextDouble() * (double)(maxValue - minValue));
 		}
-		
-		/// <summary>
-		/// Generates a random value between UInt64.MinValue to UInt64.MaxValue
-		/// </summary>
-		[CLSCompliant(false)]
+
+        /// <summary>
+        /// Generates a random value between
+        /// <see cref="ulong.MinValue"/> to <see cref="ulong.MaxValue"/>.
+        /// </summary>
+        [CLSCompliant(false)]
 		public ulong NextUInt64()
 		{
 			ulong retval = NextUInt32();
@@ -128,10 +132,10 @@ namespace Lidgren.Network
 		private uint m_boolValues;
 		private int m_nextBoolIndex;
 
-		/// <summary>
-		/// Returns true or false, randomly
-		/// </summary>
-		public bool NextBool()
+        /// <summary>
+        /// Returns <see langword="true"/> or <see langword="false"/>, randomly.
+        /// </summary>
+        public bool NextBool()
 		{
 			if (m_nextBoolIndex >= 32)
 			{
@@ -146,7 +150,7 @@ namespace Lidgren.Network
 		
 
 		/// <summary>
-		/// Fills all bytes from offset to offset + length in buffer with random values
+		/// Fills all bytes from offset to offset+length in buffer with random values.
 		/// </summary>
 		public virtual void NextBytes(byte[] buffer, int offset, int length)
 		{
@@ -167,7 +171,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Fill the specified buffer with random values
+		/// Fill the specified buffer with random values.
 		/// </summary>
 		public override void NextBytes(byte[] buffer)
 		{

@@ -182,7 +182,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads an unsigned 16 bit integer.
+		/// Reads an unsigned 16-bit integer.
 		/// </summary>
 		[CLSCompliant(false)]
 #if UNSAFE
@@ -294,7 +294,7 @@ namespace Lidgren.Network
 		}
         
 		/// <summary>
-		/// Writes an unsigned 16 bit integer.
+		/// Writes an unsigned 16-bit integer.
 		/// </summary>
 		[CLSCompliant(false)]
 		public static void WriteUInt16(ushort source, int numberOfBits, byte[] destination, int destinationBitOffset)

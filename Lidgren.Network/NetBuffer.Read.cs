@@ -154,7 +154,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads a 16 bit <see cref="short"/> written by <see cref="Write(short)"/>.
+		/// Reads a 16-bit <see cref="short"/> written by <see cref="Write(short)"/>.
 		/// </summary>
 		public short ReadInt16()
 		{
@@ -165,7 +165,7 @@ namespace Lidgren.Network
 		}
 
         /// <summary>
-        /// Reads a 16 bit <see cref="ushort"/> written by <see cref="Write(ushort)"/>.
+        /// Reads a 16-bit <see cref="ushort"/> written by <see cref="Write(ushort)"/>.
         /// </summary>
         [CLSCompliant(false)]
 		public ushort ReadUInt16()
@@ -177,7 +177,7 @@ namespace Lidgren.Network
 		}
 
         /// <summary>
-        /// Reads a 32 bit <see cref="int"/> written by <see cref="Write(int)"/>.
+        /// Reads a 32-bit <see cref="int"/> written by <see cref="Write(int)"/>.
         /// </summary>
         public int ReadInt32()
 		{
@@ -188,7 +188,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-        /// Reads a 32 bit <see cref="int"/> written by <see cref="Write(int)"/>.
+        /// Reads a 32-bit <see cref="int"/> written by <see cref="Write(int)"/>.
 		/// </summary>
 		[CLSCompliant(false)]
 		public bool ReadInt32(out int result)
@@ -243,7 +243,7 @@ namespace Lidgren.Network
 		}
 
         /// <summary>
-        /// Reads a 32 bit <see cref="uint"/> written by <see cref="Write(uint)"/> and returns whether the read succeeded.
+        /// Reads a 32-bit <see cref="uint"/> written by <see cref="Write(uint)"/> and returns whether the read succeeded.
         /// </summary>
         [CLSCompliant(false)]
 		public bool ReadUInt32(out uint result)
@@ -273,7 +273,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Reads a 64 bit <see cref="ulong"/> written by <see cref="Write(ulong)"/>.
+		/// Reads a 64-bit <see cref="ulong"/> written by <see cref="Write(ulong)"/>.
 		/// </summary>
 		[CLSCompliant(false)]
 		public ulong ReadUInt64()
@@ -291,7 +291,7 @@ namespace Lidgren.Network
 		}
 
         /// <summary>
-        /// Reads a 64 bit <see cref="long"/> written by <see cref="Write(long)"/>.
+        /// Reads a 64-bit <see cref="long"/> written by <see cref="Write(long)"/>.
         /// </summary>
         public long ReadInt64()
 		{
@@ -337,7 +337,7 @@ namespace Lidgren.Network
 		}
 
         /// <summary>
-        /// Reads a 32 bit <see cref="float"/> written by <see cref="Write(float)"/>.
+        /// Reads a 32-bit <see cref="float"/> written by <see cref="Write(float)"/>.
         /// </summary>
         public float ReadFloat()
 		{
@@ -345,7 +345,7 @@ namespace Lidgren.Network
 		}
 
         /// <summary>
-        /// Reads a 32 bit <see cref="float"/> written by <see cref="Write(float)"/>.
+        /// Reads a 32-bit <see cref="float"/> written by <see cref="Write(float)"/>.
         /// </summary>
         public float ReadSingle()
 		{
@@ -363,7 +363,7 @@ namespace Lidgren.Network
 		}
 
         /// <summary>
-        /// Reads a 32 bit <see cref="float"/> written by <see cref="Write(float)"/>.
+        /// Reads a 32-bit <see cref="float"/> written by <see cref="Write(float)"/>.
         /// </summary>
         public bool ReadSingle(out float result)
 		{
@@ -386,7 +386,7 @@ namespace Lidgren.Network
 		}
 
         /// <summary>
-        /// Reads a 64 bit <see cref="double"/> written by <see cref="Write(double)"/>.
+        /// Reads a 64-bit <see cref="double"/> written by <see cref="Write(double)"/>.
         /// </summary>
         public double ReadDouble()
 		{
@@ -496,7 +496,7 @@ namespace Lidgren.Network
 		}
 
         /// <summary>
-        /// Reads a 32 bit <see cref="float"/> written by <see cref="WriteSignedSingle"/>.
+        /// Reads a 32-bit <see cref="float"/> written by <see cref="WriteSignedSingle"/>.
         /// </summary>
         /// <param name="numberOfBits">The number of bits used when writing the value</param>
         /// <returns>A floating point value larger or equal to -1 and smaller or equal to 1</returns>
@@ -508,7 +508,7 @@ namespace Lidgren.Network
 		}
 
         /// <summary>
-        /// Reads a 32 bit <see cref="float"/> written by <see cref="WriteUnitSingle"/>.
+        /// Reads a 32-bit <see cref="float"/> written by <see cref="WriteUnitSingle"/>.
         /// </summary>
         /// <param name="numberOfBits">The number of bits used when writing the value</param>
         /// <returns>A floating point value larger or equal to 0 and smaller or equal to 1</returns>
@@ -520,7 +520,7 @@ namespace Lidgren.Network
 		}
 
         /// <summary>
-        /// Reads a 32 bit <see cref="float"/> written by <see cref="WriteRangedSingle"/>.
+        /// Reads a 32-bit <see cref="float"/> written by <see cref="WriteRangedSingle"/>.
         /// </summary>
         /// <param name="min">The minimum value used when writing the value</param>
         /// <param name="max">The maximum value used when writing the value</param>
@@ -536,7 +536,7 @@ namespace Lidgren.Network
 		}
 
         /// <summary>
-        /// Reads a 32 bit <see cref="int"/> written by <see cref="WriteRangedInteger"/>.
+        /// Reads a 32-bit <see cref="int"/> written by <see cref="WriteRangedInteger"/>.
         /// </summary>
         /// <param name="min">The minimum value used when writing the value</param>
         /// <param name="max">The maximum value used when writing the value</param>

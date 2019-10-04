@@ -4,49 +4,40 @@ using System.Security.Cryptography;
 namespace Lidgren.Network
 {
 	/// <summary>
-	/// Multiply With Carry random
+	/// Multiply With Carry based random.
 	/// </summary>
 	public class MWCRandom : NetRandom
 	{
 		/// <summary>
-		/// Get global instance of MWCRandom
+		/// Get global instance of <see cref="MWCRandom"/>.
 		/// </summary>
 		public static new readonly MWCRandom Instance = new MWCRandom();
 
 		private uint m_w, m_z;
 
-		/// <summary>
-		/// Constructor with randomized seed
-		/// </summary>
-		public MWCRandom()
-		{
-			Initialize(NetRandomSeed.GetUInt64());
-		}
+        /// <summary>
+        /// Constructor with randomized seed.
+        /// </summary>
+        public MWCRandom() => Initialize(NetRandomSeed.GetUInt64());
 
-		/// <summary>
-		/// (Re)initialize this instance with provided 32 bit seed
-		/// </summary>
-		[CLSCompliant(false)]
+        /// <inheritdoc/>
+        [CLSCompliant(false)]
 		public override void Initialize(uint seed)
 		{
 			m_w = seed;
 			m_z = seed * 16777619;
 		}
 
-		/// <summary>
-		/// (Re)initialize this instance with provided 64 bit seed
-		/// </summary>
-		[CLSCompliant(false)]
+        /// <inheritdoc/>
+        [CLSCompliant(false)]
 		public void Initialize(ulong seed)
 		{
 			m_w = (uint)seed;
 			m_z = (uint)(seed >> 32);
 		}
 
-		/// <summary>
-		/// Generates a random value from UInt32.MinValue to UInt32.MaxValue, inclusively
-		/// </summary>
-		[CLSCompliant(false)]
+        /// <inheritdoc/>
+        [CLSCompliant(false)]
 		public override uint NextUInt32()
 		{
 			m_z = 36969 * (m_z & 65535) + (m_z >> 16);
@@ -56,12 +47,12 @@ namespace Lidgren.Network
 	}
 
 	/// <summary>
-	/// Xor Shift based random
+	/// Xor Shift based random.
 	/// </summary>
 	public sealed class XorShiftRandom : NetRandom
 	{
 		/// <summary>
-		/// Get global instance of XorShiftRandom
+		/// Get global instance of <see cref="XorShiftRandom"/>.
 		/// </summary>
 		public static new readonly XorShiftRandom Instance = new XorShiftRandom();
 
@@ -73,7 +64,7 @@ namespace Lidgren.Network
 		private uint m_x, m_y, m_z, m_w;
 
 		/// <summary>
-		/// Constructor with randomized seed
+		/// Constructor with randomized seed.
 		/// </summary>
 		public XorShiftRandom()
 		{
@@ -81,7 +72,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Constructor with provided 64 bit seed
+		/// Constructor with provided 64-bit seed.
 		/// </summary>
 		[CLSCompliant(false)]
 		public XorShiftRandom(ulong seed)
@@ -89,22 +80,18 @@ namespace Lidgren.Network
 			Initialize(seed);
 		}
 
-		/// <summary>
-		/// (Re)initialize this instance with provided 32 bit seed
-		/// </summary>
+        /// <inheritdoc/>
 		[CLSCompliant(false)]
 		public override void Initialize(uint seed)
 		{
-			m_x = (uint)seed;
+			m_x = seed;
 			m_y = c_y;
 			m_z = c_z;
 			m_w = c_w;
 		}
 
-		/// <summary>
-		/// (Re)initialize this instance with provided 64 bit seed
-		/// </summary>
-		[CLSCompliant(false)]
+        /// <inheritdoc/>
+        [CLSCompliant(false)]
 		public void Initialize(ulong seed)
 		{
 			m_x = (uint)seed;
@@ -113,10 +100,8 @@ namespace Lidgren.Network
 			m_w = c_w;
 		}
 
-		/// <summary>
-		/// Generates a random value from UInt32.MinValue to UInt32.MaxValue, inclusively
-		/// </summary>
-		[CLSCompliant(false)]
+        /// <inheritdoc/>
+        [CLSCompliant(false)]
 		public override uint NextUInt32()
 		{
 			uint t = (m_x ^ (m_x << 11));
@@ -126,12 +111,12 @@ namespace Lidgren.Network
 	}
 
 	/// <summary>
-	/// Mersenne Twister based random
+	/// Mersenne Twister based random.
 	/// </summary>
 	public sealed class MersenneTwisterRandom : NetRandom
 	{
 		/// <summary>
-		/// Get global instance of MersenneTwisterRandom
+		/// Get global instance of <see cref="MersenneTwisterRandom"/>.
 		/// </summary>
 		public static new readonly MersenneTwisterRandom Instance = new MersenneTwisterRandom();
 
@@ -154,7 +139,7 @@ namespace Lidgren.Network
 		private const double c_realUnitInt = 1.0 / ((double)int.MaxValue + 1.0);
 
 		/// <summary>
-		/// Constructor with randomized seed
+		/// Constructor with randomized seed.
 		/// </summary>
 		public MersenneTwisterRandom()
 		{
@@ -162,7 +147,7 @@ namespace Lidgren.Network
 		}
 
 		/// <summary>
-		/// Constructor with provided 32 bit seed
+		/// Constructor with provided 32-bit seed.
 		/// </summary>
 		[CLSCompliant(false)]
 		public MersenneTwisterRandom(uint seed)
@@ -170,10 +155,8 @@ namespace Lidgren.Network
 			Initialize(seed);
 		}
 
-		/// <summary>
-		/// (Re)initialize this instance with provided 32 bit seed
-		/// </summary>
-		[CLSCompliant(false)]
+        /// <inheritdoc/>
+        [CLSCompliant(false)]
 		public override void Initialize(uint seed)
 		{
 			mt = new uint[N];
@@ -184,10 +167,8 @@ namespace Lidgren.Network
 				mt[i] = (uint)(1812433253 * (mt[i - 1] ^ (mt[i - 1] >> 30)) + i);
 		}
 
-		/// <summary>
-		/// Generates a random value from UInt32.MinValue to UInt32.MaxValue, inclusively
-		/// </summary>
-		[CLSCompliant(false)]
+        /// <inheritdoc/>
+        [CLSCompliant(false)]
 		public override uint NextUInt32()
 		{
             uint y;
@@ -227,32 +208,31 @@ namespace Lidgren.Network
 		}
 	}
 
-	/// <summary>
-	/// RNGCryptoServiceProvider based random; very slow but cryptographically safe
-	/// </summary>
-	public class CryptoRandom : NetRandom
+    /// <summary>
+    /// <see cref="RNGCryptoServiceProvider"/> based random;
+    /// very slow but cryptographically safe.
+    /// </summary>
+    public class CryptoRandom : NetRandom
 	{
-		/// <summary>
-		/// Global instance of CryptoRandom
-		/// </summary>
-		public static new readonly CryptoRandom Instance = new CryptoRandom();
+        /// <summary>
+        /// Global instance of <see cref="CryptoRandom"/>.
+        /// </summary>
+        public static new readonly CryptoRandom Instance = new CryptoRandom();
 
 		private RandomNumberGenerator m_rnd = new RNGCryptoServiceProvider();
 
-		/// <summary>
-		/// Seed in CryptoRandom does not create deterministic sequences
-		/// </summary>
-		[CLSCompliant(false)]
+        /// <summary>
+        /// Seeds in <see cref="CryptoRandom"/> do not create deterministic sequences.
+        /// </summary>
+        [CLSCompliant(false)]
 		public override void Initialize(uint seed)
 		{
 			byte[] tmp = new byte[seed % 16];
 			m_rnd.GetBytes(tmp); // just prime it
 		}
 
-		/// <summary>
-		/// Generates a random value from UInt32.MinValue to UInt32.MaxValue, inclusively
-		/// </summary>
-		[CLSCompliant(false)]
+        /// <inheritdoc/>
+        [CLSCompliant(false)]
 		public override uint NextUInt32()
 		{
 			var bytes = new byte[4];
@@ -260,22 +240,16 @@ namespace Lidgren.Network
 			return (uint)bytes[0] | (((uint)bytes[1]) << 8) | (((uint)bytes[2]) << 16) | (((uint)bytes[3]) << 24);
 		}
 
-		/// <summary>
-		/// Fill the specified buffer with random values
-		/// </summary>
-		public override void NextBytes(byte[] buffer)
+        /// <inheritdoc/>
+        public override void NextBytes(byte[] buffer)
 		{
 			m_rnd.GetBytes(buffer);
 		}
 
-		/// <summary>
-		/// Fills all bytes from offset to offset + length in buffer with random values
-		/// </summary>
-		public override void NextBytes(byte[] buffer, int offset, int length)
+        /// <inheritdoc/>
+        public override void NextBytes(byte[] buffer, int offset, int length)
 		{
-			var bytes = new byte[length];
-			m_rnd.GetBytes(bytes);
-			Array.Copy(bytes, 0, buffer, offset, length);
+			m_rnd.GetBytes(buffer, offset, length);
 		}
 	}
 }
