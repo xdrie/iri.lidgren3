@@ -6,7 +6,6 @@
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <LangVersion>7.3</LangVersion>
     <DebugType>portable</DebugType>
     <DebugSymbols>true</DebugSymbols>
     <DocumentationFile>bin\Release\netstandard2.0\Lidgren.Network.xml</DocumentationFile>
@@ -14,7 +13,6 @@
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <LangVersion>7.3</LangVersion>
   </PropertyGroup>
 
   <ItemGroup>
