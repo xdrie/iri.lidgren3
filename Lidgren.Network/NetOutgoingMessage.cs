@@ -22,117 +22,117 @@ using System.Diagnostics;
 
 namespace Lidgren.Network
 {
-	/// <summary>
-	/// Outgoing message used to send data to remote peers.
-	/// </summary>
-	[DebuggerDisplay("LengthBits={LengthBits}")]
-	public sealed class NetOutgoingMessage : NetBuffer
-	{
-		internal NetMessageType m_messageType;
-		internal bool m_isSent;
-		internal int m_recyclingCount;
+    /// <summary>
+    /// Outgoing message used to send data to remote peers.
+    /// </summary>
+    [DebuggerDisplay("LengthBits={LengthBits}")]
+    public sealed class NetOutgoingMessage : NetBuffer
+    {
+        internal NetMessageType m_messageType;
+        internal bool m_isSent; // TODO: create better error/assert for this
+        internal int m_recyclingCount;
 
-		internal int m_fragmentGroup;             // which group of fragments ths belongs to
-		internal int m_fragmentGroupTotalBits;    // total number of bits in this group
-		internal int m_fragmentChunkByteSize;	  // size, in bytes, of every chunk but the last one
-		internal int m_fragmentChunkNumber;       // which number chunk this is, starting with 0
+        internal int m_fragmentGroup;             // which group of fragments ths belongs to
+        internal int m_fragmentGroupTotalBits;    // total number of bits in this group
+        internal int m_fragmentChunkByteSize;	  // size, in bytes, of every chunk but the last one
+        internal int m_fragmentChunkNumber;       // which number chunk this is, starting with 0
 
-		internal NetOutgoingMessage()
-		{
-		}
+        internal NetOutgoingMessage()
+        {
+        }
 
-		internal void Reset()
-		{
-			m_messageType = NetMessageType.LibraryError;
-			m_bitLength = 0;
-			m_isSent = false;
-			m_recyclingCount = 0;
-			m_fragmentGroup = 0;
-		}
+        internal void Reset()
+        {
+            m_messageType = NetMessageType.LibraryError;
+            m_bitLength = 0;
+            m_isSent = false;
+            m_recyclingCount = 0;
+            m_fragmentGroup = 0;
+        }
 
-		internal int Encode(byte[] intoBuffer, int ptr, int sequenceNumber)
-		{
-			//  8 bits - NetMessageType
-			//  1 bit  - Fragment?
-			// 15 bits - Sequence number
-			// 16 bits - Payload length in bits
-			
-			intoBuffer[ptr++] = (byte)m_messageType;
+        internal int Encode(byte[] intoBuffer, int ptr, int sequenceNumber)
+        {
+            //  8 bits - NetMessageType
+            //  1 bit  - Fragment?
+            // 15 bits - Sequence number
+            // 16 bits - Payload length in bits
+            
+            intoBuffer[ptr++] = (byte)m_messageType;
 
-			byte low = (byte)((sequenceNumber << 1) | (m_fragmentGroup == 0 ? 0 : 1));
-			intoBuffer[ptr++] = low;
-			intoBuffer[ptr++] = (byte)(sequenceNumber >> 7);
+            byte low = (byte)((sequenceNumber << 1) | (m_fragmentGroup == 0 ? 0 : 1));
+            intoBuffer[ptr++] = low;
+            intoBuffer[ptr++] = (byte)(sequenceNumber >> 7);
 
-			if (m_fragmentGroup == 0)
-			{
-				intoBuffer[ptr++] = (byte)m_bitLength;
-				intoBuffer[ptr++] = (byte)(m_bitLength >> 8);
+            if (m_fragmentGroup == 0)
+            {
+                intoBuffer[ptr++] = (byte)m_bitLength;
+                intoBuffer[ptr++] = (byte)(m_bitLength >> 8);
 
-				int byteLen = NetUtility.BytesNeededToHoldBits(m_bitLength);
-				if (byteLen > 0)
-				{
-					Buffer.BlockCopy(m_data, 0, intoBuffer, ptr, byteLen);
-					ptr += byteLen;
-				}
-			}
-			else
-			{
-				int wasPtr = ptr;
-				intoBuffer[ptr++] = (byte)m_bitLength;
-				intoBuffer[ptr++] = (byte)(m_bitLength >> 8);
+                int byteLen = NetUtility.BytesNeededToHoldBits(m_bitLength);
+                if (byteLen > 0)
+                {
+                    Buffer.BlockCopy(m_data, 0, intoBuffer, ptr, byteLen);
+                    ptr += byteLen;
+                }
+            }
+            else
+            {
+                int wasPtr = ptr;
+                intoBuffer[ptr++] = (byte)m_bitLength;
+                intoBuffer[ptr++] = (byte)(m_bitLength >> 8);
 
-				//
-				// write fragmentation header
-				//
-				ptr = NetFragmentationHelper.WriteHeader(
+                //
+                // write fragmentation header
+                //
+                ptr = NetFragmentationHelper.WriteHeader(
                     intoBuffer, ptr, m_fragmentGroup, m_fragmentGroupTotalBits, m_fragmentChunkByteSize, m_fragmentChunkNumber);
-				int hdrLen = ptr - wasPtr - 2;
+                int hdrLen = ptr - wasPtr - 2;
 
-				// update length
-				int realBitLength = m_bitLength + (hdrLen * 8);
-				intoBuffer[wasPtr] = (byte)realBitLength;
-				intoBuffer[wasPtr + 1] = (byte)(realBitLength >> 8);
+                // update length
+                int realBitLength = m_bitLength + (hdrLen * 8);
+                intoBuffer[wasPtr] = (byte)realBitLength;
+                intoBuffer[wasPtr + 1] = (byte)(realBitLength >> 8);
 
-				int byteLen = NetUtility.BytesNeededToHoldBits(m_bitLength);
-				if (byteLen > 0)
-				{
-					Buffer.BlockCopy(m_data, (int)(m_fragmentChunkNumber * m_fragmentChunkByteSize), intoBuffer, ptr, byteLen);
-					ptr += byteLen;
-				}
-			}
+                int byteLen = NetUtility.BytesNeededToHoldBits(m_bitLength);
+                if (byteLen > 0)
+                {
+                    Buffer.BlockCopy(m_data, (int)(m_fragmentChunkNumber * m_fragmentChunkByteSize), intoBuffer, ptr, byteLen);
+                    ptr += byteLen;
+                }
+            }
 
-			NetException.Assert(ptr > 0);
-			return ptr;
-		}
+            NetException.Assert(ptr > 0);
+            return ptr;
+        }
 
-		internal int GetEncodedSize()
-		{
-			int retval = NetConstants.UnfragmentedMessageHeaderSize; // regular headers
-			if (m_fragmentGroup != 0)
-				retval += NetFragmentationHelper.GetFragmentationHeaderSize(
+        internal int GetEncodedSize()
+        {
+            int retval = NetConstants.UnfragmentedMessageHeaderSize; // regular headers
+            if (m_fragmentGroup != 0)
+                retval += NetFragmentationHelper.GetFragmentationHeaderSize(
                     m_fragmentGroup, m_fragmentGroupTotalBits / 8, m_fragmentChunkByteSize, m_fragmentChunkNumber);
-			retval += LengthBytes;
-			return retval;
-		}
+            retval += LengthBytes;
+            return retval;
+        }
 
-		/// <summary>
-		/// Encrypt this message using the provided algorithm.
+        /// <summary>
+        /// Encrypt this message using the provided algorithm.
         /// No more writing can be done before sending it or the message will be corrupt.
-		/// </summary>
-		public bool Encrypt(NetEncryption encryption)
-		{
-			return encryption.Encrypt(this);
-		}
+        /// </summary>
+        public bool Encrypt(NetEncryption encryption)
+        {
+            return encryption.Encrypt(this);
+        }
 
-		/// <summary>
-		/// Returns a <see cref="string"/> that represents this object.
-		/// </summary>
-		public override string ToString()
-		{
-			if (m_isSent)
-				return "[NetOutgoingMessage " + m_messageType + " " + LengthBytes + " bytes]";
+        /// <summary>
+        /// Returns a <see cref="string"/> that represents this object.
+        /// </summary>
+        public override string ToString()
+        {
+            if (m_isSent)
+                return "{NetOutgoingMessage " + m_messageType + " " + LengthBytes + " bytes}";
 
-			return "[NetOutgoingMessage " + LengthBytes + " bytes]";
-		}
-	}
+            return "{NetOutgoingMessage " + LengthBytes + " bytes}";
+        }
+    }
 }

@@ -437,10 +437,10 @@ namespace Lidgren.Network
         /// <summary>
         /// Creates a comma delimited string from a lite of items
         /// </summary>
-        public static string MakeCommaDelimitedList<T>(IList<T> list)
+        public static string MakeCommaDelimitedList<T>(IReadOnlyList<T> list)
         {
             var cnt = list.Count;
-            StringBuilder bdr = new StringBuilder(cnt * 5); // educated guess
+            var bdr = new StringBuilder(cnt * 5); // educated guess
             for (int i = 0; i < cnt; i++)
             {
                 bdr.Append(list[i].ToString());
@@ -453,7 +453,7 @@ namespace Lidgren.Network
         public static byte[] ComputeSHAHash(byte[] bytes)
         {
             // this is defined in the platform specific files
-            return ComputeSHAHash(bytes, 0, bytes.Length);
+            return ComputeSHA256(bytes, 0, bytes.Length);
         }
 
         /// <summary>

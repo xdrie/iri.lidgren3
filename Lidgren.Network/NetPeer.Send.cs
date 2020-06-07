@@ -17,10 +17,11 @@ namespace Lidgren.Network
         }
 
         [DebuggerHidden]
-        private static void AssertValidRecipients<T>(IList<T> recipients, string paramName)
+        private static void AssertValidRecipients<T>(IReadOnlyList<T> recipients, string paramName)
         {
             if (recipients == null)
                 throw new ArgumentNullException(paramName);
+
             if (recipients.Count < 1)
                 throw new ArgumentException("Recipients must contain at least one item.", paramName);
         }
@@ -102,7 +103,7 @@ namespace Lidgren.Network
             if (recipients.Count < 1)
             {
 #if DEBUG
-				throw new NetException("GetMTU called with no recipients");
+                throw new NetException("GetMTU called with no recipients");
 #else
                 // we don't have access to the particular peer, so just use default MTU
                 return mtu;
@@ -180,7 +181,7 @@ namespace Lidgren.Network
             msg.m_isSent = true;
 
             Interlocked.Increment(ref msg.m_recyclingCount);
-            m_unsentUnconnectedMessages.Enqueue(new NetTuple<IPEndPoint, NetOutgoingMessage>(endpoint, msg));
+            m_unsentUnconnectedMessages.Enqueue((endpoint, msg));
         }
 
         /// <summary>
@@ -197,13 +198,13 @@ namespace Lidgren.Network
             msg.m_isSent = true;
 
             Interlocked.Increment(ref msg.m_recyclingCount);
-            m_unsentUnconnectedMessages.Enqueue(new NetTuple<IPEndPoint, NetOutgoingMessage>(recipient, msg));
+            m_unsentUnconnectedMessages.Enqueue((recipient, msg));
         }
 
         /// <summary>
         /// Send a message to an unconnected host.
         /// </summary>
-        public void SendUnconnectedMessage(NetOutgoingMessage msg, IList<IPEndPoint> recipients)
+        public void SendUnconnectedMessage(NetOutgoingMessage msg, IReadOnlyList<IPEndPoint> recipients)
         {
             if (msg == null) throw new ArgumentNullException(nameof(msg));
             AssertValidRecipients(recipients, nameof(recipients));
@@ -214,8 +215,8 @@ namespace Lidgren.Network
             msg.m_isSent = true;
 
             Interlocked.Add(ref msg.m_recyclingCount, recipients.Count);
-            foreach (IPEndPoint ep in recipients)
-                m_unsentUnconnectedMessages.Enqueue(new NetTuple<IPEndPoint, NetOutgoingMessage>(ep, msg));
+            foreach (IPEndPoint endPoint in recipients)
+                m_unsentUnconnectedMessages.Enqueue((endPoint, msg));
         }
 
         /// <summary>
@@ -237,7 +238,7 @@ namespace Lidgren.Network
             om.m_isFragment = false;
             om.m_receiveTime = NetTime.Now;
             om.m_senderConnection = null;
-            om.m_senderEndPoint = m_socket.LocalEndPoint as IPEndPoint;
+            om.m_senderEndPoint = Socket.LocalEndPoint as IPEndPoint;
             NetException.Assert(om.m_bitLength == msg.LengthBits);
 
             ReleaseMessage(om);

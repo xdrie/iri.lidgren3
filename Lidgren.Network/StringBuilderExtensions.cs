@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace Lidgren.Network.Language
+namespace Lidgren.Network
 {
     internal static class StringBuilderExtensions
     {

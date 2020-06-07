@@ -17,11 +17,7 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR TH
 USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-using System;
-using System.Collections.Generic;
 using System.Text;
-using System.Diagnostics;
-using Lidgren.Network.Language;
 
 namespace Lidgren.Network
 {
@@ -29,40 +25,41 @@ namespace Lidgren.Network
     /// Statistics for a <see cref="NetConnection"/> instance.
     /// </summary>
     public sealed class NetConnectionStatistics
-	{
-		private readonly NetConnection m_connection;
+    {
+        private readonly NetConnection m_connection;
 
-		internal int m_sentPackets;
-		internal int m_receivedPackets;
+        internal int m_sentPackets;
+        internal int m_receivedPackets;
 
-		internal int m_sentMessages;
-		internal int m_receivedMessages;
-		internal int m_receivedFragments;
+        internal int m_sentMessages;
+        internal int m_receivedMessages;
 
-		internal int m_sentBytes;
-		internal int m_receivedBytes;
+        internal int m_receivedFragments;
 
-		internal int m_resentMessagesDueToDelay;
-		internal int m_resentMessagesDueToHole;
+        internal int m_sentBytes;
+        internal int m_receivedBytes;
 
-		internal NetConnectionStatistics(NetConnection conn)
-		{
-			m_connection = conn;
-			Reset();
-		}
+        internal int m_resentMessagesDueToDelay;
+        internal int m_resentMessagesDueToHole;
 
-		internal void Reset()
-		{
-			m_sentPackets = 0;
-			m_receivedPackets = 0;
-			m_sentMessages = 0;
-			m_receivedMessages = 0;
-			m_receivedFragments = 0;
-			m_sentBytes = 0;
-			m_receivedBytes = 0;
-			m_resentMessagesDueToDelay = 0;
-			m_resentMessagesDueToHole = 0;
-		}
+        internal NetConnectionStatistics(NetConnection conn)
+        {
+            m_connection = conn;
+            Reset();
+        }
+
+        internal void Reset()
+        {
+            m_sentPackets = 0;
+            m_receivedPackets = 0;
+            m_sentMessages = 0;
+            m_receivedMessages = 0;
+            m_receivedFragments = 0;
+            m_sentBytes = 0;
+            m_receivedBytes = 0;
+            m_resentMessagesDueToDelay = 0;
+            m_resentMessagesDueToHole = 0;
+        }
 
         /// <summary>
         /// Gets the number of sent packets for this connection.
@@ -92,7 +89,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Gets the number of unsent messages currently in queue for this connection.
         /// </summary>
-        public int UnsentMessages
+        public int QueuedMessages
         {
             get
             {
@@ -151,50 +148,58 @@ namespace Lidgren.Network
         // public double LastSendRespondedTo { get { return m_connection.m_lastSendRespondedTo; } }
 
         internal void PacketSent(int numBytes, int numMessages)
-		{
+        {
             NetException.Assert(numBytes > 0 && numMessages > 0);
-			m_sentPackets++;
-			m_sentBytes += numBytes;
-			m_sentMessages += numMessages;
-		}
+            m_sentPackets++;
+            m_sentBytes += numBytes;
+            m_sentMessages += numMessages;
+        }
 
-		internal void PacketReceived(int numBytes, int numMessages, int numFragments)
-		{
-			NetException.Assert(numBytes > 0 && numMessages > 0);
-			m_receivedPackets++;
-			m_receivedBytes += numBytes;
-			m_receivedMessages += numMessages;
+        internal void PacketReceived(int numBytes, int numMessages, int numFragments)
+        {
+            NetException.Assert(numBytes > 0 && numMessages > 0);
+            m_receivedPackets++;
+            m_receivedBytes += numBytes;
+            m_receivedMessages += numMessages;
             m_receivedFragments += numFragments;
         }
 
         internal void MessageResent(MessageResendReason reason)
-		{
-			if (reason == MessageResendReason.Delay)
-				m_resentMessagesDueToDelay++;
-			else
-				m_resentMessagesDueToHole++;
-		}
+        {
+            if (reason == MessageResendReason.Delay)
+                m_resentMessagesDueToDelay++;
+            else
+                m_resentMessagesDueToHole++;
+        }
 
         /// <summary>
         /// Returns a string that represents this object
         /// </summary>
         public override string ToString()
         {
-            ILibraryLanguage lang = LanguageManager.Current;
-            StringBuilder sb = new StringBuilder();
+            // TODO: add custom format support
 
-            sb.AppendFormatLine(lang["averageRoundtrip_X"], NetTime.ToReadable(m_connection.AverageRoundtripTime));
-            sb.AppendFormatLine(lang["currentMTU_X"], m_connection.m_currentMTU);
-            sb.AppendFormatLine(lang["sent_X_bytes_X_messages_X_packets"], m_sentBytes, m_sentMessages, m_sentPackets);
-            sb.AppendFormatLine(lang["received_X_bytes_X_messages_X_fragments_X_packets"], m_receivedBytes, m_receivedMessages, m_receivedFragments, m_receivedPackets);
+            var sb = new StringBuilder();
+
+            sb.AppendFormatLine("Average roundtrip time: {0}", NetTime.ToReadable(m_connection.AverageRoundtripTime));
+            sb.AppendFormatLine("Current MTU: {0}", m_connection.m_currentMTU);
+
+            sb.AppendFormatLine(
+                "Sent {0} bytes in {1} messages in {2} packets", 
+                m_sentBytes, m_sentMessages, m_sentPackets);
+
+            sb.AppendFormatLine(
+                "Received {0} bytes in {1} messages ({2} fragments) in {3} packets",
+                m_receivedBytes, m_receivedMessages, m_receivedFragments, m_receivedPackets);
+
             sb.AppendLine();
-            sb.AppendFormatLine(lang["resentMessages_delay_X"], m_resentMessagesDueToDelay);
-            sb.AppendFormatLine(lang["resentMessages_holes_X"], m_resentMessagesDueToHole);
-            sb.AppendFormatLine(lang["unsentMessages_X"], UnsentMessages);
-            sb.AppendFormatLine(lang["storedReliableMessages_X"], StoredMessages);
-            sb.AppendFormatLine(lang["withheldMessages_X"], WithheldMessages);
+            sb.AppendFormatLine("Queued: {0}", QueuedMessages);
+            sb.AppendFormatLine("Stored: {0}", StoredMessages);
+            sb.AppendFormatLine("Witheld: {0}", WithheldMessages);
+            sb.AppendFormatLine("Resent (by delay): {0}", m_resentMessagesDueToDelay);
+            sb.AppendFormatLine("Resent (by hole): {0}", m_resentMessagesDueToHole);
 
             return sb.ToString();
         }
-	}
+    }
 }

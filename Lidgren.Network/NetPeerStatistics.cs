@@ -18,53 +18,49 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 
-using System;
 using System.Text;
-using System.Diagnostics;
-using System.Collections.Generic;
-using Lidgren.Network.Language;
 
 namespace Lidgren.Network
 {
-	/// <summary>
-	/// Statistics for a NetPeer instance
-	/// </summary>
-	public sealed class NetPeerStatistics
-	{
-		private readonly NetPeer m_peer;
+    /// <summary>
+    /// Statistics for a NetPeer instance
+    /// </summary>
+    public sealed class NetPeerStatistics
+    {
+        private readonly NetPeer m_peer;
 
-		internal int m_sentPackets;
-		internal int m_receivedPackets;
+        internal int m_sentPackets;
+        internal int m_receivedPackets;
 
-		internal int m_sentMessages;
-		internal int m_receivedMessages;
-		internal int m_receivedFragments;
+        internal int m_sentMessages;
+        internal int m_receivedMessages;
+        internal int m_receivedFragments;
 
-		internal int m_sentBytes;
-		internal int m_receivedBytes;
+        internal int m_sentBytes;
+        internal int m_receivedBytes;
 
-		internal long m_totalBytesAllocated;
+        internal long m_totalBytesAllocated;
 
-		internal NetPeerStatistics(NetPeer peer)
-		{
-			m_peer = peer;
-			Reset();
-		}
+        internal NetPeerStatistics(NetPeer peer)
+        {
+            m_peer = peer;
+            Reset();
+        }
 
-		internal void Reset()
-		{
-			m_sentPackets = 0;
-			m_receivedPackets = 0;
+        internal void Reset()
+        {
+            m_sentPackets = 0;
+            m_receivedPackets = 0;
 
-			m_sentMessages = 0;
-			m_receivedMessages = 0;
-			m_receivedFragments = 0;
+            m_sentMessages = 0;
+            m_receivedMessages = 0;
+            m_receivedFragments = 0;
 
-			m_sentBytes = 0;
-			m_receivedBytes = 0;
+            m_sentBytes = 0;
+            m_receivedBytes = 0;
 
-			m_totalBytesAllocated = 0;
-		}
+            m_totalBytesAllocated = 0;
+        }
 
         /// <summary>
         /// Gets the number of sent packets since the NetPeer was initialized
@@ -107,36 +103,42 @@ namespace Lidgren.Network
         public int BytesInRecyclePool => m_peer.m_bytesInPool;
 
         internal void PacketSent(int numBytes, int numMessages)
-		{
-			m_sentPackets++;
-			m_sentBytes += numBytes;
-			m_sentMessages += numMessages;
-		}
+        {
+            m_sentPackets++;
+            m_sentBytes += numBytes;
+            m_sentMessages += numMessages;
+        }
 
-		internal void PacketReceived(int numBytes, int numMessages, int numFragments)
-		{
-			m_receivedPackets++;
-			m_receivedBytes += numBytes;
-			m_receivedMessages += numMessages;
-			m_receivedFragments += numFragments;
-		}
+        internal void PacketReceived(int numBytes, int numMessages, int numFragments)
+        {
+            m_receivedPackets++;
+            m_receivedBytes += numBytes;
+            m_receivedMessages += numMessages;
+            m_receivedFragments += numFragments;
+        }
 
         /// <summary>
         /// Builds and returns a string that represents this object.
         /// </summary>
         public override string ToString()
         {
-            ILibraryLanguage lang = LanguageManager.Current;
-            StringBuilder sb = new StringBuilder();
+            var sb = new StringBuilder();
 
-            sb.AppendFormatLine(lang["X_connections"], m_peer.ConnectionCount);
-            sb.AppendFormatLine(lang["sent_X_bytes_X_messages_X_packets"], m_sentBytes, m_sentMessages, m_sentPackets);
-            sb.AppendFormatLine(lang["received_X_bytes_X_messages_X_fragments_X_packets"], m_receivedBytes, m_receivedMessages, m_receivedFragments, m_receivedPackets);
+            sb.AppendFormatLine("{0} active connections", m_peer.ConnectionCount);
+
+            sb.AppendFormatLine(
+                "Sent {0} bytes in {1} messages in {2} packets",
+                m_sentBytes, m_sentMessages, m_sentPackets);
+
+            sb.AppendFormatLine(
+                "Received {0} bytes in {1} messages ({2} fragments) in {3} packets", 
+                m_receivedBytes, m_receivedMessages, m_receivedFragments, m_receivedPackets);
+
             sb.AppendLine();
-            sb.AppendFormatLine(lang["bytesInPool_X"], BytesInRecyclePool);
-            sb.AppendFormatLine(lang["totalBytesAllocated_X"], m_totalBytesAllocated);
+            sb.AppendFormatLine("Bytes in pool: {0}", BytesInRecyclePool);
+            sb.AppendFormatLine("Total bytes allocated: {0} bytes", m_totalBytesAllocated);
 
             return sb.ToString();
         }
-	}
+    }
 }

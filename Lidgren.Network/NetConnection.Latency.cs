@@ -122,7 +122,7 @@ namespace Lidgren.Network
 			}
 
 			// update resend delay for all channels
-			float resendDelay = GetResendDelay();
+			float resendDelay = ResendDelay;
 			foreach (var chan in m_sendChannels)
 			{
                 if (chan is NetReliableSenderChannel rchan)

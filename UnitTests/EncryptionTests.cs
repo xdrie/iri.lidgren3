@@ -93,7 +93,7 @@ namespace UnitTests
 						throw new NetException("SRP non matching session values!");
 				}
 
-				var test = NetSRP.CreateEncryption(peer, Ss);
+				NetSRP.CreateEncryption(peer, Ss);
 			}
 
 			Console.WriteLine("Message encryption OK");

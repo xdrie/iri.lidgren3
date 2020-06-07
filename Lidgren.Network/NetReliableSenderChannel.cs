@@ -29,7 +29,7 @@ namespace Lidgren.Network
 			m_receivedAcks = new NetBitVector(NetConstants.NumSequenceNumbers);
 			m_storedMessages = new NetStoredReliableMessage[m_windowSize];
 			m_queuedSends = new NetQueue<NetOutgoingMessage>(16);
-			m_resendDelay = m_connection.GetResendDelay();
+			m_resendDelay = m_connection.ResendDelay;
 		}
 
 		internal override int GetAllowedSends()

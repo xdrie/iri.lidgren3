@@ -16,25 +16,24 @@ LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRA
 TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
 USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
-using System;
 using System.Net;
 using System.Diagnostics;
 
 namespace Lidgren.Network
 {
-	/// <summary>
-	/// Incoming message either sent from a remote peer or generated within the library.
-	/// </summary>
-	[DebuggerDisplay("Type={MessageType} LengthBits={LengthBits}")]
-	public sealed class NetIncomingMessage : NetBuffer
-	{
-		internal NetIncomingMessageType m_incomingMessageType;
-		internal IPEndPoint m_senderEndPoint;
-		internal NetConnection m_senderConnection;
-		internal int m_sequenceNumber;
-		internal NetMessageType m_receivedMessageType;
-		internal bool m_isFragment;
-		internal double m_receiveTime;
+    /// <summary>
+    /// Incoming message either sent from a remote peer or generated within the library.
+    /// </summary>
+    [DebuggerDisplay("Type={MessageType} LengthBits={LengthBits}")]
+    public sealed class NetIncomingMessage : NetBuffer
+    {
+        internal NetIncomingMessageType m_incomingMessageType;
+        internal IPEndPoint m_senderEndPoint;
+        internal NetConnection m_senderConnection;
+        internal int m_sequenceNumber;
+        internal NetMessageType m_receivedMessageType;
+        internal bool m_isFragment;
+        internal double m_receiveTime;
 
         /// <summary>
         /// Gets the type of this incoming message.
@@ -67,33 +66,33 @@ namespace Lidgren.Network
         public double ReceiveTime => m_receiveTime;
 
         internal NetIncomingMessage()
-		{
-		}
+        {
+        }
 
-		internal NetIncomingMessage(NetIncomingMessageType tp)
-		{
-			m_incomingMessageType = tp;
-		}
+        internal NetIncomingMessage(NetIncomingMessageType tp)
+        {
+            m_incomingMessageType = tp;
+        }
 
-		internal void Reset()
-		{
-			m_incomingMessageType = NetIncomingMessageType.Error;
-			m_readPosition = 0;
-			m_receivedMessageType = NetMessageType.LibraryError;
-			m_senderConnection = null;
-			m_bitLength = 0;
-			m_isFragment = false;
-		}
+        internal void Reset()
+        {
+            m_incomingMessageType = NetIncomingMessageType.Error;
+            m_readPosition = 0;
+            m_receivedMessageType = NetMessageType.LibraryError;
+            m_senderConnection = null;
+            m_bitLength = 0;
+            m_isFragment = false;
+        }
 
-		/// <summary>
-		/// Try to decrypt the message with the specified encryption algorithm.
-		/// </summary>
-		/// <param name="encryption">The encryption algorithm used to encrypt the message.</param>
-		/// <returns>Whether the decryption succeeded.</returns>
-		public bool Decrypt(NetEncryption encryption)
-		{
-			return encryption.Decrypt(this);
-		}
+        /// <summary>
+        /// Try to decrypt the message with the specified encryption algorithm.
+        /// </summary>
+        /// <param name="encryption">The encryption algorithm used to encrypt the message.</param>
+        /// <returns>Whether the decryption succeeded.</returns>
+        public bool Decrypt(NetEncryption encryption)
+        {
+            return encryption.Decrypt(this);
+        }
 
         /// <summary>
         /// Reads a value, in local time comparable to <see cref="NetTime.Now"/>,
@@ -101,16 +100,16 @@ namespace Lidgren.Network
         /// This requires a sender connection.
         /// </summary>
         public double ReadTime(bool highPrecision)
-		{
-			return ReadTime(m_senderConnection, highPrecision);
-		}
+        {
+            return ReadTime(m_senderConnection, highPrecision);
+        }
 
-		/// <summary>
-		/// Returns a <see cref="string"/> that represents this object.
-		/// </summary>
-		public override string ToString()
-		{
-			return "[NetIncomingMessage #" + m_sequenceNumber + " " + LengthBytes + " bytes]";
-		}
-	}
+        /// <summary>
+        /// Returns a <see cref="string"/> that represents this object.
+        /// </summary>
+        public override string ToString()
+        {
+            return "{NetIncomingMessage #" + m_sequenceNumber + " " + LengthBytes + " bytes}";
+        }
+    }
 }

@@ -1,5 +1,3 @@
-using System;
-using System.IO;
 using System.Security.Cryptography;
 
 namespace Lidgren.Network
@@ -7,18 +5,18 @@ namespace Lidgren.Network
 	public class NetAESEncryption : NetCryptoProviderBase
 	{
 		public NetAESEncryption(NetPeer peer)
-			: base(peer, new AesCryptoServiceProvider())
+			: base(peer, Aes.Create())
 		{
 		}
 
 		public NetAESEncryption(NetPeer peer, string key)
-			: base(peer, new AesCryptoServiceProvider())
+			: base(peer, Aes.Create())
 		{
 			SetKey(key);
 		}
 
 		public NetAESEncryption(NetPeer peer, byte[] data, int offset, int count)
-			: base(peer, new AesCryptoServiceProvider())
+			: base(peer, Aes.Create())
 		{
 			SetKey(data, offset, count);
 		}
