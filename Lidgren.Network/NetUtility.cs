@@ -161,7 +161,7 @@ namespace Lidgren.Network
         public static NetAddress Resolve(string ipOrHost)
         {
             if (string.IsNullOrEmpty(ipOrHost))
-                throw new ArgumentException("Supplied string must not be empty", "ipOrHost");
+                throw new ArgumentException("Supplied string must not be empty.", nameof(ipOrHost));
 
             ipOrHost = ipOrHost.Trim();
 

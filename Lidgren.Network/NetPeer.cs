@@ -2,7 +2,7 @@
 using System.Threading;
 using System.Collections.Generic;
 using System.Net;
-
+using System.Net.Sockets;
 #if !__NOIPENDPOINT__
 using NetEndPoint = System.Net.IPEndPoint;
 #endif
@@ -104,23 +104,27 @@ namespace Lidgren.Network
         /// </summary>
         public NetPeerConfiguration Configuration => m_configuration;
 
-        /// <summary>
-        /// NetPeer constructor.
-        /// </summary>
-        public NetPeer(NetPeerConfiguration config)
-        {
-            m_configuration = config;
-            m_statistics = new NetPeerStatistics(this);
-            m_releasedIncomingMessages = new NetQueue<NetIncomingMessage>(8);
-            m_unsentUnconnectedMessages = new NetQueue<(NetEndPoint, NetOutgoingMessage)>(4);
-            m_connections = new List<NetConnection>();
-            m_connectionLookup = new Dictionary<NetEndPoint, NetConnection>();
-            m_handshakes = new Dictionary<NetEndPoint, NetConnection>();
-            var address = config.DualStack ? IPAddress.IPv6Any : IPAddress.Any;
-            m_senderRemote = new NetEndPoint(address, 0);
+		/// <summary>
+		/// NetPeer constructor
+		/// </summary>
+		public NetPeer(NetPeerConfiguration config)
+		{
+			m_configuration = config;
+			m_statistics = new NetPeerStatistics(this);
+			m_releasedIncomingMessages = new NetQueue<NetIncomingMessage>(4);
+			m_unsentUnconnectedMessages = new NetQueue<(NetEndPoint, NetOutgoingMessage)>(2);
+			m_connections = new List<NetConnection>();
+			m_connectionLookup = new Dictionary<NetEndPoint, NetConnection>();
+			m_handshakes = new Dictionary<NetEndPoint, NetConnection>();
+
+            if (m_configuration.LocalAddress.AddressFamily == AddressFamily.InterNetworkV6)
+                m_senderRemote = (EndPoint)new IPEndPoint(IPAddress.IPv6Any, 0);
+            else
+                m_senderRemote = (EndPoint)new IPEndPoint(IPAddress.Any, 0);
+			
             m_status = NetPeerStatus.NotRunning;
-            m_receivedFragmentGroups = new Dictionary<NetConnection, Dictionary<int, ReceivedFragmentGroup>>();	
-        }
+			m_receivedFragmentGroups = new Dictionary<NetConnection, Dictionary<int, ReceivedFragmentGroup>>();
+		}
 
         /// <summary>
         /// Binds to socket and spawns the networking thread.
@@ -205,15 +209,15 @@ namespace Lidgren.Network
         /// <summary>
         /// Read a pending message from any connection, if any.
         /// </summary>
-        public int ReadMessages(IList<NetIncomingMessage> addTo)
+        public int ReadMessages(IList<NetIncomingMessage> destination)
         {
-            int added = m_releasedIncomingMessages.TryDrain(addTo);
+            int added = m_releasedIncomingMessages.TryDrain(destination);
             if (added > 0)
             {
                 for (int i = 0; i < added; i++)
                 {
-                    var index = addTo.Count - added + i;
-                    var nim = addTo[index];
+                    var index = destination.Count - added + i;
+                    var nim = destination[index];
                     if (nim.MessageType == NetIncomingMessageType.StatusChanged)
                     {
                         NetConnectionStatus status = (NetConnectionStatus)nim.PeekByte();
