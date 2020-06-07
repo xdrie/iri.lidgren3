@@ -15,8 +15,6 @@ namespace Lidgren.Network
     public partial class NetPeer
     {
         private static int s_initializedPeersCount;
-
-        private int m_listenPort;
         private object m_messageReceivedEventCreationLock = new object();
 
         internal readonly List<NetConnection> m_connections;
@@ -61,7 +59,7 @@ namespace Lidgren.Network
         /// Gets the port number this <see cref="NetPeer"/> is listening and sending on,
         /// if <see cref="Start"/> has been called.
         /// </summary>
-        public int Port => m_listenPort;
+        public int Port { get; private set; }
 
         /// <summary>
         /// Returns an <see cref="NetUPnP"/> object if enabled in the <see cref="NetPeerConfiguration"/>.
@@ -104,27 +102,27 @@ namespace Lidgren.Network
         /// </summary>
         public NetPeerConfiguration Configuration => m_configuration;
 
-		/// <summary>
-		/// NetPeer constructor
-		/// </summary>
-		public NetPeer(NetPeerConfiguration config)
-		{
-			m_configuration = config;
-			m_statistics = new NetPeerStatistics(this);
-			m_releasedIncomingMessages = new NetQueue<NetIncomingMessage>(4);
-			m_unsentUnconnectedMessages = new NetQueue<(NetEndPoint, NetOutgoingMessage)>(2);
-			m_connections = new List<NetConnection>();
-			m_connectionLookup = new Dictionary<NetEndPoint, NetConnection>();
-			m_handshakes = new Dictionary<NetEndPoint, NetConnection>();
+        /// <summary>
+        /// NetPeer constructor
+        /// </summary>
+        public NetPeer(NetPeerConfiguration config)
+        {
+            m_configuration = config;
+            m_statistics = new NetPeerStatistics(this);
+            m_releasedIncomingMessages = new NetQueue<NetIncomingMessage>(4);
+            m_unsentUnconnectedMessages = new NetQueue<(NetEndPoint, NetOutgoingMessage)>(2);
+            m_connections = new List<NetConnection>();
+            m_connectionLookup = new Dictionary<NetEndPoint, NetConnection>();
+            m_handshakes = new Dictionary<NetEndPoint, NetConnection>();
 
             if (m_configuration.LocalAddress.AddressFamily == AddressFamily.InterNetworkV6)
                 m_senderRemote = (EndPoint)new IPEndPoint(IPAddress.IPv6Any, 0);
             else
                 m_senderRemote = (EndPoint)new IPEndPoint(IPAddress.Any, 0);
-			
+            
             m_status = NetPeerStatus.NotRunning;
-			m_receivedFragmentGroups = new Dictionary<NetConnection, Dictionary<int, ReceivedFragmentGroup>>();
-		}
+            m_receivedFragmentGroups = new Dictionary<NetConnection, Dictionary<int, ReceivedFragmentGroup>>();
+        }
 
         /// <summary>
         /// Binds to socket and spawns the networking thread.

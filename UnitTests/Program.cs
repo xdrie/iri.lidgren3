@@ -9,6 +9,8 @@ namespace UnitTests
     {
         static void Main(string[] args)
         {
+            // TODO: check use of GetAddressBytes and optimize with span
+
             var config = new NetPeerConfiguration("unittests");
             config.EnableUPnP = true;
             NetPeer peer = new NetPeer(config);

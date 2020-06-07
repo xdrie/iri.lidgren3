@@ -135,14 +135,16 @@ namespace Lidgren.Network
                     if (m_configuration.DualStack)
                     {
                         if (m_configuration.LocalAddress.AddressFamily != AddressFamily.InterNetworkV6)
+                        {
                             LogWarning(
-                                "Configuration specifies Dual Stack but does not use IPv6 local address; Dual stack will not work.");
+                                "Configuration specifies DualStack but does not use IPv6 local address; Dual stack will not work.");
+                        }
                         else
-                            m_socket.DualMode = true;
+                            Socket.DualMode = true;
                     }
 
-                    var ep = (EndPoint)new NetEndPoint(m_configuration.LocalAddress, reBind ? m_listenPort : m_configuration.Port);
-                    m_socket.Bind(ep);
+                    var ep = (EndPoint)new NetEndPoint(m_configuration.LocalAddress, reBind ? Port : m_configuration.Port);
+                    Socket.Bind(ep);
 
                     try
                     {
@@ -164,7 +166,7 @@ namespace Lidgren.Network
 
             NetEndPoint boundEp = Socket.LocalEndPoint as NetEndPoint;
             LogDebug("Socket bound to " + boundEp + ": " + Socket.IsBound);
-            m_listenPort = boundEp.Port;
+            Port = boundEp.Port;
         }
 
         private void InitializeNetwork()
@@ -278,7 +280,7 @@ namespace Lidgren.Network
                         {
                             Socket.Shutdown(SocketShutdown.Receive);
                         }
-                        catch(Exception ex)
+                        catch (Exception ex)
                         {
                             LogDebug("Socket.Shutdown exception: " + ex.ToString());
                         }
