@@ -1,4 +1,4 @@
-﻿
+﻿using System;
 using System.Collections.Generic;
 
 namespace Lidgren.Network
@@ -7,96 +7,104 @@ namespace Lidgren.Network
     {
         internal void Recycle(byte[] storage)
         {
-            if (m_storagePool == null || storage == null)
+            if (_storagePool == null || storage == null)
                 return;
 
-            lock (m_storagePool)
+            lock (_storagePool)
             {
-                m_bytesInPool += storage.Length;
-                int cnt = m_storagePool.Count;
+                _bytesInPool += storage.Length;
+                int cnt = _storagePool.Count;
                 for (int i = 0; i < cnt; i++)
                 {
-                    if (m_storagePool[i] == null)
+                    if (_storagePool[i] == null)
                     {
-                        m_storagePool[i] = storage;
+                        _storagePool[i] = storage;
                         return;
                     }
                 }
-                m_storagePool.Add(storage);
+                _storagePool.Add(storage);
             }
         }
 
         /// <summary>
-        /// Recycles a NetIncomingMessage instance for reuse; taking pressure off the garbage collector
+        /// Recycles a message for reuse; taking pressure off the garbage collector
         /// </summary>
-        public void Recycle(NetIncomingMessage msg)
+        public void Recycle(NetIncomingMessage message)
         {
-            if (m_incomingMessagesPool == null)
+            if (message == null)
+                throw new ArgumentNullException(nameof(message));
+
+            if (_incomingMessagePool == null)
                 return;
 
-            NetException.Assert(m_incomingMessagesPool.Contains(msg) == false, "Recyling already recycled message! Thread race?");
+            LidgrenException.Assert(
+                !_incomingMessagePool.Contains(message), "Recyling already recycled message! Thread race?");
 
-            byte[] storage = msg.m_data;
-            msg.m_data = null;
+            byte[] storage = message.Data;
+            message.Data = Array.Empty<byte>();
             Recycle(storage);
-            msg.Reset();
-            m_incomingMessagesPool.Enqueue(msg);
+            message.Reset();
+            _incomingMessagePool.Enqueue(message);
         }
 
         /// <summary>
-        /// Recycles a list of NetIncomingMessage instances for reuse; taking pressure off the garbage collector
+        /// Recycles a list of messages for reuse.
         /// </summary>
         public void Recycle(IEnumerable<NetIncomingMessage> toRecycle)
         {
-            if (m_incomingMessagesPool == null)
+            if (toRecycle == null)
+                throw new ArgumentNullException(nameof(toRecycle));
+
+            if (_incomingMessagePool == null)
                 return;
 
             // first recycle the storage of each message
-            if (m_storagePool != null)
+            if (_storagePool != null)
             {
-                lock (m_storagePool)
+                lock (_storagePool)
                 {
                     foreach (var msg in toRecycle)
                     {
-                        var storage = msg.m_data;
-                        msg.m_data = null;
-                        m_bytesInPool += storage.Length;
-                        int cnt = m_storagePool.Count;
-                        for (int i = 0; i < cnt; i++)
+                        var storage = msg.Data;
+                        msg.Data = Array.Empty<byte>();
+                        _bytesInPool += storage.Length;
+                        for (int i = 0; i < _storagePool.Count; i++)
                         {
-                            if (m_storagePool[i] == null)
+                            if (_storagePool[i] == null)
                             {
-                                m_storagePool[i] = storage;
+                                _storagePool[i] = storage;
                                 return;
                             }
                         }
                         msg.Reset();
-                        m_storagePool.Add(storage);
+                        _storagePool.Add(storage);
                     }
                 }
             }
 
             // then recycle the message objects
-            m_incomingMessagesPool.Enqueue(toRecycle);
+            _incomingMessagePool.Enqueue(toRecycle);
         }
 
         internal void Recycle(NetOutgoingMessage msg)
         {
-            if (m_outgoingMessagesPool == null)
+            if (_outgoingMessagePool == null)
                 return;
 
-            NetException.Assert(m_outgoingMessagesPool.Contains(msg) == false, "Recyling already recycled message! Thread race?");
+            LidgrenException.Assert(
+                !_outgoingMessagePool.Contains(msg), "Recyling already recycled message! Thread race?");
 
-            byte[] storage = msg.m_data;
-            msg.m_data = null;
+            byte[] storage = msg.Data;
+            msg.Data = Array.Empty<byte>();
 
             // message fragments cannot be recycled
-            // TODO: find a way to recycle large message after all fragments has been acknowledged; or? possibly better just to garbage collect them
-            if (msg.m_fragmentGroup == 0)
+            // TODO: find a way to recycle large message after all fragments has been acknowledged;
+            //       or? possibly better just to garbage collect them
+            if (msg._fragmentGroup == 0)
                 Recycle(storage);
 
             msg.Reset();
-            m_outgoingMessagesPool.Enqueue(msg);
+            _outgoingMessagePool.Enqueue(msg);
         }
     }
 }

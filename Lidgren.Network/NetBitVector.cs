@@ -18,155 +18,195 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 using System;
+using System.Numerics;
 using System.Text;
 
 namespace Lidgren.Network
 {
-	/// <summary>
-	/// Fixed size vector of booleans
-	/// </summary>
-	public sealed class NetBitVector
-	{
-		private readonly int m_capacity;
-		private readonly int[] m_data;
-		private int m_numBitsSet;
+    /// <summary>
+    /// Fixed size vector of bits.
+    /// </summary>
+    public sealed class NetBitVector
+    {
+        private const int BitsPerData = sizeof(int) * 8;
+
+        private readonly uint[] _data;
 
         /// <summary>
-        /// Gets the number of bits/booleans stored in this vector.
+        /// Gets the number of bits stored in this vector.
         /// </summary>
-        public int Capacity => m_capacity;
+        public int Capacity { get; }
 
         /// <summary>
-        /// NetBitVector constructor.
+        /// Gets the number of bits set to one.
         /// </summary>
-        public NetBitVector(int bitsCapacity)
-		{
-			m_capacity = bitsCapacity;
-			m_data = new int[(bitsCapacity + 31) / 32];
-		}
+        public int PopCount
+        {
+            get
+            {
+                int sum = 0;
+                for (int i = 0; i < _data.Length; i++)
+                    sum += BitOperations.PopCount(_data[i]);
+                return sum;
+            }
+        }
 
-		/// <summary>
-		/// Returns true if all bits/booleans are set to zero/false.
-		/// </summary>
-		public bool IsEmpty()
-		{
-			return (m_numBitsSet == 0);
-		}
+        /// <summary>
+        /// Gets whether this vector only contains bits set to zero.
+        /// </summary>
+        public bool IsZero
+        {
+            get
+            {
+                for (int i = 0; i < _data.Length; i++)
+                    if (BitOperations.PopCount(_data[i]) != 0)
+                        return false;
+                return true;
+            }
+        }
 
-		/// <summary>
-		/// Returns the number of bits/booleans set to one/true.
-		/// </summary>
-		/// <returns></returns>
-		public int Count()
-		{
-			return m_numBitsSet;
-		}
-
-		/// <summary>
-		/// Shift all bits one step down, cycling the first bit to the top.
-		/// </summary>
-		public void RotateDown()
-		{
-			int lenMinusOne = m_data.Length - 1;
-
-			int firstBit = m_data[0] & 1;
-			for (int i = 0; i < lenMinusOne; i++)
-				m_data[i] = ((m_data[i] >> 1) & ~(1 << 31)) | m_data[i + 1] << 31;
-
-			int lastIndex = m_capacity - 1 - (32 * lenMinusOne);
-
-			// special handling of last int
-			int cur = m_data[lenMinusOne];
-			cur >>= 1;
-			cur |= firstBit << lastIndex;
-
-			m_data[lenMinusOne] = cur;
-		}
-
-		/// <summary>
-		/// Gets the first (lowest) index set to true.
-		/// </summary>
-		public int GetFirstSetIndex()
-		{
-			int idx = 0;
-
-			int data = m_data[0];
-			while (data == 0)
-			{
-				idx++;
-				data = m_data[idx];
-			}
-
-			int a = 0;
-			while (((data >> a) & 1) == 0)
-				a++;
-
-			return (idx * 32) + a;
-		}
-
-		/// <summary>
-		/// Gets the bit/bool at the specified index.
-		/// </summary>
-		public bool Get(int bitIndex)
-		{
-			NetException.Assert(bitIndex >= 0 && bitIndex < m_capacity);
-
-			return (m_data[bitIndex / 32] & (1 << (bitIndex % 32))) != 0;
-		}
-
-		/// <summary>
-		/// Sets or clears the bit/bool at the specified index.
-		/// </summary>
-		public void Set(int bitIndex, bool value)
-		{
-			NetException.Assert(bitIndex >= 0 && bitIndex < m_capacity);
-
-			int idx = bitIndex / 32;
-			if (value)
-			{
-				if ((m_data[idx] & (1 << (bitIndex % 32))) == 0)
-					m_numBitsSet++;
-				m_data[idx] |= (1 << (bitIndex % 32));
-			}
-			else
-			{
-				if ((m_data[idx] & (1 << (bitIndex % 32))) != 0)
-					m_numBitsSet--;
-				m_data[idx] &= (~(1 << (bitIndex % 32)));
-			}
-		}
-
-		/// <summary>
-		/// Gets the bit/bool at the specified index.
-		/// </summary>
-		[System.Runtime.CompilerServices.IndexerName("Bit")]
-		public bool this[int index]
+        /// <summary>
+        /// Gets or sets a bit at the specified index.
+        /// </summary>
+        [System.Runtime.CompilerServices.IndexerName("Bits")]
+        public bool this[int index]
         {
             get => Get(index);
             set => Set(index, value);
         }
 
         /// <summary>
-        /// Sets all bits/booleans to zero/false.
+        /// Constructs the bit vector with a certain capacity.
+        /// </summary>
+        public NetBitVector(int bitsCapacity)
+        {
+            if (bitsCapacity < 0)
+                throw new ArgumentOutOfRangeException(nameof(bitsCapacity));
+
+            Capacity = bitsCapacity;
+            _data = new uint[(Capacity + BitsPerData - 1) / BitsPerData];
+        }
+
+        [CLSCompliant(false)]
+        public ReadOnlyMemory<uint> GetBuffer()
+        {
+            return _data.AsMemory();
+        }
+
+        /// <summary>
+        /// Shift all bits one step down, cycling the first bit to the top.
+        /// </summary>
+        public void RotateDown()
+        {
+            int lenMinusOne = _data.Length - 1;
+
+            uint firstBit = _data[0] & 1;
+            for (int i = 0; i < lenMinusOne; i++)
+                _data[i] = ((_data[i] >> 1) & ~(1 << 31)) | _data[i + 1] << 31;
+
+            int lastIndex = Capacity - 1 - (BitsPerData * lenMinusOne);
+
+            // special handling of last int
+            uint last = _data[lenMinusOne];
+            last >>= 1;
+            last |= firstBit << lastIndex;
+
+            _data[lenMinusOne] = last;
+        }
+
+        /// <summary>
+        /// Gets the first (lowest) bit with a given value.
+        /// </summary>
+        public int IndexOf(bool value)
+        {
+            int flag = value ? 1 : 0;
+            int offset = 0;
+            uint data = _data[0];
+
+            int a = 0;
+            while (((data >> a) & 1) != flag)
+            {
+                a++;
+                if (a == BitsPerData)
+                {
+                    offset++;
+                    a = 0;
+                    data = _data[offset];
+                }
+            }
+
+            return (offset * BitsPerData) + a;
+        }
+
+        /// <summary>
+        /// Gets the bit at the specified index.
+        /// </summary>
+        public bool Get(int bitIndex)
+        {
+            LidgrenException.Assert(bitIndex >= 0 && bitIndex < Capacity);
+
+            return (_data[bitIndex / BitsPerData] & (1 << (bitIndex % BitsPerData))) != 0;
+        }
+
+        /// <summary>
+        /// Sets or clears the bit at the specified index.
+        /// </summary>
+        public void Set(int bitIndex, bool value)
+        {
+            LidgrenException.Assert(bitIndex >= 0 && bitIndex < Capacity);
+
+            int index = bitIndex / BitsPerData;
+            uint mask = (uint)(1 << (bitIndex % BitsPerData));
+            if (value)
+            {
+                //if ((_data[index] & (1 << (bitIndex % BitsPerData))) == 0)
+                //    PopCount++;
+                _data[index] |= mask;
+            }
+            else
+            {
+                //if ((_data[index] & (1 << (bitIndex % BitsPerData))) != 0)
+                //    PopCount--;
+                _data[index] &= ~mask;
+            }
+        }
+
+        /// <summary>
+        /// Sets all values to a specified value.
+        /// </summary>
+        public void SetAll(bool value)
+        {
+            if (value)
+            {
+                _data.AsSpan().Fill(uint.MaxValue);
+                //PopCount = Capacity;
+            }
+            else
+            {
+                _data.AsSpan().Clear();
+                //PopCount = 0;
+            }
+        }
+
+        /// <summary>
+        /// Sets all bits to zero.
         /// </summary>
         public void Clear()
-		{
-			Array.Clear(m_data, 0, m_data.Length);
-			m_numBitsSet = 0;
-			NetException.Assert(IsEmpty());
-		}
+        {
+            SetAll(false);
+        }
 
-		/// <summary>
-		/// Returns a string that represents this object.
-		/// </summary>
-		public override string ToString()
-		{
-			StringBuilder bdr = new StringBuilder(m_capacity + 2);
-			bdr.Append('[');
-			for (int i = 0; i < m_capacity; i++)
-				bdr.Append(Get(m_capacity - i - 1) ? '1' : '0');
-			bdr.Append(']');
-			return bdr.ToString();
-		}
-	}
+        /// <summary>
+        /// Returns a string that represents this bit vector.
+        /// </summary>
+        public override string ToString()
+        {
+            var bdr = new StringBuilder(Capacity + 2);
+            bdr.Append('[');
+            for (int i = 0; i < Capacity; i++)
+                bdr.Append(Get(Capacity - i - 1) ? '1' : '0');
+            bdr.Append(']');
+            return bdr.ToString();
+        }
+    }
 }

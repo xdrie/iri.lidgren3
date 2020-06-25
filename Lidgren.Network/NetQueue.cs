@@ -18,226 +18,249 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 using System;
-using System.Diagnostics;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Threading;
 
 namespace Lidgren.Network
 {
-	/// <summary>
-	/// Thread safe (blocking) expanding queue with TryDequeue() and EnqueueFirst()
-	/// </summary>
-	[DebuggerDisplay("Count={Count} Capacity={Capacity}")]
-	public sealed class NetQueue<T>
-	{
-		// Example:
-		// m_capacity = 8
-		// m_size = 6
-		// m_head = 4
-		//
-		// [0] item
-		// [1] item (tail = ((head + size - 1) % capacity)
-		// [2] 
-		// [3] 
-		// [4] item (head)
-		// [5] item
-		// [6] item 
-		// [7] item
-		//
-		private T[] m_items;
-		private readonly ReaderWriterLockSlim m_lock = new ReaderWriterLockSlim();
-		private int m_size;
-		private int m_head;
+    /// <summary>
+    /// Thread-safe (blocking) expanding queue with TryDequeue() and EnqueueFirst()
+    /// </summary>
+    [DebuggerDisplay("{DebuggerDisplay}")]
+    public sealed class NetQueue<T> : IDisposable
+    {
+        // Example:
+        // m_capacity = 8
+        // m_size = 6
+        // m_head = 4
+        //
+        // [0] item
+        // [1] item (tail = ((head + size - 1) % capacity)
+        // [2] 
+        // [3] 
+        // [4] item (head)
+        // [5] item
+        // [6] item 
+        // [7] item
+        
+        private readonly ReaderWriterLockSlim _lock = new ReaderWriterLockSlim();
+        private T[] _items;
+        private int _head;
 
         /// <summary>
-        /// Gets the number of items in the queue
+        /// Gets the number of items in the queue.
         /// </summary>
-        public int Count => m_size;
+        public int Count { get; private set; }
 
         /// <summary>
-        /// Gets the current capacity for the queue
+        /// Gets the current capacity of the queue.
         /// </summary>
-        public int Capacity => m_items.Length;
+        public int Capacity => _items.Length;
+
+        internal string DebuggerDisplay => $"Count = {Count}, Capacity = {Capacity}";
 
         /// <summary>
-        /// NetQueue constructor
+        /// Constructs the queue with an initial capacity.
         /// </summary>
         public NetQueue(int initialCapacity)
-		{
-			m_items = new T[initialCapacity];
-		}
+        {
+            _items = new T[initialCapacity];
+        }
 
-		/// <summary>
-		/// Adds an item last/tail of the queue
-		/// </summary>
-		public void Enqueue(T item)
-		{
-			m_lock.EnterWriteLock();
-			try
-			{
-                if (m_size == m_items.Length)
-                    AddCapacity();
-            
-                int slot = (m_head + m_size) % m_items.Length;
-				m_items[slot] = item;
-				m_size++;
-			}
-			finally
-			{
-				m_lock.ExitWriteLock();
-			}
-		}
+        /// <summary>
+        /// Constructs the queue with a default capacity.
+        /// </summary>
+        public NetQueue()
+        {
+            _items = Array.Empty<T>();
+        }
 
         private void AddCapacity()
         {
-            SetCapacity(m_items.Length + 64);
+            SetCapacity(_items.Length + 64);
         }
 
-		/// <summary>
-		/// Adds an item last/tail of the queue
-		/// </summary>
-		public void Enqueue(IEnumerable<T> items)
-		{
-			m_lock.EnterWriteLock();
-			try
-			{
-				foreach (var item in items)
-				{
-                    if (m_size == m_items.Length)
-                        AddCapacity(); // TODO move this out of loop
-                    
-                    int slot = (m_head + m_size) % m_items.Length;
-					m_items[slot] = item;
-					m_size++;
-				}
-			}
-			finally
-			{
-				m_lock.ExitWriteLock();
-			}
-		}
-
-		/// <summary>
-		/// Places an item first, at the head of the queue
-		/// </summary>
-		public void EnqueueFirst(T item)
-		{
-			m_lock.EnterWriteLock();
-			try
-			{
-                if (m_size >= m_items.Length)
+        /// <summary>
+        /// Adds an item last/tail of the queue
+        /// </summary>
+        public void Enqueue(T item)
+        {
+            _lock.EnterWriteLock();
+            try
+            {
+                if (Count == _items.Length)
                     AddCapacity();
 
-                 m_head--;
-				if (m_head < 0)
-					m_head = m_items.Length - 1;
-				m_items[m_head] = item;
-				m_size++;
-			}
-			finally
-			{
-				m_lock.ExitWriteLock();
-			}
-		}
-
-		// must be called from within a write locked m_lock!
-		private void SetCapacity(int newCapacity)
-		{
-            if (m_size == 0)
+                int slot = (_head + Count) % _items.Length;
+                _items[slot] = item;
+                Count++;
+            }
+            finally
             {
-                m_items = new T[newCapacity];
-                m_head = 0;
+                _lock.ExitWriteLock();
+            }
+        }
+
+        /// <summary>
+        /// Adds an item last/tail of the queue
+        /// </summary>
+        /// <exception cref="ArgumentNullException"><paramref name="items"/> is null.</exception>
+        public void Enqueue(IEnumerable<T> items)
+        {
+            if (items == null)
+                throw new ArgumentNullException(nameof(items));
+
+            _lock.EnterWriteLock();
+            try
+            {
+                int expectedCount = Count;
+                if (items is ICollection<T> coll)
+                    expectedCount += coll.Count;
+                else if (items is IReadOnlyCollection<T> roColl)
+                    expectedCount += roColl.Count;
+
+                if (expectedCount > Capacity)
+                    SetCapacity(expectedCount + 64);
+
+                foreach (var item in items.AsListEnumerator())
+                {
+                    // we leave this here even if we may have an expected count
+                    // just to be safe
+                    if (Count == _items.Length)
+                        AddCapacity();
+
+                    int slot = (_head + Count) % _items.Length;
+                    _items[slot] = item;
+                    Count++;
+                }
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
+        }
+
+        /// <summary>
+        /// Places an item first, at the head of the queue
+        /// </summary>
+        public void EnqueueFirst(T item)
+        {
+            _lock.EnterWriteLock();
+            try
+            {
+                if (Count >= _items.Length)
+                    AddCapacity();
+
+                _head--;
+                if (_head < 0)
+                    _head = _items.Length - 1;
+                _items[_head] = item;
+                Count++;
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
+        }
+
+        // must be called from within a write locked m_lock!
+        private void SetCapacity(int newCapacity)
+        {
+            if (_items.Length == 0)
+            {
+                _items = new T[newCapacity];
+                _head = 0;
                 return;
             }
 
-			T[] newItems = new T[newCapacity];
+            var newItems = new T[newCapacity];
 
-			if (m_head + m_size - 1 < m_items.Length)
-			{
-				Array.Copy(m_items, m_head, newItems, 0, m_size);
-			}
-			else
-			{
-				Array.Copy(m_items, m_head, newItems, 0, m_items.Length - m_head);
-				Array.Copy(m_items, 0, newItems, m_items.Length - m_head, (m_size - (m_items.Length - m_head)));
-			}
+            if (_head + Count - 1 < _items.Length)
+            {
+                Array.Copy(_items, _head, newItems, 0, Count);
+            }
+            else
+            {
+                Array.Copy(_items, _head, newItems, 0, _items.Length - _head);
+                Array.Copy(_items, 0, newItems, _items.Length - _head, Count - (_items.Length - _head));
+            }
 
-			m_items = newItems;
-			m_head = 0;
+            _items = newItems;
+            _head = 0;
+        }
 
-		}
+        /// <summary>
+        /// Gets an item from the head of the queue, or returns default(T) if empty
+        /// </summary>
+        public bool TryDequeue([MaybeNullWhen(false)] out T item)
+        {
+            if (Count == 0)
+            {
+                item = default;
+                return false;
+            }
 
-		/// <summary>
-		/// Gets an item from the head of the queue, or returns default(T) if empty
-		/// </summary>
-		public bool TryDequeue(out T item)
-		{
-			if (m_size == 0)
-			{
-				item = default;
-				return false;
-			}
+            _lock.EnterWriteLock();
+            try
+            {
+                if (Count == 0)
+                {
+                    item = default;
+                    return false;
+                }
 
-			m_lock.EnterWriteLock();
-			try
-			{
-				if (m_size == 0)
-				{
-					item = default;
-					return false;
-				}
+                item = _items[_head];
+                _items[_head] = default!;
 
-				item = m_items[m_head];
-				m_items[m_head] = default;
+                _head = (_head + 1) % _items.Length;
+                Count--;
 
-				m_head = (m_head + 1) % m_items.Length;
-				m_size--;
+                return true;
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
+        }
 
-				return true;
-			}
-			catch
-			{
-#if DEBUG
-				throw;
-#else
-				item = default;
-				return false;
-#endif
-			}
-			finally
-			{
-				m_lock.ExitWriteLock();
-			}
-		}
+        /// <summary>
+        /// Dequeues as many items as possible, appending them to a collection.
+        /// </summary>
+        /// <returns>The number of items dequeued.</returns>
+        public int TryDrain(ICollection<T> destination, Action<T>? onItem = null)
+        {
+            if (destination == null)
+                throw new ArgumentNullException(nameof(destination));
 
-		/// <summary>
-		/// Gets all items from the head of the queue, or returns number of items popped
-		/// </summary>
-		public int TryDrain(IList<T> addTo)
-		{
-			if (m_size == 0)
-				return 0;
+            if (Count == 0)
+                return 0;
 
-			m_lock.EnterWriteLock();
-			try
-			{
-				int added = m_size;
-				while (m_size > 0)
-				{
-					var item = m_items[m_head];
-					addTo.Add(item);
+            _lock.EnterWriteLock();
+            try
+            {
+                int count = Count;
+                while (Count > 0)
+                {
+                    var slice = _items.AsSpan(_head, Math.Min(Count, Count - _head));
+                    for (int i = 0; i < slice.Length; i++)
+                    {
+                        destination.Add(slice[i]);
+                        onItem?.Invoke(slice[i]);
+                    }
+                    slice.Clear();
 
-					m_items[m_head] = default;
-					m_head = (m_head + 1) % m_items.Length;
-					m_size--;
-				}
-				return added;
-			}
-			finally
-			{
-				m_lock.ExitWriteLock();
-			}
-		}
+                    _head = 0;
+                    Count -= slice.Length;
+                }
+                return count;
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
+        }
 
         /// <summary>
         /// Tries to get a value without dequeuing it at a given offset.
@@ -245,26 +268,31 @@ namespace Lidgren.Network
         /// <param name="offset">The offset of the item.</param>
         /// <param name="value">The peek result.</param>
         /// <returns>Whether the peek returned a value.</returns>
-		public bool TryPeek(int offset, out T value)
-		{
-            value = default;
-            if (m_size == 0)
-				return false;
+        public bool TryPeek(int offset, [MaybeNullWhen(false)] out T value)
+        {
+            if (Count == 0)
+            {
+                value = default;
+                return false;
+            }
 
-			m_lock.EnterReadLock();
-			try
-			{
-				if (m_size == 0)
-					return false;
+            _lock.EnterReadLock();
+            try
+            {
+                if (Count == 0)
+                {
+                    value = default;
+                    return false;
+                }
 
-                value = m_items[(m_head + offset) % m_items.Length];
+                value = _items[(_head + offset) % _items.Length];
                 return true;
-			}
-			finally
-			{
-				m_lock.ExitReadLock();
-			}
-		}
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+        }
 
         /// <summary>
         /// Tries to get a value without dequeuing, returning <see langword="default"/> if queue is empty.
@@ -273,81 +301,88 @@ namespace Lidgren.Network
         {
             if (TryPeek(offset, out var value))
                 return value;
-            return default;
+            return default!;
         }
 
-		/// <summary>
-		/// Determines whether an item is in the queue
-		/// </summary>
-		public bool Contains(T item)
-		{
-			m_lock.EnterReadLock();
-			try
-			{
-				int ptr = m_head;
-				for (int i = 0; i < m_size; i++)
-				{
-					if (m_items[ptr] == null)
-					{
-						if (item == null)
-							return true;
-					}
-					else
-					{
-						if (m_items[ptr].Equals(item))
-							return true;
-					}
-					ptr = (ptr + 1) % m_items.Length;
-				}
-				return false;
-			}
-			finally
-			{
-				m_lock.ExitReadLock();
-			}
-		}
+        /// <summary>
+        /// Determines whether an item is in the queue
+        /// </summary>
+        public bool Contains(T item)
+        {
+            _lock.EnterReadLock();
+            try
+            {
 
-		/// <summary>
-		/// Copies the queue items to a new array
-		/// </summary>
-		public T[] ToArray()
-		{
-			m_lock.EnterReadLock();
-			try
-			{
-				T[] retval = new T[m_size];
-				int ptr = m_head;
-				for (int i = 0; i < m_size; i++)
-				{
-					retval[i] = m_items[ptr++];
-					if (ptr >= m_items.Length)
-						ptr = 0;
-				}
-				return retval;
-			}
-			finally
-			{
-				m_lock.ExitReadLock();
-			}
-		}
+                int left = Count;
+                int offset = _head;
+                var comparer = EqualityComparer<T>.Default;
+                while (left > 0)
+                {
+                    var slice = _items.AsSpan(offset, Math.Min(left, Count - _head));
+                    for (int i = 0; i < slice.Length; i++)
+                    {
+                        if (comparer.Equals(item, slice[i]))
+                            return true;
+                    }
 
-		/// <summary>
-		/// Removes all objects from the queue
-		/// </summary>
-		public void Clear()
-		{
-			m_lock.EnterWriteLock();
-			try
-			{
-				for (int i = 0; i < m_items.Length; i++)
-					m_items[i] = default;
-				m_head = 0;
-				m_size = 0;
-			}
-			finally
-			{
-				m_lock.ExitWriteLock();
-			}
-		}
-	}
+                    left -= slice.Length;
+                    offset = 0;
+                }
+                return false;
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+        }
+
+        /// <summary>
+        /// Copies the queue items into a given span.
+        /// </summary>
+        public void CopyTo(Span<T> destination)
+        {
+            _lock.EnterReadLock();
+            try
+            {
+                int left = Count;
+                int offset = _head;
+                while (left > 0)
+                {
+                    var slice = _items.AsSpan(offset, Math.Min(left, Count - _head));
+                    slice.CopyTo(destination);
+
+                    destination = destination.Slice(slice.Length);
+                    left -= slice.Length;
+                    offset = 0;
+                }
+            }
+            finally
+            {
+                _lock.ExitReadLock();
+            }
+        }
+
+        /// <summary>
+        /// Removes all objects from the queue.
+        /// </summary>
+        public void Clear()
+        {
+            _lock.EnterWriteLock();
+            try
+            {
+                Array.Clear(_items, 0, _items.Length);
+                _head = 0;
+                Count = 0;
+            }
+            finally
+            {
+                _lock.ExitWriteLock();
+            }
+        }
+
+        public void Dispose()
+        {
+            _lock.Dispose();
+        }
+    }
 }

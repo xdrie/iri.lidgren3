@@ -1,15 +1,11 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 
 namespace Lidgren.Network
 {
     public static class NetConnectionListPool
     {
-        private static Stack<List<NetConnection>> _pool;
-
-        static NetConnectionListPool()
-        {
-            _pool = new Stack<List<NetConnection>>();
-        }
+        private static Stack<List<NetConnection>> _pool = new Stack<List<NetConnection>>();
 
         public static List<NetConnection> Rent()
         {
@@ -23,6 +19,9 @@ namespace Lidgren.Network
 
         public static void Return(List<NetConnection> list)
         {
+            if (list == null)
+                throw new ArgumentNullException(nameof(list));
+
             lock (_pool)
             {
                 list.Clear();

@@ -18,71 +18,74 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 using System.Net;
 using System.Diagnostics;
+using System;
 
 namespace Lidgren.Network
 {
     /// <summary>
     /// Incoming message either sent from a remote peer or generated within the library.
     /// </summary>
-    [DebuggerDisplay("Type={MessageType} LengthBits={LengthBits}")]
+    [DebuggerDisplay("{DebuggerDisplay}")]
     public sealed class NetIncomingMessage : NetBuffer
     {
-        internal NetIncomingMessageType m_incomingMessageType;
-        internal IPEndPoint m_senderEndPoint;
-        internal NetConnection m_senderConnection;
-        internal int m_sequenceNumber;
-        internal NetMessageType m_receivedMessageType;
-        internal bool m_isFragment;
-        internal double m_receiveTime;
+        internal NetMessageType _baseMessageType;
+        
+        internal string DebuggerDisplay => $"Type = {MessageType}, BitLength = {BitLength}";
 
         /// <summary>
         /// Gets the type of this incoming message.
         /// </summary>
-        public NetIncomingMessageType MessageType => m_incomingMessageType;
-
-        /// <summary>
-        /// Gets the delivery method this message was sent with (if user data).
-        /// </summary>
-        public NetDeliveryMethod DeliveryMethod => NetUtility.GetDeliveryMethod(m_receivedMessageType);
-
-        /// <summary>
-        /// Gets the sequence channel this message was sent with (if user data).
-        /// </summary>
-        public int SequenceChannel => (int)m_receivedMessageType - (int)NetUtility.GetDeliveryMethod(m_receivedMessageType);
+        public NetIncomingMessageType MessageType { get; internal set; }
 
         /// <summary>
         /// Gets the <see cref="IPEndPoint"/> of the sender, if any.
         /// </summary>
-        public IPEndPoint SenderEndPoint => m_senderEndPoint;
+        public IPEndPoint? SenderEndPoint { get; internal set; }
 
         /// <summary>
         /// Gets the <see cref="NetConnection"/> of the sender, if any.
         /// </summary>
-        public NetConnection SenderConnection => m_senderConnection;
+        public NetConnection? SenderConnection { get; internal set; }
 
         /// <summary>
         /// Gets at what local time the message was received from the network.
         /// </summary>
-        public double ReceiveTime => m_receiveTime;
+        public TimeSpan ReceiveTime { get; internal set; }
 
-        internal NetIncomingMessage()
+        public bool IsFragment { get; internal set; }
+
+        public int SequenceNumber { get; internal set; }
+
+        /// <summary>
+        /// Gets the sequence channel this message was sent with (if user data).
+        /// </summary>
+        public int SequenceChannel => (int)_baseMessageType - (int)NetUtility.GetDeliveryMethod(_baseMessageType);
+
+        /// <summary>
+        /// Gets the delivery method this message was sent with (if user data).
+        /// </summary>
+        public NetDeliveryMethod DeliveryMethod => NetUtility.GetDeliveryMethod(_baseMessageType);
+
+        private NetIncomingMessage()
         {
         }
 
-        internal NetIncomingMessage(NetIncomingMessageType tp)
+        internal NetIncomingMessage(NetIncomingMessageType type)
         {
-            m_incomingMessageType = tp;
+            MessageType = type;
         }
 
         internal void Reset()
         {
-            m_incomingMessageType = NetIncomingMessageType.Error;
-            m_readPosition = 0;
-            m_receivedMessageType = NetMessageType.LibraryError;
-            m_senderConnection = null;
-            m_bitLength = 0;
-            m_isFragment = false;
+            _baseMessageType = NetMessageType.LibraryError;
+            MessageType = NetIncomingMessageType.Error;
+            BitPosition = 0;
+            BitLength = 0;
+            SenderConnection = null;
+            IsFragment = false;
         }
+
+        // TODO: make Decrypt() and ReadLocalTime() into extension methods
 
         /// <summary>
         /// Try to decrypt the message with the specified encryption algorithm.
@@ -91,17 +94,24 @@ namespace Lidgren.Network
         /// <returns>Whether the decryption succeeded.</returns>
         public bool Decrypt(NetEncryption encryption)
         {
+            if (encryption == null)
+                throw new ArgumentNullException(nameof(encryption));
+
             return encryption.Decrypt(this);
         }
 
         /// <summary>
-        /// Reads a value, in local time comparable to <see cref="NetTime.Now"/>,
-        /// written by <see cref="NetBuffer.WriteTime(bool)"/>.
-        /// This requires a sender connection.
+        /// Reads local time comparable to <see cref="NetTime.Now"/>,
+        /// written by <see cref="NetBuffer.WriteLocalTime"/>.
         /// </summary>
-        public double ReadTime(bool highPrecision)
+        /// <exception cref="InvalidOperationException"><see cref="SenderConnection"/> is null.</exception>
+        public TimeSpan ReadLocalTime()
         {
-            return ReadTime(m_senderConnection, highPrecision);
+            if (SenderConnection == null)
+                throw new InvalidOperationException(
+                    "This message is not associated with a sender connection.");
+
+            return ReadLocalTime(SenderConnection);
         }
 
         /// <summary>
@@ -109,7 +119,7 @@ namespace Lidgren.Network
         /// </summary>
         public override string ToString()
         {
-            return "{NetIncomingMessage #" + m_sequenceNumber + " " + LengthBytes + " bytes}";
+            return "{NetIncomingMessage: #" + SequenceNumber + ", " + ByteLength + " bytes}";
         }
     }
 }

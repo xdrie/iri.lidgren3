@@ -3,254 +3,261 @@ using System.Threading;
 
 namespace Lidgren.Network
 {
-	/// <summary>
-	/// Sender part of Selective repeat ARQ for a particular NetChannel
-	/// </summary>
-	internal sealed class NetReliableSenderChannel : NetSenderChannelBase
-	{
-		private NetConnection m_connection;
-		private int m_windowStart;
-		private int m_windowSize;
-		private int m_sendStart;
+    /// <summary>
+    /// Sender part of Selective repeat ARQ for a particular NetChannel
+    /// </summary>
+    internal sealed class NetReliableSenderChannel : NetSenderChannel
+    {
+        private NetConnection _connection;
+        private int _windowStart;
+        private int _windowSize;
+        private int _sendStart;
+        private NetBitVector _receivedAcks;
+        
+        internal NetStoredReliableMessage[] StoredMessages { get; }
 
-		private NetBitVector m_receivedAcks;
-		internal NetStoredReliableMessage[] m_storedMessages;
+        public TimeSpan ResendDelay { get; set; }
+        public override int WindowSize => _windowSize;
 
-		internal float m_resendDelay;
+        public NetReliableSenderChannel(NetConnection connection, int windowSize)
+        {
+            _connection = connection;
+            _windowSize = windowSize;
+            _windowStart = 0;
+            _sendStart = 0;
+            _receivedAcks = new NetBitVector(NetConstants.NumSequenceNumbers);
+            StoredMessages = new NetStoredReliableMessage[_windowSize];
+            ResendDelay = connection.ResendDelay;
+        }
 
-        internal override int WindowSize => m_windowSize;
+        public override int GetAllowedSends()
+        {
+            int retval = 
+                _windowSize - 
+                (_sendStart + NetConstants.NumSequenceNumbers - _windowStart) % NetConstants.NumSequenceNumbers;
+            
+            LidgrenException.Assert(retval >= 0 && retval <= _windowSize);
+            return retval;
+        }
 
-        internal NetReliableSenderChannel(NetConnection connection, int windowSize)
-		{
-			m_connection = connection;
-			m_windowSize = windowSize;
-			m_windowStart = 0;
-			m_sendStart = 0;
-			m_receivedAcks = new NetBitVector(NetConstants.NumSequenceNumbers);
-			m_storedMessages = new NetStoredReliableMessage[m_windowSize];
-			m_queuedSends = new NetQueue<NetOutgoingMessage>(16);
-			m_resendDelay = m_connection.ResendDelay;
-		}
+        public override void Reset()
+        {
+            _receivedAcks.Clear();
+            for (int i = 0; i < StoredMessages.Length; i++)
+                StoredMessages[i].Reset();
+            QueuedSends.Clear();
+            _windowStart = 0;
+            _sendStart = 0;
+        }
 
-		internal override int GetAllowedSends()
-		{
-			int retval = m_windowSize - ((m_sendStart + NetConstants.NumSequenceNumbers) - m_windowStart) % NetConstants.NumSequenceNumbers;
-			NetException.Assert(retval >= 0 && retval <= m_windowSize);
-			return retval;
-		}
+        public override NetSendResult Enqueue(NetOutgoingMessage message)
+        {
+            QueuedSends.Enqueue(message);
+            if (QueuedSends.Count <= GetAllowedSends())
+                return NetSendResult.Sent;
+            return NetSendResult.Queued;
+        }
 
-		internal override void Reset()
-		{
-			m_receivedAcks.Clear();
-			for (int i = 0; i < m_storedMessages.Length; i++)
-				m_storedMessages[i].Reset();
-			m_queuedSends.Clear();
-			m_windowStart = 0;
-			m_sendStart = 0;
-		}
+        // call this regularely
+        public override void SendQueuedMessages(TimeSpan now)
+        {
+            //
+            // resends
+            //
+            TimeSpan resendDelay = ResendDelay;
 
-		internal override NetSendResult Enqueue(NetOutgoingMessage message)
-		{
-			m_queuedSends.Enqueue(message);
-			if (m_queuedSends.Count <= GetAllowedSends())
-				return NetSendResult.Sent;
-			return NetSendResult.Queued;
-		}
+            for (int i = 0; i < StoredMessages.Length; i++)
+            {
+                ref NetStoredReliableMessage storedMessage = ref StoredMessages[i];
 
-		// call this regularely
-		internal override void SendQueuedMessages(float now)
-		{
-			//
-			// resends
-			//
-			for (int i = 0; i < m_storedMessages.Length; i++)
-			{
-				NetOutgoingMessage om = m_storedMessages[i].Message;
-				if (om == null)
-					continue;
+                if (storedMessage.Message == null)
+                    continue;
 
-				float t = m_storedMessages[i].LastSent;
-				if (t > 0 && (now - t) > m_resendDelay)
-				{
-					// deduce sequence number
-					/*
-					int startSlot = m_windowStart % m_windowSize;
-					int seqNr = m_windowStart;
-					while (startSlot != i)
-					{
-						startSlot--;
-						if (startSlot < 0)
-							startSlot = m_windowSize - 1;
-						seqNr--;
-					}
-					*/
+                var t = storedMessage.LastSent;
+                if (t > TimeSpan.Zero && (now - t) > resendDelay)
+                {
+                    // deduce sequence number
+                    /*
+                    int startSlot = m_windowStart % m_windowSize;
+                    int seqNr = m_windowStart;
+                    while (startSlot != i)
+                    {
+                        startSlot--;
+                        if (startSlot < 0)
+                            startSlot = m_windowSize - 1;
+                        seqNr--;
+                    }
+                    */
 
-					//m_connection.m_peer.LogVerbose("Resending due to delay #" + m_storedMessages[i].SequenceNumber + " " + om.ToString());
-					m_connection.m_statistics.MessageResent(MessageResendReason.Delay);
+                    //m_connection.m_peer.LogVerbose(
+                    //    "Resending due to delay #" + storedMessage.SequenceNumber + " " + om.ToString());
+                    _connection.Statistics.MessageResent(MessageResendReason.Delay);
 
-					m_connection.QueueSendMessage(om, m_storedMessages[i].SequenceNumber);
+                    _connection.QueueSendMessage(storedMessage.Message, storedMessage.SequenceNumber);
 
-					m_storedMessages[i].LastSent = now;
-					m_storedMessages[i].NumSent++;
-				}
-			}
+                    storedMessage.LastSent = now;
+                    storedMessage.NumSent++;
+                }
+            }
 
-			int num = GetAllowedSends();
-			if (num < 1)
-				return;
+            int num = GetAllowedSends();
+            if (num < 1)
+                return;
 
-			// queued sends
-			while (m_queuedSends.Count > 0 && num > 0)
-			{
-                if (m_queuedSends.TryDequeue(out NetOutgoingMessage om))
+            // queued sends
+            while (QueuedSends.Count > 0 && num > 0)
+            {
+                if (QueuedSends.TryDequeue(out NetOutgoingMessage? om))
                     ExecuteSend(now, om);
                 num--;
-				NetException.Assert(num == GetAllowedSends());
-			}
-		}
-			
-		private void ExecuteSend(float now, NetOutgoingMessage message)
-		{
-			int seqNr = m_sendStart;
-			m_sendStart = (m_sendStart + 1) % NetConstants.NumSequenceNumbers;
+                LidgrenException.Assert(num == GetAllowedSends());
+            }
+        }
 
-			m_connection.QueueSendMessage(message, seqNr);
+        private void ExecuteSend(TimeSpan now, NetOutgoingMessage message)
+        {
+            int seqNr = _sendStart;
+            _sendStart = (_sendStart + 1) % NetConstants.NumSequenceNumbers;
 
-			int storeIndex = seqNr % m_windowSize;
-			NetException.Assert(m_storedMessages[storeIndex].Message == null);
+            _connection.QueueSendMessage(message, seqNr);
 
-			m_storedMessages[storeIndex].NumSent++;
-			m_storedMessages[storeIndex].Message = message;
-			m_storedMessages[storeIndex].LastSent = now;
-			m_storedMessages[storeIndex].SequenceNumber = seqNr;
+            ref NetStoredReliableMessage storedMessage = ref StoredMessages[seqNr % _windowSize];
+            LidgrenException.Assert(storedMessage.Message == null);
 
-			return;
-		}
+            storedMessage.SequenceNumber = seqNr;
+            storedMessage.NumSent++;
+            storedMessage.LastSent = now;
+            storedMessage.Message = message;
+        }
 
         private void DestoreMessage(int storeIndex)
         {
-            NetOutgoingMessage storedMessage = m_storedMessages[storeIndex].Message;
+            ref NetStoredReliableMessage storedMessage = ref StoredMessages[storeIndex];
 #if DEBUG
-			if (storedMessage == null)
-				throw new NetException("m_storedMessages[" + storeIndex + "].Message is null; sent " + m_storedMessages[storeIndex].NumSent + " times, last time " + (NetTime.Now - m_storedMessages[storeIndex].LastSent) + " seconds ago");
+            if (storedMessage.Message == null)
+                throw new LidgrenException(
+                    "m_storedMessages[" + storeIndex + "].Message is null; " +
+                    "sent " + storedMessage.NumSent + " times, " +
+                    "last time " + (NetTime.Now - storedMessage.LastSent) + " seconds ago");
 #else
             if (storedMessage != null)
+#endif
             {
-#endif
-                if (Interlocked.Decrement(ref storedMessage.m_recyclingCount) <= 0)
-                    m_connection.m_peer.Recycle(storedMessage);
-
-#if !DEBUG
+                if (Interlocked.Decrement(ref storedMessage.Message._recyclingCount) <= 0)
+                    _connection.Peer.Recycle(storedMessage.Message);
             }
-#endif
-            m_storedMessages[storeIndex] = new NetStoredReliableMessage();
+            storedMessage = default;
         }
 
-		// remoteWindowStart is remote expected sequence number; everything below this has arrived properly
-		// seqNr is the actual nr received
-		internal override void ReceiveAcknowledge(float now, int seqNr)
-		{
-			// late (dupe), on time or early ack?
-			int relate = NetUtility.RelativeSequenceNumber(seqNr, m_windowStart);
+        // remoteWindowStart is remote expected sequence number; everything below this has arrived properly
+        // seqNr is the actual nr received
+        public override void ReceiveAcknowledge(TimeSpan now, int seqNr)
+        {
+            // late (dupe), on time or early ack?
+            int relate = NetUtility.RelativeSequenceNumber(seqNr, _windowStart);
 
-			if (relate < 0)
-			{
-				//m_connection.m_peer.LogDebug("Received late/dupe ack for #" + seqNr);
-				return; // late/duplicate ack
-			}
+            if (relate < 0)
+            {
+                //m_connection.m_peer.LogDebug("Received late/dupe ack for #" + seqNr);
+                return; // late/duplicate ack
+            }
 
-			if (relate == 0)
-			{
-				//m_connection.m_peer.LogDebug("Received right-on-time ack for #" + seqNr);
+            if (relate == 0)
+            {
+                //m_connection.m_peer.LogDebug("Received right-on-time ack for #" + seqNr);
 
-				// ack arrived right on time
-				NetException.Assert(seqNr == m_windowStart);
+                // ack arrived right on time
+                LidgrenException.Assert(seqNr == _windowStart);
 
-				m_receivedAcks[m_windowStart] = false;
-				DestoreMessage(m_windowStart % m_windowSize);
-				m_windowStart = (m_windowStart + 1) % NetConstants.NumSequenceNumbers;
+                _receivedAcks[_windowStart] = false;
+                DestoreMessage(_windowStart % _windowSize);
+                _windowStart = (_windowStart + 1) % NetConstants.NumSequenceNumbers;
 
-				// advance window if we already have early acks
-				while (m_receivedAcks.Get(m_windowStart))
-				{
-					//m_connection.m_peer.LogDebug("Using early ack for #" + m_windowStart + "...");
-					m_receivedAcks[m_windowStart] = false;
-					DestoreMessage(m_windowStart % m_windowSize);
+                // advance window if we already have early acks
+                while (_receivedAcks.Get(_windowStart))
+                {
+                    //m_connection.m_peer.LogDebug("Using early ack for #" + m_windowStart + "...");
+                    _receivedAcks[_windowStart] = false;
+                    DestoreMessage(_windowStart % _windowSize);
 
-					NetException.Assert(m_storedMessages[m_windowStart % m_windowSize].Message == null); // should already be destored
-					m_windowStart = (m_windowStart + 1) % NetConstants.NumSequenceNumbers;
-					//m_connection.m_peer.LogDebug("Advancing window to #" + m_windowStart);
-				}
+                    LidgrenException.Assert(
+                        StoredMessages[_windowStart % _windowSize].Message != null,
+                        "Stored message has not been recycled.");
 
-				return;
-			}
+                    _windowStart = (_windowStart + 1) % NetConstants.NumSequenceNumbers;
+                    //m_connection.m_peer.LogDebug("Advancing window to #" + m_windowStart);
+                }
 
-			//
-			// early ack... (if it has been sent!)
-			//
-			// If it has been sent either the m_windowStart message was lost
-			// ... or the ack for that message was lost
-			//
+                return;
+            }
 
-			//m_connection.m_peer.LogDebug("Received early ack for #" + seqNr);
+            //
+            // early ack... (if it has been sent!)
+            //
+            // If it has been sent either the m_windowStart message was lost
+            // ... or the ack for that message was lost
+            //
 
-			int sendRelate = NetUtility.RelativeSequenceNumber(seqNr, m_sendStart);
-			if (sendRelate <= 0)
-			{
-				// yes, we've sent this message - it's an early (but valid) ack
-				if (m_receivedAcks[seqNr])
-				{
-					// we've already destored/been acked for this message
-				}
-				else
-				{
-					m_receivedAcks[seqNr] = true;
-				}
-			}
-			else if (sendRelate > 0)
-			{
-				// uh... we haven't sent this message yet? Weird, dupe or error...
-				NetException.Assert(false, "Got ack for message not yet sent?");
-				return;
-			}
+            //m_connection.m_peer.LogDebug("Received early ack for #" + seqNr);
 
-			// Ok, lets resend all missing acks
-			int rnr = seqNr;
-			do
-			{
-				rnr--;
-				if (rnr < 0)
-					rnr = NetConstants.NumSequenceNumbers - 1;
+            int sendRelate = NetUtility.RelativeSequenceNumber(seqNr, _sendStart);
+            if (sendRelate <= 0)
+            {
+                // yes, we've sent this message - it's an early (but valid) ack
+                if (_receivedAcks[seqNr])
+                {
+                    // we've already destored/been acked for this message
+                }
+                else
+                {
+                    _receivedAcks[seqNr] = true;
+                }
+            }
+            else if (sendRelate > 0)
+            {
+                // uh... we haven't sent this message yet? Weird, dupe or error...
+                LidgrenException.Assert(false, "Got ack for message not yet sent?");
+                return;
+            }
 
-				if (m_receivedAcks[rnr])
-				{
-					// m_connection.m_peer.LogDebug("Not resending #" + rnr + " (since we got ack)");
-				}
-				else
-				{
-					int slot = rnr % m_windowSize;
-					NetException.Assert(m_storedMessages[slot].Message != null);
-					if (m_storedMessages[slot].NumSent == 1)
-					{
-						// just sent once; resend immediately since we found gap in ack sequence
-						NetOutgoingMessage rmsg = m_storedMessages[slot].Message;
-						//m_connection.m_peer.LogVerbose("Resending #" + rnr + " (" + rmsg + ")");
+            // Ok, lets resend all missing acks
+            TimeSpan resendDelay = ResendDelay * 0.35;
+            int rnr = seqNr;
+            do
+            {
+                rnr--;
+                if (rnr < 0)
+                    rnr = NetConstants.NumSequenceNumbers - 1;
 
-						if (now - m_storedMessages[slot].LastSent < (m_resendDelay * 0.35f))
-						{
-							// already resent recently
-						}
-						else
-						{
-							m_storedMessages[slot].LastSent = now;
-							m_storedMessages[slot].NumSent++;
-							m_connection.m_statistics.MessageResent(MessageResendReason.HoleInSequence);
-							m_connection.QueueSendMessage(rmsg, rnr);
-						}
-					}
-				}
+                if (_receivedAcks[rnr])
+                {
+                    // m_connection.m_peer.LogDebug("Not resending #" + rnr + " (since we got ack)");
+                }
+                else
+                {
+                    ref NetStoredReliableMessage storedMessage = ref StoredMessages[rnr % _windowSize];
+                    if (storedMessage.NumSent == 1)
+                    {
+                        LidgrenException.Assert(storedMessage.Message != null, "Stored message has no outgoing message.");
 
-			} while (rnr != m_windowStart);
-		}
-	}
+                        // just sent once; resend immediately since we found gap in ack sequence
+                        //m_connection.m_peer.LogVerbose("Resending #" + rnr + " (" + storedMessage.Message + ")");
+
+                        if (now - storedMessage.LastSent < resendDelay)
+                        {
+                            // already resent recently
+                        }
+                        else
+                        {
+                            storedMessage.NumSent++;
+                            storedMessage.LastSent = now;
+                            _connection.Statistics.MessageResent(MessageResendReason.HoleInSequence);
+                            _connection.QueueSendMessage(storedMessage.Message, rnr);
+                        }
+                    }
+                }
+
+            } while (rnr != _windowStart);
+        }
+    }
 }

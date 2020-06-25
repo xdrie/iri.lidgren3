@@ -2,7 +2,7 @@
 
 namespace Lidgren.Network
 {
-	internal sealed class NetReliableUnorderedReceiver : NetReceiverChannelBase
+	internal sealed class NetReliableUnorderedReceiver : NetReceiverChannel
 	{
 		private int m_windowStart;
 		private int m_windowSize;
@@ -23,10 +23,10 @@ namespace Lidgren.Network
 
 		internal override void ReceiveMessage(NetIncomingMessage message)
 		{
-			int relate = NetUtility.RelativeSequenceNumber(message.m_sequenceNumber, m_windowStart);
+			int relate = NetUtility.RelativeSequenceNumber(message.SequenceNumber, m_windowStart);
 
 			// ack no matter what
-			m_connection.QueueAck(message.m_receivedMessageType, message.m_sequenceNumber);
+			Connection.QueueAck(message._baseMessageType, message.SequenceNumber);
 
 			if (relate == 0)
 			{
@@ -38,10 +38,10 @@ namespace Lidgren.Network
 				//m_peer.LogVerbose("Received RIGHT-ON-TIME " + message);
 
 				AdvanceWindow();
-				m_peer.ReleaseMessage(message);
+				Peer.ReleaseMessage(message);
 
 				// release withheld messages
-				int nextSeqNr = (message.m_sequenceNumber + 1) % NetConstants.NumSequenceNumbers;
+				int nextSeqNr = (message.SequenceNumber + 1) % NetConstants.NumSequenceNumbers;
 
 				while (m_earlyReceived[nextSeqNr % m_windowSize])
 				{
@@ -65,7 +65,7 @@ namespace Lidgren.Network
 			if (relate < 0)
 			{
 				// duplicate
-				m_peer.LogVerbose("Received message #" + message.m_sequenceNumber + " DROPPING DUPLICATE");
+				Peer.LogVerbose("Received message #" + message.SequenceNumber + " DROPPING DUPLICATE");
 				return;
 			}
 
@@ -73,15 +73,15 @@ namespace Lidgren.Network
 			if (relate > m_windowSize)
 			{
 				// too early message!
-				m_peer.LogDebug("Received " + message + " TOO EARLY! Expected " + m_windowStart);
+				Peer.LogDebug("Received " + message + " TOO EARLY! Expected " + m_windowStart);
 				return;
 			}
 
-			m_earlyReceived.Set(message.m_sequenceNumber % m_windowSize, true);
+			m_earlyReceived.Set(message.SequenceNumber % m_windowSize, true);
 			//m_peer.LogVerbose("Received " + message + " WITHHOLDING, waiting for " + m_windowStart);
 			//m_withheldMessages[message.m_sequenceNumber % m_windowSize] = message;
 
-			m_peer.ReleaseMessage(message);
+			Peer.ReleaseMessage(message);
 		}
 	}
 }

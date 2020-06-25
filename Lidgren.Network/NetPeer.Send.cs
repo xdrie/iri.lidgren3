@@ -9,111 +9,108 @@ namespace Lidgren.Network
     public partial class NetPeer
     {
         [DebuggerHidden]
-        private static void AssertNotSent(NetOutgoingMessage msg)
-        {
-            if (msg.m_isSent)
-                throw new NetException(
-                    "This message has already been sent. Use NetPeer.SendMessage() to send to multiple recipients efficiently.");
-        }
-
-        [DebuggerHidden]
-        private static void AssertValidRecipients<T>(IReadOnlyList<T> recipients, string paramName)
+        private static void AssertValidRecipients<T>(IReadOnlyCollection<T> recipients, string paramName)
         {
             if (recipients == null)
                 throw new ArgumentNullException(paramName);
 
             if (recipients.Count < 1)
-                throw new ArgumentException("Recipients must contain at least one item.", paramName);
+                throw new ArgumentException("The must be at least one recipient.", paramName);
         }
 
         [DebuggerHidden]
-        private void AssertValidUnconnectedLength(NetOutgoingMessage msg)
+        private void AssertValidUnconnectedLength(NetOutgoingMessage message)
         {
-            if (msg.LengthBytes > m_configuration.MaximumTransmissionUnit)
-                throw new NetException(
+            if (message.ByteLength > Configuration.MaximumTransmissionUnit)
+                throw new LidgrenException(
                     "Unconnected message must be shorter than NetConfiguration.MaximumTransmissionUnit (currently " +
-                    m_configuration.MaximumTransmissionUnit + ").");
+                    Configuration.MaximumTransmissionUnit + ").");
         }
 
         /// <summary>
         /// Send a message to a specific connection.
         /// </summary>
-        /// <param name="msg">The message to send</param>
+        /// <param name="message">The message to send</param>
         /// <param name="recipient">The recipient connection</param>
         /// <param name="method">How to deliver the message</param>
         public NetSendResult SendMessage(
-            NetOutgoingMessage msg, NetConnection recipient, NetDeliveryMethod method)
+            NetOutgoingMessage message, NetConnection recipient, NetDeliveryMethod method)
         {
-            return SendMessage(msg, recipient, method, 0);
+            return SendMessage(message, recipient, method, 0);
         }
 
         /// <summary>
         /// Send a message to a specific connection.
         /// </summary>
-        /// <param name="msg">The message to send</param>
+        /// <param name="message">The message to send</param>
         /// <param name="recipient">The recipient connection</param>
         /// <param name="method">How to deliver the message</param>
         /// <param name="sequenceChannel">Sequence channel within the delivery method</param>
         public NetSendResult SendMessage(
-            NetOutgoingMessage msg, NetConnection recipient, NetDeliveryMethod method, int sequenceChannel)
+            NetOutgoingMessage message, NetConnection recipient, NetDeliveryMethod method, int sequenceChannel)
         {
-            if (msg == null) throw new ArgumentNullException(nameof(msg));
+            if (message == null) throw new ArgumentNullException(nameof(message));
             if (recipient == null) throw new ArgumentNullException(nameof(recipient));
             if (sequenceChannel >= NetConstants.NetChannelsPerDeliveryMethod)
                 throw new ArgumentOutOfRangeException(nameof(sequenceChannel));
 
-            NetException.Assert(
-                ((method != NetDeliveryMethod.Unreliable && method != NetDeliveryMethod.ReliableUnordered) ||
-                ((method == NetDeliveryMethod.Unreliable || method == NetDeliveryMethod.ReliableUnordered) && sequenceChannel == 0)),
+            LidgrenException.Assert(
+                (method != NetDeliveryMethod.Unreliable && method != NetDeliveryMethod.ReliableUnordered) ||
+                ((method == NetDeliveryMethod.Unreliable || method == NetDeliveryMethod.ReliableUnordered) && sequenceChannel == 0),
                 "Delivery method " + method + " cannot use sequence channels other than 0!");
 
-            NetException.Assert(method != NetDeliveryMethod.Unknown, "Bad delivery method!");
+            LidgrenException.Assert(method != NetDeliveryMethod.Unknown, "Bad delivery method!");
 
-            AssertNotSent(msg);
-            msg.m_isSent = true;
+            message.AssertNotSent(nameof(message));
+            message._isSent = true;
 
-            bool suppressFragmentation = 
+            bool suppressFragmentation =
                 (method == NetDeliveryMethod.Unreliable || method == NetDeliveryMethod.UnreliableSequenced) &&
-                m_configuration.UnreliableSizeBehaviour != NetUnreliableSizeBehaviour.NormalFragmentation;
+                Configuration.UnreliableSizeBehaviour != NetUnreliableSizeBehaviour.NormalFragmentation;
 
-            // headers + length, faster than calling msg.GetEncodedSize
-            int len = NetConstants.UnfragmentedMessageHeaderSize + msg.LengthBytes;
-            if (len <= recipient.m_currentMTU || suppressFragmentation)
+            // headers + length, faster than calling message.GetEncodedSize
+            int len = NetConstants.UnfragmentedMessageHeaderSize + message.ByteLength;
+            if (len <= recipient.CurrentMTU || suppressFragmentation)
             {
-                Interlocked.Increment(ref msg.m_recyclingCount);
-                return recipient.EnqueueMessage(msg, method, sequenceChannel);
+                Interlocked.Increment(ref message._recyclingCount);
+                return recipient.EnqueueMessage(message, method, sequenceChannel);
             }
             else
             {
                 // message must be fragmented!
-                if (recipient.m_status != NetConnectionStatus.Connected)
+                if (recipient._status != NetConnectionStatus.Connected)
                     return NetSendResult.FailedNotConnected;
 
                 var tmp = NetConnectionListPool.Rent();
-                tmp.Add(recipient);
-                var result = SendFragmentedMessage(msg, tmp, method, sequenceChannel);
-                NetConnectionListPool.Return(tmp);
-                return result;
+                try
+                {
+                    tmp.Add(recipient);
+                    return SendFragmentedMessage(message, tmp, method, sequenceChannel);
+                }
+                finally
+                {
+                    NetConnectionListPool.Return(tmp);
+                }
             }
         }
 
-        internal static int GetMTU(List<NetConnection> recipients)
+        internal static int GetMTU(IReadOnlyCollection<NetConnection> recipients)
         {
-            int mtu = NetPeerConfiguration.kDefaultMTU;
+            int mtu = NetPeerConfiguration.DefaultMTU;
             if (recipients.Count < 1)
             {
 #if DEBUG
-                throw new NetException("GetMTU called with no recipients");
+                throw new LidgrenException("GetMTU called with no recipients.");
 #else
                 // we don't have access to the particular peer, so just use default MTU
                 return mtu;
 #endif
             }
 
-            foreach(var conn in recipients)
+            foreach (var conn in recipients)
             {
-                if (conn != null && conn.m_currentMTU < mtu)
-                    mtu = conn.m_currentMTU;
+                if (conn != null && conn.CurrentMTU < mtu)
+                    mtu = conn.CurrentMTU;
             }
             return mtu;
         }
@@ -121,125 +118,141 @@ namespace Lidgren.Network
         /// <summary>
         /// Send a message to a list of connections.
         /// </summary>
-        /// <param name="msg">The message to send</param>
+        /// <param name="message">The message to send</param>
         /// <param name="recipients">The list of recipients to send to</param>
         /// <param name="method">How to deliver the message</param>
         /// <param name="sequenceChannel">Sequence channel within the delivery method</param>
         public void SendMessage(
-            NetOutgoingMessage msg, List<NetConnection> recipients, NetDeliveryMethod method, int sequenceChannel)
+            NetOutgoingMessage message, IReadOnlyCollection<NetConnection> recipients, NetDeliveryMethod method, int sequenceChannel)
         {
-            if (msg == null) throw new ArgumentNullException(nameof(msg));
+            if (message == null)
+                throw new ArgumentNullException(nameof(message));
             AssertValidRecipients(recipients, nameof(recipients));
 
             if (method == NetDeliveryMethod.Unreliable || method == NetDeliveryMethod.ReliableUnordered)
-                NetException.Assert(sequenceChannel == 0, "Delivery method " + method + " cannot use sequence channels other than 0!");
+                LidgrenException.Assert(sequenceChannel == 0, "Delivery method " + method + " cannot use sequence channels other than 0!");
 
-            AssertNotSent(msg);
-            msg.m_isSent = true;
+            message.AssertNotSent(nameof(message));
+            message._isSent = true;
 
-            int len = msg.GetEncodedSize();
+            int len = message.GetEncodedSize();
             int mtu = GetMTU(recipients);
             if (len <= mtu)
             {
-                Interlocked.Add(ref msg.m_recyclingCount, recipients.Count);
+                Interlocked.Add(ref message._recyclingCount, recipients.Count);
                 foreach (var conn in recipients)
                 {
                     if (conn == null)
                     {
-                        Interlocked.Decrement(ref msg.m_recyclingCount);
+                        Interlocked.Decrement(ref message._recyclingCount);
                         continue;
                     }
 
-                    NetSendResult res = conn.EnqueueMessage(msg, method, sequenceChannel);
+                    NetSendResult res = conn.EnqueueMessage(message, method, sequenceChannel);
                     if (res != NetSendResult.Queued && res != NetSendResult.Sent)
-                        Interlocked.Decrement(ref msg.m_recyclingCount);
+                        Interlocked.Decrement(ref message._recyclingCount);
                 }
             }
             else
             {
                 // message must be fragmented!
-                SendFragmentedMessage(msg, recipients, method, sequenceChannel);
+                SendFragmentedMessage(message, recipients, method, sequenceChannel);
             }
         }
 
-        /// <summary>
-        /// Send a message to an unconnected host.
-        /// </summary>
-        public void SendUnconnectedMessage(NetOutgoingMessage msg, string host, int port)
+        private void SendUnconnectedMessageCore(NetOutgoingMessage message, IPEndPoint recipient)
         {
-            if (msg == null) throw new ArgumentNullException(nameof(msg));
-            if (host == null) throw new ArgumentNullException(nameof(host));
-            AssertValidUnconnectedLength(msg);
-            AssertNotSent(msg);
+            message._messageType = NetMessageType.Unconnected;
+            message._isSent = true;
 
-            IPAddress adr = NetUtility.Resolve(host);
-            if (adr == null)
-                throw new NetException("Failed to resolve " + host);
-
-            var endpoint = new IPEndPoint(adr, port);
-            msg.m_messageType = NetMessageType.Unconnected;
-            msg.m_isSent = true;
-
-            Interlocked.Increment(ref msg.m_recyclingCount);
-            m_unsentUnconnectedMessages.Enqueue((endpoint, msg));
+            Interlocked.Increment(ref message._recyclingCount);
+            UnsentUnconnectedMessages.Enqueue((recipient, message));
         }
 
         /// <summary>
         /// Send a message to an unconnected host.
         /// </summary>
-        public void SendUnconnectedMessage(NetOutgoingMessage msg, IPEndPoint recipient)
+        public void SendUnconnectedMessage(NetOutgoingMessage message, ReadOnlySpan<char> host, int port)
         {
-            if (msg == null) throw new ArgumentNullException(nameof(msg));
-            if (recipient == null) throw new ArgumentNullException(nameof(recipient));
-            AssertValidUnconnectedLength(msg);
-            AssertNotSent(msg);
+            if (message == null)
+                throw new ArgumentNullException(nameof(message));
+            
+            message.AssertNotSent(nameof(message));
+            AssertValidUnconnectedLength(message);
 
-            msg.m_messageType = NetMessageType.Unconnected;
-            msg.m_isSent = true;
+            var address = NetUtility.Resolve(host);
+            if (address == null)
+                throw new LidgrenException("Failed to resolve " + host.ToString());
 
-            Interlocked.Increment(ref msg.m_recyclingCount);
-            m_unsentUnconnectedMessages.Enqueue((recipient, msg));
+            var recipient = new IPEndPoint(address, port);
+            SendUnconnectedMessageCore(message, recipient);
         }
 
         /// <summary>
         /// Send a message to an unconnected host.
         /// </summary>
-        public void SendUnconnectedMessage(NetOutgoingMessage msg, IReadOnlyList<IPEndPoint> recipients)
+        public void SendUnconnectedMessage(NetOutgoingMessage message, IPEndPoint recipient)
         {
-            if (msg == null) throw new ArgumentNullException(nameof(msg));
+            if (message == null) 
+                throw new ArgumentNullException(nameof(message));
+            if (recipient == null)
+                throw new ArgumentNullException(nameof(recipient));
+            
+            AssertValidUnconnectedLength(message);
+            message.AssertNotSent(nameof(message));
+
+            SendUnconnectedMessageCore(message, recipient);
+        }
+
+        /// <summary>
+        /// Send a message to an unconnected host.
+        /// </summary>
+        public void SendUnconnectedMessage(NetOutgoingMessage message, IReadOnlyCollection<IPEndPoint> recipients)
+        {
+            if (message == null)
+                throw new ArgumentNullException(nameof(message));
+
             AssertValidRecipients(recipients, nameof(recipients));
-            AssertValidUnconnectedLength(msg);
-            AssertNotSent(msg);
+            AssertValidUnconnectedLength(message);
+            message.AssertNotSent(nameof(message));
 
-            msg.m_messageType = NetMessageType.Unconnected;
-            msg.m_isSent = true;
+            message._messageType = NetMessageType.Unconnected;
+            message._isSent = true;
 
-            Interlocked.Add(ref msg.m_recyclingCount, recipients.Count);
-            foreach (IPEndPoint endPoint in recipients)
-                m_unsentUnconnectedMessages.Enqueue((endPoint, msg));
+            Interlocked.Add(ref message._recyclingCount, recipients.Count);
+            foreach (IPEndPoint endPoint in recipients.AsListEnumerator())
+            {
+                if (endPoint == null)
+                    throw new InvalidOperationException("Null recipient endpoint.");
+                UnsentUnconnectedMessages.Enqueue((endPoint, message));
+            }
         }
 
         /// <summary>
         /// Send a message to this exact same netpeer (loopback).
         /// </summary>
-        public void SendUnconnectedToSelf(NetOutgoingMessage msg)
+        public void SendUnconnectedToSelf(NetOutgoingMessage message)
         {
-            if (msg == null) throw new ArgumentNullException(nameof(msg));
-            AssertNotSent(msg);
+            if (message == null)
+                throw new ArgumentNullException(nameof(message));
+            message.AssertNotSent(nameof(message));
 
-            msg.m_messageType = NetMessageType.Unconnected;
-            msg.m_isSent = true;
+            if (Socket == null)
+                throw new InvalidOperationException("No socket bound.");
 
-            if (m_configuration.IsMessageTypeEnabled(NetIncomingMessageType.UnconnectedData) == false)
+            message._messageType = NetMessageType.Unconnected;
+            message._isSent = true;
+
+            if (Configuration.IsMessageTypeEnabled(NetIncomingMessageType.UnconnectedData) == false)
                 return; // dropping unconnected message since it's not enabled for receiving
 
-            NetIncomingMessage om = CreateIncomingMessage(NetIncomingMessageType.UnconnectedData, msg.LengthBytes);
-            om.Write(msg);
-            om.m_isFragment = false;
-            om.m_receiveTime = NetTime.Now;
-            om.m_senderConnection = null;
-            om.m_senderEndPoint = Socket.LocalEndPoint as IPEndPoint;
-            NetException.Assert(om.m_bitLength == msg.LengthBits);
+            var om = CreateIncomingMessage(NetIncomingMessageType.UnconnectedData, message.ByteLength);
+            om.Write(message);
+            om.IsFragment = false;
+            om.ReceiveTime = NetTime.Now;
+            om.SenderConnection = null;
+            om.SenderEndPoint = (IPEndPoint)Socket.LocalEndPoint;
+            LidgrenException.Assert(om.BitLength == message.BitLength);
 
             ReleaseMessage(om);
         }

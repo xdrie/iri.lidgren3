@@ -11,18 +11,19 @@ namespace Lidgren.Network
         public void DiscoverLocalPeers(int serverPort)
         {
             NetOutgoingMessage om = CreateMessage(0);
-            om.m_messageType = NetMessageType.Discovery;
-            m_unsentUnconnectedMessages.Enqueue((new IPEndPoint(IPAddress.Broadcast, serverPort), om));
+            om._messageType = NetMessageType.Discovery;
+            UnsentUnconnectedMessages.Enqueue((new IPEndPoint(IPAddress.Broadcast, serverPort), om));
         }
 
         /// <summary>
         /// Emit a discovery signal to a single known host.
         /// </summary>
-        public bool DiscoverKnownPeer(string host, int serverPort)
+        public bool DiscoverKnownPeer(ReadOnlySpan<char> host, int serverPort)
         {
-            IPAddress address = NetUtility.Resolve(host);
+            var address = NetUtility.Resolve(host);
             if (address == null)
                 return false;
+
             DiscoverKnownPeer(new IPEndPoint(address, serverPort));
             return true;
         }
@@ -33,30 +34,30 @@ namespace Lidgren.Network
         public void DiscoverKnownPeer(IPEndPoint endPoint)
         {
             NetOutgoingMessage om = CreateMessage(0);
-            om.m_messageType = NetMessageType.Discovery;
-            m_unsentUnconnectedMessages.Enqueue((endPoint, om));
+            om._messageType = NetMessageType.Discovery;
+            UnsentUnconnectedMessages.Enqueue((endPoint, om));
         }
 
         /// <summary>
         /// Send a discovery response message.
         /// </summary>
-        public void SendDiscoveryResponse(NetOutgoingMessage msg, IPEndPoint recipient)
+        public void SendDiscoveryResponse(IPEndPoint recipient, NetOutgoingMessage? message = null)
         {
             if (recipient == null)
                 throw new ArgumentNullException(nameof(recipient));
 
-            if (msg == null)
-                msg = CreateMessage(0);
-            else if (msg.m_isSent)
-                throw new NetException("Message has already been sent!");
+            if (message == null)
+                message = CreateMessage(0);
+            else
+                message.AssertNotSent(nameof(message));
 
-            if (msg.LengthBytes >= m_configuration.MaximumTransmissionUnit)
-                throw new NetException(
+            if (message.ByteLength >= Configuration.MaximumTransmissionUnit)
+                throw new LidgrenException(
                     "Cannot send discovery message larger than MTU (currently " + 
-                    m_configuration.MaximumTransmissionUnit + " bytes).");
+                    Configuration.MaximumTransmissionUnit + " bytes).");
 
-            msg.m_messageType = NetMessageType.DiscoveryResponse;
-            m_unsentUnconnectedMessages.Enqueue((recipient, msg));
+            message._messageType = NetMessageType.DiscoveryResponse;
+            UnsentUnconnectedMessages.Enqueue((recipient, message));
         }
     }
 }

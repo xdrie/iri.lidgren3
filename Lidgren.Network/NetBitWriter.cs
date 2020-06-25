@@ -20,425 +20,477 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 using System;
-using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using System.Runtime.Intrinsics;
+using System.Runtime.Intrinsics.X86;
 
 namespace Lidgren.Network
 {
+    // TODO: optimize with Intrinsics (remember to steal/look at old impl)
+
     /// <summary>
     /// Helper class for <see cref="NetBuffer"/> to write/read bits.
     /// </summary>
     public static class NetBitWriter
     {
+        #region CopyBits
+
         /// <summary>
-        /// Read 1-8 bits from a buffer into a byte.
+        /// Copies bits between buffers.
         /// </summary>
-        public static byte ReadByte(byte[] fromBuffer, int numberOfBits, int readBitOffset)
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        public static void CopyBits(
+            ReadOnlySpan<byte> source, int sourceBitOffset, int bitCount,
+            Span<byte> destination, int destinationBitOffset)
         {
-            NetException.Assert(((numberOfBits > 0) && (numberOfBits < 9)), "Read() can only read between 1 and 8 bits");
+            if (bitCount == 0)
+                return;
 
-            int bytePtr = readBitOffset >> 3;
-            int startReadAtIndex = readBitOffset - (bytePtr * 8); // (readBitOffset % 8);
+            var src = source.Slice(sourceBitOffset / 8);
+            var dst = destination.Slice(destinationBitOffset / 8);
 
-            if (startReadAtIndex == 0 && numberOfBits == 8)
-                return fromBuffer[bytePtr];
+            sourceBitOffset %= 8;
+            destinationBitOffset %= 8;
+
+            int srcNextRemBits = 8 - sourceBitOffset;
+            int dstNextRemBits = 8 - destinationBitOffset;
+
+            #region Bulk-copy most bits
+
+            int i;
+            if (sourceBitOffset > 0)
+            {
+                var byteSrc = src.Slice(0, (bitCount + 7) / 8);
+                if (destinationBitOffset > 0)
+                {
+                    for (i = 0; i < byteSrc.Length - 1; i++)
+                    {
+                        int value = ReadBitsAtSrc(src, i, sourceBitOffset, srcNextRemBits);
+                        WriteBitsAtDst(dst, i, value, destinationBitOffset, dstNextRemBits);
+                    }
+                }
+                else
+                {
+                    for (i = 0; i < byteSrc.Length - 1; i++)
+                    {
+                        int value = ReadBitsAtSrc(src, i, sourceBitOffset, srcNextRemBits);
+                        dst[i] = (byte)value;
+                    }
+                }
+            }
+            else if (destinationBitOffset > 0)
+            {
+                var byteSrc = src.Slice(0, (bitCount + 7) / 8);
+                for (i = 0; i < byteSrc.Length - 1; i++)
+                {
+                    int value = byteSrc[i];
+                    WriteBitsAtDst(dst, i, value, destinationBitOffset, dstNextRemBits);
+                }
+            }
+            else
+            {
+                var byteSrc = src.Slice(0, bitCount / 8);
+                byteSrc.CopyTo(dst);
+                i = byteSrc.Length;
+            }
+            bitCount -= i * 8;
+
+            #endregion
+
+            #region Copy remaining bits
+
+            if (bitCount == 0)
+                return;
+
+            // mask away unused bits lower than relevant bits in last byte
+            int lastValue = src[i] >> sourceBitOffset;
+
+            int bitsInNextByte = bitCount - srcNextRemBits;
+            if (bitsInNextByte < 1)
+            {
+                // we don't need to read from the next byte, 
+                // we need to mask away unused bits higher than relevant bits
+                lastValue &= 255 >> (8 - bitCount);
+            }
+            else
+            {
+                int nextValue = src[i + 1];
+
+                // mask away unused bits higher than relevant bits in next byte
+                nextValue &= 255 >> (8 - bitsInNextByte);
+
+                lastValue |= nextValue << srcNextRemBits;
+            }
+
+            int bitsLeftInDst = dstNextRemBits - bitCount;
+            if (bitsLeftInDst >= 0)
+            {
+                // everything fits in the last byte
+
+                int mask = (255 >> dstNextRemBits) | (255 << (8 - bitsLeftInDst));
+
+                dst[i] = (byte)(
+                    (dst[i] & mask) | // Mask out lower and upper bits
+                    (lastValue << destinationBitOffset)); // Insert new bits
+            }
+            else
+            {
+                dst[i] = (byte)(
+                    (dst[i] & (255 >> dstNextRemBits)) | // Mask out upper bits
+                    (lastValue << destinationBitOffset)); // Write the lower bits to the upper bits of last byte
+
+                dst[i + 1] = (byte)(
+                    (dst[i + 1] & (255 << (bitCount - dstNextRemBits))) | // Mask out lower bits
+                    (lastValue >> dstNextRemBits)); // Write the upper bits to the lower bits of next byte
+            }
+
+            #endregion
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+        private static void WriteBitsAtDst(
+            Span<byte> dst, int i, int value, int destinationBitOffset, int dstNextRemBits)
+        {
+            int lastValue = value & (255 >> destinationBitOffset);
+            dst[i] |= (byte)(lastValue << destinationBitOffset);
+
+            int nextValue = value & (255 << dstNextRemBits);
+            dst[i + 1] |= (byte)(nextValue >> dstNextRemBits);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining | MethodImplOptions.AggressiveOptimization)]
+        private static int ReadBitsAtSrc(
+            ReadOnlySpan<byte> byteSrc, int i, int sourceBitOffset, int srcNextRemBits)
+        {
+            int last = byteSrc[i] >> sourceBitOffset;
+            int next = (byteSrc[i + 1] << srcNextRemBits) & 255;
+            return last | next;
+        }
+
+        // old impl is left here as SSE reference code
+        /*
+
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        public static unsafe void CopyBits_old(
+            ReadOnlySpan<byte> source, int sourceBitOffset, int bitCount,
+            Span<byte> destination, int destinationBitOffset)
+        {
+            int srcNextPart = sourceBitOffset % 8;
+            int dstNextPart = destinationBitOffset % 8;
+
+            var src = source.Slice(sourceBitOffset / 8);
+            var dst = destination.Slice(destinationBitOffset / 8);
+
+            int i = 0;
+            int bitsLeft = bitCount;
+            int byteCount = bitsLeft / 8;
+            if (byteCount > 0)
+            {
+                if (srcNextPart == 0 &&
+                    dstNextPart == 0)
+                {
+                    src.Slice(i, byteCount).CopyTo(dst);
+                    i += byteCount;
+                }
+                else
+                {
+                    if (bitsLeft > dst.Length * 8 - dstNextPart)
+                        throw new ArgumentException(
+                            "The given offsets and count reach outside the destination buffer.");
+
+                    if (bitsLeft > src.Length * 8 - srcNextPart)
+                        throw new ArgumentException(
+                            "The given offsets and count reach outside the source buffer.");
+
+                    int srcLastPart = 8 - srcNextPart;
+                    int dstLastPart = 8 - dstNextPart;
+                    byte srcNextClearMask = (byte)(255 >> srcLastPart);
+                    byte dstLastClearMask = (byte)(255 >> dstLastPart);
+                    byte dstNextClearMask = (byte)(255 << dstNextPart);
+
+                    //fixed (byte* srcPtr = src)
+                    //fixed (byte* dstPtr = dst)
+                    {
+                        // TODO: fix SSE
+
+                        #region SSE2
+                        
+
+                        if (Sse2.IsSupported)
+                        {
+                            byte bSrcNextPart = (byte)srcNextPart;
+                            byte bDstLastPart = (byte)dstLastPart;
+                            byte bDstNextPart = (byte)dstNextPart;
+
+                            var vLastClearMask = Vector128.Create(lastClearMask);
+                            var vNextClearMask = Vector128.Create(nextClearMask);
+                            var castByteMask = Vector128.Create((short)byte.MaxValue);
+
+                            for (; i <= byteCount - Vector128<byte>.Count; i += Vector128<byte>.Count)
+                            {
+                                var values = Sse2.LoadVector128(srcPtr + i);
+
+                                // we have to widen to int16 as shifts don't operate on int8
+                                var lowValues = Sse2.UnpackLow(values, Vector128<byte>.Zero).AsInt16();
+                                var highValues = Sse2.UnpackHigh(values, Vector128<byte>.Zero).AsInt16();
+
+                                // process the first values
+                                {
+                                    var last1 = Sse2.ShiftRightLogical(lowValues, bSrcNextPart);
+                                    var last2 = Sse2.ShiftRightLogical(highValues, bSrcNextPart);
+                                    last1 = Sse2.ShiftLeftLogical(last1, bDstNextPart);
+                                    last2 = Sse2.ShiftLeftLogical(last2, bDstNextPart);
+
+                                    // "cast" from int16 to int8 as we just left-shifted 
+                                    last1 = Sse2.And(last1, castByteMask);
+                                    last2 = Sse2.And(last2, castByteMask);
+
+                                    // write to destination
+                                    var lastPack = Sse2.PackUnsignedSaturate(last1, last2);
+                                    var lastResult = Sse2.LoadVector128(dstPtr + i);
+                                    lastResult = Sse2.And(lastResult, vLastClearMask); // clear before writing
+                                    lastResult = Sse2.Or(lastResult, lastPack); // write last part
+                                    Sse2.Store(dstPtr + i, lastResult);
+                                }
+
+                                // process the second values
+                                {
+                                    var next1 = Sse2.ShiftLeftLogical(lowValues, bSrcNextPart);
+                                    var next2 = Sse2.ShiftLeftLogical(highValues, bSrcNextPart);
+
+                                    // "cast" from int16 to int8 as we just left-shifted 
+                                    next1 = Sse2.And(next1, castByteMask);
+                                    next2 = Sse2.And(next2, castByteMask);
+                                    next1 = Sse2.ShiftRightLogical(next1, bDstLastPart);
+                                    next2 = Sse2.ShiftRightLogical(next2, bDstLastPart);
+
+                                    // write to destination
+                                    var nextPack = Sse2.PackUnsignedSaturate(next1, next2);
+                                    var nextResult = Sse2.LoadVector128(dstPtr + i + 1);
+                                    nextResult = Sse2.And(nextResult, vNextClearMask); // clear before writing
+                                    nextResult = Sse2.Or(nextResult, nextPack); // write next part
+                                    Sse2.Store(dstPtr + i + 1, nextResult);
+                                }
+                            }
+                        }
+
+                        #endregion
+
+                        for (; i < byteCount; i++)
+                        {
+                            int value = src[i];
+
+                            if (srcNextPart > 0)
+                            {
+                                // mask away bits left of relevant bits 
+                                int next = src[i + 1] & srcNextClearMask;
+
+                                // shift away bits right of relevant bits
+                                value >>= srcNextPart;
+                                value |= next << srcLastPart;
+                            }
+
+                            dst[i] &= dstLastClearMask; // clear before writing
+                            dst[i] |= (byte)(value << dstNextPart); // write last part
+
+                            if (dstNextPart > 0)
+                            {
+                                dst[i + 1] &= dstNextClearMask; // clear before writing
+                                dst[i + 1] |= (byte)(value >> dstLastPart); // write next part
+                            }
+                        }
+                    }
+                }
+                bitsLeft -= byteCount * 8;
+            }
+
+            if (bitsLeft > 0)
+            {
+                int value = src[i] >> srcNextPart;
+
+                // Mask out all the bits we dont want
+                value &= 255 >> (8 - bitsLeft);
+
+                int bitsFree = 8 - dstNextPart;
+                int lastBits = bitsFree - bitsLeft;
+
+                // Check if everything fits in the last byte
+                if (lastBits >= 0)
+                {
+                    int mask = (255 >> bitsFree) | (255 << (8 - lastBits));
+
+                    dst[i] = (byte)(
+                        (dst[i] & mask) | // Mask out lower and upper bits
+                        (value << dstNextPart)); // Insert new bits
+                }
+                else
+                {
+                    dst[i] = (byte)(
+                        (dst[i] & (255 >> bitsFree)) | // Mask out upper bits
+                        (value << dstNextPart)); // Write the lower bits to the upper bits in the first byte
+
+                    dst[i + 1] = (byte)(
+                        (dst[i + 1] & (255 << (bitsLeft - bitsFree))) | // Mask out lower bits
+                        (value >> bitsFree)); // Write the upper bits to the lower bits of the second byte
+                }
+            }
+        }
+
+        */
+
+        #endregion
+
+        #region ReadByte[Unchecked]
+
+        /// <summary>
+        /// Read 1 to 8 bits from a buffer into a byte without validating offsets.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        public static byte ReadByteUnchecked(ReadOnlySpan<byte> source, int bitOffset, int bitCount)
+        {
+            int byteOffset = bitOffset / 8;
+            int firstByteLength = bitOffset % 8;
+
+            if (bitCount == 8 && firstByteLength == 0)
+                return source[byteOffset];
 
             // mask away unused bits lower than (right of) relevant bits in first byte
-            byte returnValue = (byte)(fromBuffer[bytePtr] >> startReadAtIndex);
+            byte first = (byte)(source[byteOffset] >> firstByteLength);
 
-            int numberOfBitsInSecondByte = numberOfBits - (8 - startReadAtIndex);
-
-            if (numberOfBitsInSecondByte < 1)
+            int bitsInSecondByte = bitCount - (8 - firstByteLength);
+            if (bitsInSecondByte < 1)
             {
                 // we don't need to read from the second byte, but we DO need
                 // to mask away unused bits higher than (left of) relevant bits
-                return (byte)(returnValue & (255 >> (8 - numberOfBits)));
+                return (byte)(first & (255 >> (8 - bitCount)));
             }
 
-            byte second = fromBuffer[bytePtr + 1];
+            byte second = source[byteOffset + 1];
 
             // mask away unused bits higher than (left of) relevant bits in second byte
-            second &= (byte)(255 >> (8 - numberOfBitsInSecondByte));
+            second &= (byte)(255 >> (8 - bitsInSecondByte));
 
-            return (byte)(returnValue | (byte)(second << (numberOfBits - numberOfBitsInSecondByte)));
+            return (byte)(first | (byte)(second << (bitCount - bitsInSecondByte)));
         }
 
         /// <summary>
-        /// Read bytes from a buffer.
+        /// Read 1 to 8 bits from a buffer into a byte.
         /// </summary>
-        public static void ReadBytes(byte[] fromBuffer, int readBitOffset, Span<byte> destination)
+        public static byte ReadByte(ReadOnlySpan<byte> source, int bitOffset, int bitCount)
         {
-            int readPtr = readBitOffset >> 3;
-            int startReadAtIndex = readBitOffset - (readPtr * 8); // (readBitOffset % 8);
+            if (bitCount == 0) return 0;
+            if (bitCount < 1) throw new ArgumentOutOfRangeException(nameof(bitCount));
+            if (bitCount > 8) throw new ArgumentOutOfRangeException(nameof(bitCount));
 
-            if (startReadAtIndex == 0)
-            {
-                var src = fromBuffer.AsSpan(readPtr, destination.Length);
-                src.CopyTo(destination);
-                return;
-            }
-
-            int secondPartLen = 8 - startReadAtIndex;
-            int secondMask = 255 >> secondPartLen;
-            int dstPtr = 0;
-
-            for (int i = 0; i < destination.Length; i++)
-            {
-                // mask away unused bits lower than (right of) relevant bits in byte
-                int b = fromBuffer[readPtr] >> startReadAtIndex;
-
-                readPtr++;
-
-                // mask away unused bits higher than (left of) relevant bits in second byte
-                int second = fromBuffer[readPtr] & secondMask;
-
-                destination[dstPtr++] = (byte)(b | (second << secondPartLen));
-            }
+            return ReadByteUnchecked(source, bitOffset, bitCount);
         }
 
+        #endregion
+
+        #region WriteByte[Unchecked]
+
         /// <summary>
-        /// Write 0-8 bits of data to buffer.
+        /// Writes 1 to 8 bits of data to a buffer without validating offsets.
         /// </summary>
-        public static void WriteByte(byte source, int numberOfBits, byte[] destination, int destBitOffset)
+        [MethodImpl(MethodImplOptions.AggressiveOptimization)]
+        public static void WriteByteUnchecked(
+            int source, int bitCount, Span<byte> destination, int destinationBitOffset)
         {
-            if (numberOfBits == 0)
-                return;
-
-            NetException.Assert(((numberOfBits >= 0) && (numberOfBits <= 8)), "Must write between 0 and 8 bits!");
-
             // Mask out all the bits we dont want
-            source = (byte)(source & (0xFF >> (8 - numberOfBits)));
+            source &= 255 >> (8 - bitCount);
 
-            int p = destBitOffset >> 3;
-            int bitsUsed = destBitOffset & 0x7; // mod 8
+            int p = destinationBitOffset / 8;
+            int bitsUsed = destinationBitOffset % 8;
             int bitsFree = 8 - bitsUsed;
-            int bitsLeft = bitsFree - numberOfBits;
+            int bitsLeft = bitsFree - bitCount;
 
             // Fast path, everything fits in the first byte
             if (bitsLeft >= 0)
             {
-                int mask = (0xFF >> bitsFree) | (0xFF << (8 - bitsLeft));
+                int mask = (255 >> bitsFree) | (255 << (8 - bitsLeft));
 
                 destination[p] = (byte)(
-                    // Mask out lower and upper bits
-                    (destination[p] & mask) |
-
-                    // Insert new bits
-                    (source << bitsUsed)
-                );
+                    (destination[p] & mask) | // Mask out lower and upper bits
+                    (source << bitsUsed)); // Insert new bits
 
                 return;
             }
 
             destination[p] = (byte)(
-                // Mask out upper bits
-                (destination[p] & (0xFF >> bitsFree)) |
-
-                // Write the lower bits to the upper bits in the first byte
-                (source << bitsUsed)
-            );
+                (destination[p] & (255 >> bitsFree)) | // Mask out upper bits
+                (source << bitsUsed)); // Write the lower bits to the upper bits in the first byte
 
             p += 1;
 
             destination[p] = (byte)(
-                // Mask out lower bits
-                (destination[p] & (0xFF << (numberOfBits - bitsFree))) |
-
-                // Write the upper bits to the lower bits of the second byte
-                (source >> bitsFree)
-            );
+                (destination[p] & (255 << (bitCount - bitsFree))) | // Mask out lower bits
+                (source >> bitsFree)); // Write the upper bits to the lower bits of the second byte
         }
 
         /// <summary>
-        /// Write several whole bytes.
+        /// Writes a byte of data to a buffer.
         /// </summary>
-        public static void WriteBytes(ReadOnlySpan<byte> source, byte[] destination, int destBitOffset)
+        public static void WriteByte(
+            byte source, Span<byte> destination, int destinationBitOffset)
         {
-            int dstBytePtr = destBitOffset >> 3;
-            int firstPartLen = (destBitOffset % 8);
-
-            if (firstPartLen == 0)
-            {
-                var dst = destination.AsSpan(dstBytePtr);
-                source.CopyTo(dst);
-                return;
-            }
-
-            int lastPartLen = 8 - firstPartLen;
-
-            for (int i = 0; i < source.Length; i++)
-            {
-                byte src = source[i];
-
-                // write last part of this byte
-                destination[dstBytePtr] &= (byte)(255 >> lastPartLen); // clear before writing
-                destination[dstBytePtr] |= (byte)(src << firstPartLen); // write first half
-
-                dstBytePtr++;
-
-                // write first part of next byte
-                destination[dstBytePtr] &= (byte)(255 << firstPartLen); // clear before writing
-                destination[dstBytePtr] |= (byte)(src >> lastPartLen); // write second half
-            }
+            WriteByteUnchecked(source, 8, destination, destinationBitOffset);
         }
 
         /// <summary>
-        /// Reads an unsigned 16-bit integer.
+        /// Writes 1 to 8 bits of data to a buffer.
         /// </summary>
+        public static void WriteByte(
+            byte source, int bitCount, Span<byte> destination, int destinationBitOffset)
+        {
+            if (bitCount == 0) return;
+            if (bitCount < 1) throw new ArgumentOutOfRangeException(nameof(bitCount));
+            if (bitCount > 8) throw new ArgumentOutOfRangeException(nameof(bitCount));
+
+            WriteByteUnchecked(source, bitCount, destination, destinationBitOffset);
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Write Base128 encoded variable sized <see cref="uint"/>.
+        /// </summary>
+        /// <returns>Number of bytes written.</returns>
         [CLSCompliant(false)]
-#if UNSAFE
-        public static unsafe ushort ReadUInt16(byte[] fromBuffer, int numberOfBits, int readBitOffset)
+        public static int WriteVarUInt32(uint value, Span<byte> destination)
         {
-            Debug.Assert(((numberOfBits > 0) && (numberOfBits <= 16)), "ReadUInt16() can only read between 1 and 16 bits");
-
-            if (numberOfBits == 16 && ((readBitOffset % 8) == 0))
-            {
-                fixed (byte* ptr = &(fromBuffer[readBitOffset / 8]))
-                {
-                    return *(((ushort*)ptr));
-                }
-            }
-#else
-        public static ushort ReadUInt16(byte[] fromBuffer, int numberOfBits, int readBitOffset)
-        {
-            Debug.Assert(((numberOfBits > 0) && (numberOfBits <= 16)), "ReadUInt16() can only read between 1 and 16 bits");
-#endif
-            ushort returnValue;
-            if (numberOfBits <= 8)
-            {
-                returnValue = ReadByte(fromBuffer, numberOfBits, readBitOffset);
-                return returnValue;
-            }
-            returnValue = ReadByte(fromBuffer, 8, readBitOffset);
-            numberOfBits -= 8;
-            readBitOffset += 8;
-
-            if (numberOfBits <= 8)
-            {
-                returnValue |= (ushort)(ReadByte(fromBuffer, numberOfBits, readBitOffset) << 8);
-            }
-
-#if BIGENDIAN
-            // reorder bytes
-            uint retVal = returnValue;
-            retVal = ((retVal & 0x0000ff00) >> 8) | ((retVal & 0x000000ff) << 8);
-            return (ushort)retVal;
-#else
-            return returnValue;
-#endif
-        }
-
-        /// <summary>
-        /// Reads the specified number of bits into an UInt32.
-        /// </summary>
-        [CLSCompliant(false)]
-#if UNSAFE
-        public static unsafe uint ReadUInt32(byte[] fromBuffer, int numberOfBits, int readBitOffset)
-        {
-            NetException.Assert(((numberOfBits > 0) && (numberOfBits <= 32)), "ReadUInt32() can only read between 1 and 32 bits");
-
-            if (numberOfBits == 32 && ((readBitOffset % 8) == 0))
-            {
-                fixed (byte* ptr = &(fromBuffer[readBitOffset / 8]))
-                {
-                    return *(((uint*)ptr));
-                }
-            }
-#else
-        
-        public static uint ReadUInt32(byte[] fromBuffer, int numberOfBits, int readBitOffset)
-        {
-            NetException.Assert(((numberOfBits > 0) && (numberOfBits <= 32)), "ReadUInt32() can only read between 1 and 32 bits");
-#endif
-            uint returnValue;
-            if (numberOfBits <= 8)
-            {
-                returnValue = ReadByte(fromBuffer, numberOfBits, readBitOffset);
-                return returnValue;
-            }
-            returnValue = ReadByte(fromBuffer, 8, readBitOffset);
-            numberOfBits -= 8;
-            readBitOffset += 8;
-
-            if (numberOfBits <= 8)
-            {
-                returnValue |= (uint)(ReadByte(fromBuffer, numberOfBits, readBitOffset) << 8);
-                return returnValue;
-            }
-            returnValue |= (uint)(ReadByte(fromBuffer, 8, readBitOffset) << 8);
-            numberOfBits -= 8;
-            readBitOffset += 8;
-
-            if (numberOfBits <= 8)
-            {
-                uint r = ReadByte(fromBuffer, numberOfBits, readBitOffset);
-                r <<= 16;
-                returnValue |= r;
-                return returnValue;
-            }
-            returnValue |= (uint)(ReadByte(fromBuffer, 8, readBitOffset) << 16);
-            numberOfBits -= 8;
-            readBitOffset += 8;
-
-            returnValue |= (uint)(ReadByte(fromBuffer, numberOfBits, readBitOffset) << 24);
-
-#if BIGENDIAN
-            // reorder bytes
-            return
-                ((returnValue & 0xff000000) >> 24) |
-                ((returnValue & 0x00ff0000) >> 8) |
-                ((returnValue & 0x0000ff00) << 8) |
-                ((returnValue & 0x000000ff) << 24);
-#else
-            return returnValue;
-#endif
-        }
-        
-        /// <summary>
-        /// Writes an unsigned 16-bit integer.
-        /// </summary>
-        [CLSCompliant(false)]
-        public static void WriteUInt16(ushort source, int numberOfBits, byte[] destination, int destinationBitOffset)
-        {
-            if (numberOfBits == 0)
-                return;
-
-            NetException.Assert((numberOfBits >= 0 && numberOfBits <= 16), "numberOfBits must be between 0 and 16");
-#if BIGENDIAN
-            // reorder bytes
-            uint intSource = source;
-            intSource = ((intSource & 0x0000ff00) >> 8) | ((intSource & 0x000000ff) << 8);
-            source = (ushort)intSource;
-#endif
-            if (numberOfBits <= 8)
-            {
-                WriteByte((byte)source, numberOfBits, destination, destinationBitOffset);
-                return;
-            }
-
-            WriteByte((byte)source, 8, destination, destinationBitOffset);
-
-            numberOfBits -= 8;
-            if (numberOfBits > 0)
-                WriteByte((byte)(source >> 8), numberOfBits, destination, destinationBitOffset + 8);
-        }
-
-        /// <summary>
-        /// Writes the specified number of bits into a byte array.
-        /// </summary>
-        [CLSCompliant(false)]
-        public static int WriteUInt32(uint source, int numberOfBits, byte[] destination, int destinationBitOffset)
-        {
-#if BIGENDIAN
-            // reorder bytes
-            source = ((source & 0xff000000) >> 24) |
-                ((source & 0x00ff0000) >> 8) |
-                ((source & 0x0000ff00) << 8) |
-                ((source & 0x000000ff) << 24);
-#endif
-
-            int returnValue = destinationBitOffset + numberOfBits;
-            if (numberOfBits <= 8)
-            {
-                WriteByte((byte)source, numberOfBits, destination, destinationBitOffset);
-                return returnValue;
-            }
-            WriteByte((byte)source, 8, destination, destinationBitOffset);
-            destinationBitOffset += 8;
-            numberOfBits -= 8;
-
-            if (numberOfBits <= 8)
-            {
-                WriteByte((byte)(source >> 8), numberOfBits, destination, destinationBitOffset);
-                return returnValue;
-            }
-            WriteByte((byte)(source >> 8), 8, destination, destinationBitOffset);
-            destinationBitOffset += 8;
-            numberOfBits -= 8;
-
-            if (numberOfBits <= 8)
-            {
-                WriteByte((byte)(source >> 16), numberOfBits, destination, destinationBitOffset);
-                return returnValue;
-            }
-            WriteByte((byte)(source >> 16), 8, destination, destinationBitOffset);
-            destinationBitOffset += 8;
-            numberOfBits -= 8;
-
-            WriteByte((byte)(source >> 24), numberOfBits, destination, destinationBitOffset);
-            return returnValue;
-        }
-
-        /// <summary>
-        /// Writes the specified number of bits into a byte array.
-        /// </summary>
-        [CLSCompliant(false)]
-        public static int WriteUInt64(ulong source, int numberOfBits, byte[] destination, int destinationBitOffset)
-        {
-#if BIGENDIAN
-            source = ((source & 0xff00000000000000L) >> 56) |
-                ((source & 0x00ff000000000000L) >> 40) |
-                ((source & 0x0000ff0000000000L) >> 24) |
-                ((source & 0x000000ff00000000L) >> 8) |
-                ((source & 0x00000000ff000000L) << 8) |
-                ((source & 0x0000000000ff0000L) << 24) |
-                ((source & 0x000000000000ff00L) << 40) |
-                ((source & 0x00000000000000ffL) << 56);
-#endif
-
-            int returnValue = destinationBitOffset + numberOfBits;
-
-            for (int i = 0; i < 8; i++)
-            {
-                byte s = (byte)(source >> (i * 8));
-                if (numberOfBits <= 8)
-                {
-                    WriteByte(s, numberOfBits, destination, destinationBitOffset);
-                    return returnValue;
-                }
-                WriteByte(s, 8, destination, destinationBitOffset);
-                destinationBitOffset += 8;
-                numberOfBits -= 8;
-            }
-
-            return returnValue;
-        }
-
-        /// <summary>
-        /// Write Base128 encoded variable sized unsigned integer.
-        /// </summary>
-        /// <returns>number of bytes written</returns>
-        [CLSCompliant(false)]
-        public static int WriteVariableUInt32(byte[] intoBuffer, int offset, uint value)
-        {
-            int retval = 0;
-            uint num1 = (uint)value;
+            int offset = 0;
+            uint num1 = value;
             while (num1 >= 0x80)
             {
-                intoBuffer[offset + retval] = (byte)(num1 | 0x80);
+                destination[offset] = (byte)(num1 | 0x80);
                 num1 >>= 7;
-                retval++;
+                offset++;
             }
-            intoBuffer[offset + retval] = (byte)num1;
-            return retval + 1;
+            destination[offset] = (byte)num1;
+            return offset + 1;
         }
 
         /// <summary>
-        /// Reads a UInt32 written using WriteUnsignedVarInt(); will increment offset.
+        /// Reads a <see cref="uint"/> written using <see cref="WriteVarUInt32"/>.
         /// </summary>
         [CLSCompliant(false)]
-        public static uint ReadVariableUInt32(byte[] buffer, ref int offset)
+        public static uint ReadVarUInt32(ReadOnlySpan<byte> buffer, out int bytesRead)
         {
             int num1 = 0;
             int num2 = 0;
+            int offset = 0;
             while (true)
             {
-                NetException.Assert(num2 != 0x23, "Bad 7-bit encoded integer");
+                LidgrenException.Assert(num2 != 0x23, "Bad 7-bit encoded integer");
 
                 byte num3 = buffer[offset++];
                 num1 |= (num3 & 0x7f) << (num2 & 0x1f);
                 num2 += 7;
                 if ((num3 & 0x80) == 0)
+                {
+                    bytesRead = offset;
                     return (uint)num1;
+                }
             }
         }
     }

@@ -1,95 +1,99 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Text;
 
 namespace Lidgren.Network
 {
-	public partial class NetBuffer
-	{
-		/// <summary>
-		/// Number of bytes to overallocate for each message to avoid resizing
-		/// </summary>
-		protected const int c_overAllocateAmount = 4;
-
-		private static readonly Dictionary<Type, MethodInfo> s_readMethods;
-		private static readonly Dictionary<Type, MethodInfo> s_writeMethods;
-
-		internal byte[] m_data;
-		internal int m_bitLength;
-		internal int m_readPosition;
-
-		/// <summary>
-		/// Gets or sets the internal data buffer
-		/// </summary>
-		public byte[] Data
-        {
-            get => m_data;
-            set => m_data = value;
-        }
+    public partial class NetBuffer
+    {
+        // TODO: move into config
+        public static Encoding StringEncoding { get; } = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
 
         /// <summary>
-        /// Gets or sets the length of the used portion of the buffer in bytes
+        /// Number of extra bytes to overallocate for message buffers to avoid resizing.
         /// </summary>
-        public int LengthBytes
+        // TODO: move into config
+        protected const int ExtraGrowAmount = 8;
+
+        private static readonly Dictionary<Type, MethodInfo> _readMethods = new Dictionary<Type, MethodInfo>();
+        private static readonly Dictionary<Type, MethodInfo> _writeMethods = new Dictionary<Type, MethodInfo>();
+
+        private int _bitLength;
+
+        /// <summary>
+        /// Gets or sets the internal data buffer.
+        /// </summary>
+        [SuppressMessage("Performance", "CA1819", Justification = "<Pending>")]
+        public byte[] Data { get; set; } = Array.Empty<byte>();
+
+        /// <summary>
+        /// Gets or sets the position within the buffer in bits.
+        /// </summary>
+        public int BitPosition { get; set; }
+
+        /// <summary>
+        /// Gets whether <see cref="BitPosition"/> is byte-aligned and contains no stray bits.
+        /// </summary>
+        public bool IsByteAligned => BitPosition % 8 == 0;
+
+        /// <summary>
+        /// Gets the position within the buffer in bytes.
+        /// </summary>
+        /// <remarks>
+        /// The bits of the first returned byte may already have been read - 
+        /// check <see cref="BitPosition"/> to be sure.
+        /// </remarks>
+        public int BytePosition => BitPosition / 8;
+
+        /// <summary>
+        /// Gets or sets the length of the used portion of the buffer in bits.
+        /// </summary>
+        public int BitLength
         {
-            get => ((m_bitLength + 7) >> 3);
+            get => _bitLength;
             set
             {
-                m_bitLength = value * 8;
-                InternalEnsureBufferSize(m_bitLength);
+                _bitLength = value;
+                EnsureBufferSize(_bitLength, 0);
             }
         }
 
         /// <summary>
-        /// Gets or sets the length of the used portion of the buffer in bits
+        /// Gets or sets the length of the used portion of the buffer in bytes.
         /// </summary>
-        public int LengthBits
+        public int ByteLength
         {
-            get => m_bitLength;
+            get => (_bitLength + 7) / 8;
             set
             {
-                m_bitLength = value;
-                InternalEnsureBufferSize(m_bitLength);
+                _bitLength = value * 8;
+                EnsureBufferSize(_bitLength, 0);
             }
         }
-
-        /// <summary>
-        /// Gets or sets the read position in the buffer, in bits (not bytes)
-        /// </summary>
-        public long Position
-        {
-            get => m_readPosition;
-            set => m_readPosition = (int)value;
-        }
-
-        /// <summary>
-        /// Gets the position in the buffer in bytes; note that the bits of the first returned byte may already have been read - check the Position property to make sure.
-        /// </summary>
-        public int PositionInBytes => m_readPosition / 8;
 
         static NetBuffer()
-		{
-			s_readMethods = new Dictionary<Type, MethodInfo>();
-			MethodInfo[] methods = typeof(NetIncomingMessage).GetMethods(BindingFlags.Instance | BindingFlags.Public);
-			foreach (MethodInfo mi in methods)
-			{
-				if (mi.GetParameters().Length == 0 &&
-                    mi.Name.StartsWith("Read", StringComparison.InvariantCulture) && 
-                    mi.Name.Substring(4) == mi.ReturnType.Name)
-					s_readMethods[mi.ReturnType] = mi;
-			}
+        {
+            var inMethods = typeof(NetIncomingMessage).GetMethods(BindingFlags.Instance | BindingFlags.Public);
+            foreach (MethodInfo method in inMethods)
+            {
+                if (method.GetParameters().Length == 0 &&
+                    method.Name.StartsWith("Read", StringComparison.InvariantCulture) && 
+                    method.Name.Substring(4) == method.ReturnType.Name)
+                    _readMethods[method.ReturnType] = method;
+            }
 
-			s_writeMethods = new Dictionary<Type, MethodInfo>();
-			methods = typeof(NetOutgoingMessage).GetMethods(BindingFlags.Instance | BindingFlags.Public);
-			foreach (MethodInfo mi in methods)
-			{
-				if (mi.Name.Equals("Write", StringComparison.InvariantCulture))
-				{
-					ParameterInfo[] pis = mi.GetParameters();
-					if (pis.Length == 1)
-						s_writeMethods[pis[0].ParameterType] = mi;
-				}
-			}
-		}
-	}
+            var outMethods = typeof(NetOutgoingMessage).GetMethods(BindingFlags.Instance | BindingFlags.Public);
+            foreach (MethodInfo method in outMethods)
+            {
+                if (method.Name.Equals("Write", StringComparison.InvariantCulture))
+                {
+                    ParameterInfo[] pis = method.GetParameters();
+                    if (pis.Length == 1)
+                        _writeMethods[pis[0].ParameterType] = method;
+                }
+            }
+        }
+    }
 }

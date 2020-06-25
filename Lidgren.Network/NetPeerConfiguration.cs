@@ -22,216 +22,217 @@ using System.Net;
 
 namespace Lidgren.Network
 {
-	/// <summary>
-	/// Configuration for a <see cref="NetPeer"/>.
+    // TODO: split up to Server and Client config
+
+    /// <summary>
+    /// Configuration for a <see cref="NetPeer"/>.
     /// Partly immutable after a <see cref="NetPeer"/> has been initialized
     /// with specified <see cref="NetPeerConfiguration"/> instance.
-	/// </summary>
-	public sealed class NetPeerConfiguration
-	{
-		// Maximum transmission unit
-		// Ethernet can take 1500 bytes of payload, so lets stay below that.
-		// The aim is for a max full packet to be 1440 bytes (30 x 48 bytes, lower than 1468)
-		// -20 bytes IP header
-		// -8 bytes UDP header
-		// -4 bytes to be on the safe side and align to 8-byte boundary
-		// Total 1408 bytes
-		// Note that lidgren headers (5 bytes) are not included here; since it's part of the "mtu payload"
+    /// </summary>
+    public sealed class NetPeerConfiguration
+    {
+        // Maximum transmission unit
+        // Ethernet can take 1500 bytes of payload, so lets stay below that.
+        // The aim is for a max full packet to be 1440 bytes (30 x 48 bytes, lower than 1468)
+        // -20 bytes IP header
+        // -8 bytes UDP header
+        // -4 bytes to be on the safe side and align to 8-byte boundary
+        // Total 1408 bytes
+        // Note that lidgren headers (5 bytes) are not included here; since it's part of the "mtu payload"
 
-		/// <summary>
-		/// Default MTU value in bytes.
-		/// </summary>
-		public const int kDefaultMTU = 1408;
-		
-		private const string c_isLockedMessage =
-            "You may not modify the NetPeerConfiguration after it has been used to initialize a NetPeer.";
+        /// <summary>
+        /// Default MTU value in bytes.
+        /// </summary>
+        public const int DefaultMTU = 1408;
+        
+        private const string IsLockedMessage =
+            "You may not modify the configuration after it has been used to initialize a NetPeer.";
 
-		private bool m_isLocked;
-		private readonly string m_appIdentifier;
-		private string m_networkThreadName;
-		private IPAddress m_localAddress;
-		private IPAddress m_broadcastAddress;
-        private bool m_dualStack;
+        private bool _isLocked;
+        private string _networkThreadName;
+        private IPAddress _localAddress;
+        private IPAddress _broadcastAddress;
+        private bool _dualStack;
 
-		internal bool m_acceptIncomingConnections;
-		internal int m_maximumConnections;
-		internal int m_defaultOutgoingMessageCapacity;
-		internal float m_pingInterval;
-		internal bool m_useMessageRecycling;
-		internal float m_connectionTimeout;
-		internal bool m_enableUPnP;
-		internal bool m_autoFlushSendQueue;
-		private NetUnreliableSizeBehaviour m_unreliableSizeBehaviour;
+        internal bool _acceptIncomingConnections;
+        internal int _maximumConnections;
+        internal int _defaultOutgoingMessageCapacity;
+        internal TimeSpan _pingInterval;
+        internal bool _useMessageRecycling;
+        internal TimeSpan _connectionTimeout;
+        internal bool _enableUPnP;
+        internal bool _autoFlushSendQueue;
+        internal NetIncomingMessageType _disabledTypes;
+        internal int _port;
+        internal int _receiveBufferSize;
+        internal int _sendBufferSize;
+        internal TimeSpan _resendHandshakeInterval;
+        internal int _maximumHandshakeAttempts;
 
-		internal NetIncomingMessageType m_disabledTypes;
-		internal int m_port;
-		internal int m_receiveBufferSize;
-		internal int m_sendBufferSize;
-		internal float m_resendHandshakeInterval;
-		internal int m_maximumHandshakeAttempts;
+        // bad network simulation
+        internal float _loss;
+        internal float _duplicates;
+        internal TimeSpan _minimumOneWayLatency;
+        internal TimeSpan _randomOneWayLatency;
 
-		// bad network simulation
-		internal float m_loss;
-		internal float m_duplicates;
-		internal float m_minimumOneWayLatency;
-		internal float m_randomOneWayLatency;
+        // MTU
+        internal int _maximumTransmissionUnit;
+        internal bool _autoExpandMTU;
+        internal int _expandMTUFailAttempts;
+        internal TimeSpan _expandMTUFrequency;
 
-		// MTU
-		internal int m_maximumTransmissionUnit;
-		internal bool m_autoExpandMTU;
-		internal float m_expandMTUFrequency;
-		internal int m_expandMTUFailAttempts;
-
-		/// <summary>
-		/// <see cref="NetPeerConfiguration"/> constructor.
-		/// </summary>
-		public NetPeerConfiguration(string appIdentifier)
-		{
-			if (string.IsNullOrEmpty(appIdentifier))
-				throw new NetException("App identifier must be at least one character long.");
-			m_appIdentifier = appIdentifier;
+        /// <summary>
+        /// <see cref="NetPeerConfiguration"/> constructor.
+        /// </summary>
+        public NetPeerConfiguration(string appIdentifier)
+        {
+            if (string.IsNullOrEmpty(appIdentifier))
+                throw new LidgrenException("App identifier must be at least one character long.");
+            AppIdentifier = appIdentifier;
             
-			m_disabledTypes =
+            _disabledTypes =
                 NetIncomingMessageType.ConnectionApproval |
                 NetIncomingMessageType.UnconnectedData |
                 NetIncomingMessageType.VerboseDebugMessage |
                 NetIncomingMessageType.ConnectionLatencyUpdated |
                 NetIncomingMessageType.NatIntroductionSuccess;
 
-            m_networkThreadName = "Lidgren Network Thread";
-			m_localAddress = IPAddress.IPv6Any;
-			m_broadcastAddress = IPAddress.Broadcast;
-			var ip = NetUtility.GetBroadcastAddress();
-			if (ip != null)
-				m_broadcastAddress = ip;
+            _networkThreadName = "Lidgren Network Thread";
+            _localAddress = IPAddress.Any;
+            _broadcastAddress = IPAddress.Broadcast;
+            var ip = NetUtility.GetBroadcastAddress();
+            if (ip != null)
+                _broadcastAddress = ip;
 
-			m_port = 0;
-			m_receiveBufferSize = 131071;
-			m_sendBufferSize = 131071;
-			m_acceptIncomingConnections = false;
-			m_maximumConnections = 32;
-			m_defaultOutgoingMessageCapacity = 16;
-			m_pingInterval = 4.0f;
-			m_connectionTimeout = 25.0f;
-			m_useMessageRecycling = true;
-			m_resendHandshakeInterval = 3.0f;
-			m_maximumHandshakeAttempts = 5;
-			m_autoFlushSendQueue = true;
+            _port = 0;
+            _receiveBufferSize = 131071;
+            _sendBufferSize = 131071;
+            _acceptIncomingConnections = false;
+            _maximumConnections = 32;
+            _defaultOutgoingMessageCapacity = 16;
+            _pingInterval = TimeSpan.FromSeconds(4);
+            _connectionTimeout = TimeSpan.FromSeconds(25);
+            _useMessageRecycling = true;
+            _resendHandshakeInterval = TimeSpan.FromSeconds(3);
+            _maximumHandshakeAttempts = 5;
+            _autoFlushSendQueue = true;
 
-			m_maximumTransmissionUnit = kDefaultMTU;
-			m_autoExpandMTU = false;
-			m_expandMTUFrequency = 2.0f;
-			m_expandMTUFailAttempts = 5;
-			m_unreliableSizeBehaviour = NetUnreliableSizeBehaviour.IgnoreMTU;
+            _maximumTransmissionUnit = DefaultMTU;
+            _autoExpandMTU = false;
+            _expandMTUFrequency = TimeSpan.FromSeconds(2);
+            _expandMTUFailAttempts = 5;
+            UnreliableSizeBehaviour = NetUnreliableSizeBehaviour.IgnoreMTU;
 
-			m_loss = 0f;
-			m_minimumOneWayLatency = 0f;
-			m_randomOneWayLatency = 0f;
-			m_duplicates = 0f;
+            _loss = 0f;
+            _minimumOneWayLatency = TimeSpan.Zero;
+            _randomOneWayLatency = TimeSpan.Zero;
+            _duplicates = 0f;
 
-			m_isLocked = false;
-		}
+            _isLocked = false;
+        }
 
-		internal void Lock()
-		{
-			m_isLocked = true;
-		}
+        internal void Lock()
+        {
+            _isLocked = true;
+        }
 
         /// <summary>
         /// Gets the identifier of this application;
         /// the library can only connect to matching app identifier peers.
         /// </summary>
-        public string AppIdentifier => m_appIdentifier;
+        public string AppIdentifier { get; }
 
         /// <summary>
         /// Enables receiving of the specified type of message.
         /// </summary>
         public void EnableMessageType(NetIncomingMessageType type)
-		{
-			m_disabledTypes &= (~type);
-		}
-
-		/// <summary>
-		/// Disables receiving of the specified type of message.
-		/// </summary>
-		public void DisableMessageType(NetIncomingMessageType type)
-		{
-			m_disabledTypes |= type;
-		}
-
-		/// <summary>
-		/// Enables or disables receiving of the specified type of message.
-		/// </summary>
-		public void SetMessageTypeEnabled(NetIncomingMessageType type, bool enabled)
-		{
-			if (enabled)
-				m_disabledTypes &= (~type);
-			else
-				m_disabledTypes |= type;
-		}
-
-		/// <summary>
-		/// Gets whether receiving of the specified message type is enabled.
-		/// </summary>
-		public bool IsMessageTypeEnabled(NetIncomingMessageType type)
-		{
-			return !((m_disabledTypes & type) == type);
-		}
-
-		/// <summary>
-		/// Gets or sets the behaviour of unreliable sends above MTU.
-		/// </summary>
-		public NetUnreliableSizeBehaviour UnreliableSizeBehaviour
         {
-            get => m_unreliableSizeBehaviour;
-            set => m_unreliableSizeBehaviour = value;
+            _disabledTypes &= ~type;
         }
 
         /// <summary>
+        /// Disables receiving of the specified type of message.
+        /// </summary>
+        public void DisableMessageType(NetIncomingMessageType type)
+        {
+            _disabledTypes |= type;
+        }
+
+        /// <summary>
+        /// Enables or disables receiving of the specified type of message.
+        /// </summary>
+        public void SetMessageTypeEnabled(NetIncomingMessageType type, bool enabled)
+        {
+            if (enabled)
+                _disabledTypes &= ~type;
+            else
+                _disabledTypes |= type;
+        }
+
+        /// <summary>
+        /// Gets whether receiving of the specified message type is enabled.
+        /// </summary>
+        public bool IsMessageTypeEnabled(NetIncomingMessageType type)
+        {
+            return !((_disabledTypes & type) == type);
+        }
+
+        /// <summary>
+        /// Gets or sets the behaviour of unreliable sends above MTU.
+        /// </summary>
+        public NetUnreliableSizeBehaviour UnreliableSizeBehaviour { get; set; }
+
+        /// <summary>
         /// Gets or sets the name of the library network thread.
+        /// <para>
         /// Cannot be changed once <see cref="NetPeer"/> is initialized.
+        /// </para>
         /// </summary>
         public string NetworkThreadName
         {
-            get => m_networkThreadName;
+            get => _networkThreadName;
             set
             {
-                if (m_isLocked)
-                    throw new NetException(
+                if (_isLocked)
+                    throw new LidgrenException(
                         "NetworkThreadName may not be set after the NetPeer which uses the configuration has been started");
-                m_networkThreadName = value;
+                _networkThreadName = value;
             }
         }
 
         /// <summary>
         /// Gets or sets the maximum amount of connections this peer can hold.
+        /// <para>
         /// Cannot be changed once <see cref="NetPeer"/> is initialized.
+        /// </para>
         /// </summary>
         public int MaximumConnections
         {
-            get => m_maximumConnections;
+            get => _maximumConnections;
             set
             {
-                if (m_isLocked)
-                    throw new NetException(c_isLockedMessage);
-                m_maximumConnections = value;
+                if (_isLocked)
+                    throw new LidgrenException(IsLockedMessage);
+                _maximumConnections = value;
             }
         }
 
         /// <summary>
         /// Gets or sets the maximum amount of bytes to send in a single packet, excluding IP, UDP and Lidgren headers.
+        /// <para>
         /// Cannot be changed once <see cref="NetPeer"/> is initialized.
+        /// </para>
         /// </summary>
         public int MaximumTransmissionUnit
         {
-            get => m_maximumTransmissionUnit;
+            get => _maximumTransmissionUnit;
             set
             {
-                if (m_isLocked)
-                    throw new NetException(c_isLockedMessage);
+                if (_isLocked)
+                    throw new LidgrenException(IsLockedMessage);
                 if (value < 1 || value >= ((ushort.MaxValue + 1) / 8))
-                    throw new NetException("MaximumTransmissionUnit must be between 1 and " + (((ushort.MaxValue + 1) / 8) - 1) + " bytes");
-                m_maximumTransmissionUnit = value;
+                    throw new LidgrenException("MaximumTransmissionUnit must be between 1 and " + (((ushort.MaxValue + 1) / 8) - 1) + " bytes");
+                _maximumTransmissionUnit = value;
             }
         }
 
@@ -240,45 +241,47 @@ namespace Lidgren.Network
         /// </summary>
         public int DefaultOutgoingMessageCapacity
         {
-            get => m_defaultOutgoingMessageCapacity;
-            set => m_defaultOutgoingMessageCapacity = value;
+            get => _defaultOutgoingMessageCapacity;
+            set => _defaultOutgoingMessageCapacity = value;
         }
 
         /// <summary>
         /// Gets or sets the time between latency calculating pings.
         /// </summary>
-        public float PingInterval
+        public TimeSpan PingInterval
         {
-            get => m_pingInterval;
-            set => m_pingInterval = value;
+            get => _pingInterval;
+            set => _pingInterval = value;
         }
 
         /// <summary>
         /// Gets or sets if the library should recycling messages to avoid excessive garbage collection.
+        /// <para>
         /// Cannot be changed once <see cref="NetPeer"/> is initialized.
+        /// </para>
         /// </summary>
         public bool UseMessageRecycling
         {
-            get => m_useMessageRecycling;
+            get => _useMessageRecycling;
             set
             {
-                if (m_isLocked)
-                    throw new NetException(c_isLockedMessage);
-                m_useMessageRecycling = value;
+                if (_isLocked)
+                    throw new LidgrenException(IsLockedMessage);
+                _useMessageRecycling = value;
             }
         }
 
         /// <summary>
         /// Gets or sets the number of seconds timeout will be postponed on a successful ping/pong.
         /// </summary>
-        public float ConnectionTimeout
+        public TimeSpan ConnectionTimeout
         {
-            get => m_connectionTimeout;
+            get => _connectionTimeout;
             set
             {
-                if (value < m_pingInterval)
-                    throw new NetException("Connection timeout cannot be lower than ping interval!");
-                m_connectionTimeout = value;
+                if (value < _pingInterval)
+                    throw new LidgrenException("Connection timeout cannot be lower than ping interval!");
+                _connectionTimeout = value;
             }
         }
 
@@ -287,53 +290,59 @@ namespace Lidgren.Network
         /// </summary>
         public bool EnableUPnP
         {
-            get => m_enableUPnP;
+            get => _enableUPnP;
             set
             {
-                if (m_isLocked)
-                    throw new NetException(c_isLockedMessage);
-                m_enableUPnP = value;
+                if (_isLocked)
+                    throw new LidgrenException(IsLockedMessage);
+                _enableUPnP = value;
             }
         }
 
         /// <summary>
         /// Enables or disables automatic flushing of the send queue.
+        /// <para>
         /// If disabled, you must manully call <see cref="NetPeer.FlushSendQueue"/> to flush sent messages to network.
+        /// </para>
         /// </summary>
         public bool AutoFlushSendQueue
         {
-            get => m_autoFlushSendQueue;
-            set => m_autoFlushSendQueue = value;
+            get => _autoFlushSendQueue;
+            set => _autoFlushSendQueue = value;
         }
 
         /// <summary>
-        /// Gets or sets the local <see cref="IPAddress"/> to bind to. Defaults to <see cref="IPAddress.IPv6Any"/>.
+        /// Gets or sets the local <see cref="IPAddress"/> to bind to. Defaults to <see cref="IPAddress.Any"/>.
+        /// <para>
         /// Cannot be changed once <see cref="NetPeer"/> is initialized.
+        /// </para>
         /// </summary>
         public IPAddress LocalAddress
         {
-            get => m_localAddress;
+            get => _localAddress;
             set
             {
-                if (m_isLocked)
-                    throw new NetException(c_isLockedMessage);
-                m_localAddress = value;
+                if (_isLocked)
+                    throw new LidgrenException(IsLockedMessage);
+                _localAddress = value;
             }
         }
 
         /// <summary>
         /// Gets or sets a value indicating whether the library should use IPv6 dual stack mode.
         /// If you enable this you should make sure that the <see cref="LocalAddress"/> is an IPv6 address.
-        /// Cannot be changed once NetPeer is initialized.
+        /// <para>
+        /// Cannot be changed once <see cref="NetPeer"/> is initialized.
+        /// </para>
         /// </summary>
         public bool DualStack
         {
-            get => m_dualStack;
+            get => _dualStack;
             set
             {
-                if (m_isLocked)
-                    throw new NetException(c_isLockedMessage);
-                m_dualStack = value;
+                if (_isLocked)
+                    throw new LidgrenException(IsLockedMessage);
+                _dualStack = value;
             }
         }
 
@@ -342,77 +351,85 @@ namespace Lidgren.Network
         /// </summary>
         public IPAddress BroadcastAddress
         {
-            get => m_broadcastAddress;
+            get => _broadcastAddress;
             set
             {
-                if (m_isLocked)
-                    throw new NetException(c_isLockedMessage);
-                m_broadcastAddress = value;
+                if (_isLocked)
+                    throw new LidgrenException(IsLockedMessage);
+                _broadcastAddress = value;
             }
         }
 
         /// <summary>
         /// Gets or sets the local port to bind to. Defaults to 0.
+        /// <para>
         /// Cannot be changed once <see cref="NetPeer"/> is initialized.
+        /// </para>
         /// </summary>
         public int Port
         {
-            get => m_port;
+            get => _port;
             set
             {
-                if (m_isLocked)
-                    throw new NetException(c_isLockedMessage);
-                m_port = value;
+                if (_isLocked)
+                    throw new LidgrenException(IsLockedMessage);
+                _port = value;
             }
         }
 
         /// <summary>
         /// Gets or sets the size in bytes of the receiving buffer. Defaults to 131071 bytes.
+        /// <para>
         /// Cannot be changed once <see cref="NetPeer"/> is initialized.
+        /// </para>
         /// </summary>
         public int ReceiveBufferSize
         {
-            get => m_receiveBufferSize;
+            get => _receiveBufferSize;
             set
             {
-                if (m_isLocked)
-                    throw new NetException(c_isLockedMessage);
-                m_receiveBufferSize = value;
+                if (_isLocked)
+                    throw new LidgrenException(IsLockedMessage);
+                _receiveBufferSize = value;
             }
         }
 
         /// <summary>
         /// Gets or sets the size in bytes of the sending buffer. Defaults to 131071 bytes.
+        /// <para>
         /// Cannot be changed once <see cref="NetPeer"/> is initialized.
+        /// </para>
         /// </summary>
         public int SendBufferSize
         {
-            get => m_sendBufferSize;
+            get => _sendBufferSize;
             set
             {
-                if (m_isLocked)
-                    throw new NetException(c_isLockedMessage);
-                m_sendBufferSize = value;
+                if (_isLocked)
+                    throw new LidgrenException(IsLockedMessage);
+                _sendBufferSize = value;
             }
         }
 
         /// <summary>
         /// Gets or sets if the <see cref="NetPeer"/> should accept incoming connections.
+        /// <para>
         /// This is automatically set to true in <see cref="NetServer"/> and false in <see cref="NetClient"/>.
+        /// </para>
         /// </summary>
         public bool AcceptIncomingConnections
         {
-            get => m_acceptIncomingConnections;
-            set => m_acceptIncomingConnections = value;
+            get => _acceptIncomingConnections;
+            set => _acceptIncomingConnections = value;
         }
 
         /// <summary>
         /// Gets or sets the number of seconds between handshake attempts.
         /// </summary>
-        public float ResendHandshakeInterval
+        public TimeSpan ResendHandshakeInterval
         {
-            get => m_resendHandshakeInterval;
-            set => m_resendHandshakeInterval = value;
+            get => _resendHandshakeInterval;
+            set => _resendHandshakeInterval = value;
         }
 
         /// <summary>
@@ -420,12 +437,12 @@ namespace Lidgren.Network
         /// </summary>
         public int MaximumHandshakeAttempts
         {
-            get => m_maximumHandshakeAttempts;
+            get => _maximumHandshakeAttempts;
             set
             {
                 if (value < 1)
-                    throw new NetException("MaximumHandshakeAttempts must be at least 1.");
-                m_maximumHandshakeAttempts = value;
+                    throw new LidgrenException("MaximumHandshakeAttempts must be at least 1.");
+                _maximumHandshakeAttempts = value;
             }
         }
 
@@ -435,12 +452,12 @@ namespace Lidgren.Network
         /// </summary>
         public bool AutoExpandMTU
         {
-            get => m_autoExpandMTU;
+            get => _autoExpandMTU;
             set
             {
-                if (m_isLocked)
-                    throw new NetException(c_isLockedMessage);
-                m_autoExpandMTU = value;
+                if (_isLocked)
+                    throw new LidgrenException(IsLockedMessage);
+                _autoExpandMTU = value;
             }
         }
 
@@ -448,10 +465,10 @@ namespace Lidgren.Network
         /// Gets or sets how often to send large messages
         /// to expand MTU if <see cref="AutoExpandMTU"/> is enabled.
         /// </summary>
-        public float ExpandMTUFrequency
+        public TimeSpan ExpandMTUFrequency
         {
-            get => m_expandMTUFrequency;
-            set => m_expandMTUFrequency = value;
+            get => _expandMTUFrequency;
+            set => _expandMTUFrequency = value;
         }
 
         /// <summary>
@@ -459,8 +476,8 @@ namespace Lidgren.Network
         /// </summary>
         public int ExpandMTUFailAttempts
         {
-            get => m_expandMTUFailAttempts;
-            set => m_expandMTUFailAttempts = value;
+            get => _expandMTUFailAttempts;
+            set => _expandMTUFailAttempts = value;
         }
 
         /// <summary>
@@ -468,73 +485,50 @@ namespace Lidgren.Network
         /// </summary>
         public float SimulatedLoss
         {
-            get => m_loss;
-            set => m_loss = value;
+            get => _loss;
+            set => _loss = value;
         }
 
         /// <summary>
         /// Gets or sets the minimum simulated amount of one way latency for sent packets in seconds.
         /// </summary>
-        public float SimulatedMinimumLatency
+        public TimeSpan SimulatedMinimumLatency
         {
-            get => m_minimumOneWayLatency;
-            set => m_minimumOneWayLatency = value;
+            get => _minimumOneWayLatency;
+            set => _minimumOneWayLatency = value;
         }
 
         /// <summary>
         /// Gets or sets the simulated added random amount of one way latency for sent packets in seconds.
         /// </summary>
-        public float SimulatedRandomLatency
+        public TimeSpan SimulatedRandomLatency
         {
-            get => m_randomOneWayLatency;
-            set => m_randomOneWayLatency = value;
+            get => _randomOneWayLatency;
+            set => _randomOneWayLatency = value;
         }
 
         /// <summary>
         /// Gets the average simulated one way latency in seconds.
         /// </summary>
-        public float SimulatedAverageLatency => m_minimumOneWayLatency + (m_randomOneWayLatency * 0.5f);
+        public TimeSpan SimulatedAverageLatency => _minimumOneWayLatency + (_randomOneWayLatency * 0.5);
 
         /// <summary>
         /// Gets or sets the simulated amount of duplicated packets from 0.0 to 1.0.
         /// </summary>
         public float SimulatedDuplicatesChance
         {
-            get => m_duplicates;
-            set => m_duplicates = value;
+            get => _duplicates;
+            set => _duplicates = value;
         }
 
         /// <summary>
         /// Creates a memberwise shallow clone of this configuration.
         /// </summary>
         public NetPeerConfiguration Clone()
-		{
-			NetPeerConfiguration retval = MemberwiseClone() as NetPeerConfiguration;
-			retval.m_isLocked = false;
-			return retval;
-		}
-	}
-
-	/// <summary>
-	/// Behaviour of unreliable sends above MTU.
-	/// </summary>
-	public enum NetUnreliableSizeBehaviour
-	{
-		/// <summary>
-		/// Sending an unreliable message will ignore MTU and send
-        /// everything in a single packet; this is the new default.
-		/// </summary>
-		IgnoreMTU = 0,
-
-		/// <summary>
-		/// Old behaviour; use normal fragmentation for unreliable messages -
-        /// if a fragment is dropped, memory for received fragments is never reclaimed!
-		/// </summary>
-		NormalFragmentation = 1,
-
-		/// <summary>
-		/// Alternate behaviour; just drops unreliable messages above MTU.
-		/// </summary>
-		DropAboveMTU = 2,
-	}
+        {
+            var retval = (NetPeerConfiguration)MemberwiseClone();
+            retval._isLocked = false;
+            return retval;
+        }
+    }
 }

@@ -1,43 +1,51 @@
 ﻿using System;
-using System.IO;
 using System.Xml;
 using System.Net;
 using System.Net.Sockets;
-using System.Threading;
+using System.Globalization;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Lidgren.Network
 {
     /// <summary>
-    /// UPnP support class
+    /// UPnP support class.
     /// </summary>
     public class NetUPnP
     {
-        private const int DiscoveryTimeOutMillis = 10;
+        private Uri? _serviceUri;
+        private string _serviceName = "";
+        private TimeSpan _discoveryStartTime;
 
-        private string m_serviceUrl;
-        private string m_serviceName = "";
-        private NetPeer m_peer;
-        private ManualResetEvent m_discoveryComplete = new ManualResetEvent(false);
-
-        internal float m_discoveryResponseDeadline;
+        public event EventHandler<NetUPnPDiscoveryEventArgs>? ServiceReady;
 
         /// <summary>
-        /// Status of the UPnP capabilities of this NetPeer
+        /// Gets the associated <see cref="NetPeer"/>.
+        /// </summary>
+        public NetPeer Peer { get; }
+
+        public TimeSpan DiscoveryTimeout { get; set; } = TimeSpan.FromSeconds(15);
+
+        /// <summary>
+        /// Gets the status of the UPnP capabilities for <see cref="Peer"/>.
         /// </summary>
         public UPnPStatus Status { get; private set; }
 
+        public TimeSpan DiscoveryDeadline => _discoveryStartTime + DiscoveryTimeout;
+
         /// <summary>
-        /// NetUPnP constructor
+        /// Constructs the <see cref="NetUPnP"/> helper.
         /// </summary>
         public NetUPnP(NetPeer peer)
         {
-            m_peer = peer;
-            m_discoveryResponseDeadline = float.MinValue;
+            Peer = peer ?? throw new ArgumentNullException(nameof(peer));
+            Status = UPnPStatus.Idle;
         }
 
-        internal void Discover(NetPeer peer)
+        internal void Discover()
         {
-            Status = UPnPStatus.Discovering;
+            if (Peer.Socket == null)
+                throw new InvalidOperationException("The associated peer has no socket.");
+
             string str =
                 "M-SEARCH * HTTP/1.1\r\n" +
                 "HOST: 239.255.255.250:1900\r\n" +
@@ -47,80 +55,72 @@ namespace Lidgren.Network
 
             byte[] arr = System.Text.Encoding.UTF8.GetBytes(str);
 
-            m_peer.LogDebug("Attempting UPnP discovery");
-            peer.Socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, true);
-            peer.RawSend(arr, 0, arr.Length, new IPEndPoint(IPAddress.Broadcast, 1900));
-            peer.Socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.Broadcast, false);
+            Peer.LogDebug("Attempting UPnP discovery");
+            Peer.Socket.EnableBroadcast = true;
+            Peer.RawSend(arr, 0, arr.Length, new IPEndPoint(IPAddress.Broadcast, 1900));
+            Peer.Socket.EnableBroadcast = false;
 
-            // arbitrarily chosen number, router gets 10 seconds to respond
-            m_discoveryResponseDeadline = (float)NetTime.Now + 10.0f;
+            _discoveryStartTime = NetTime.Now;
             Status = UPnPStatus.Discovering;
         }
 
-        internal void ExtractServiceUrl(string resp)
+        internal void ExtractServiceUri(Uri location)
         {
 #if !DEBUG
             try
-            {
 #endif
+            {
+                var discoveryEndTime = NetTime.Now;
+
                 var desc = new XmlDocument();
-                using (var rep = WebRequest.Create(resp).GetResponse())
+                using (var rep = WebRequest.Create(location).GetResponse())
                 using (var stream = rep.GetResponseStream())
                     desc.Load(stream);
 
                 var nsMgr = new XmlNamespaceManager(desc.NameTable);
                 nsMgr.AddNamespace("tns", "urn:schemas-upnp-org:device-1-0");
                 XmlNode typen = desc.SelectSingleNode("//tns:device/tns:deviceType/text()", nsMgr);
-                if (!typen.Value.Contains("InternetGatewayDevice"))
+                if (!typen.Value.Contains("InternetGatewayDevice", StringComparison.Ordinal))
                     return;
 
-                m_serviceName = "WANIPConnection";
+                _serviceName = "WANIPConnection";
 
                 XmlNode node = desc.SelectSingleNode(
-                    "//tns:service[tns:serviceType=\"urn:schemas-upnp-org:service:" + 
-                    m_serviceName + ":1\"]/tns:controlURL/text()", nsMgr);
+                    "//tns:service[tns:serviceType=\"urn:schemas-upnp-org:service:" +
+                    _serviceName + ":1\"]/tns:controlURL/text()", nsMgr);
 
                 if (node == null)
                 {
                     //try another service name
-                    m_serviceName = "WANPPPConnection";
+                    _serviceName = "WANPPPConnection";
 
                     node = desc.SelectSingleNode(
-                        "//tns:service[tns:serviceType=\"urn:schemas-upnp-org:service:" + 
-                        m_serviceName + ":1\"]/tns:controlURL/text()", nsMgr);
+                        "//tns:service[tns:serviceType=\"urn:schemas-upnp-org:service:" +
+                        _serviceName + ":1\"]/tns:controlURL/text()", nsMgr);
 
                     if (node == null)
                         return;
                 }
 
-                m_serviceUrl = CombineUrls(resp, node.Value);
-                m_peer.LogDebug("UPnP service ready");
+                var controlUri = new Uri(node.Value, UriKind.RelativeOrAbsolute);
+                _serviceUri = controlUri.IsAbsoluteUri
+                    ? controlUri
+                    : new Uri(new Uri(location.GetLeftPart(UriPartial.Authority)), controlUri);
 
                 Status = UPnPStatus.Available;
-                m_discoveryComplete.Set();
-#if !DEBUG
+                Peer.LogDebug("UPnP service ready");
+                ServiceReady?.Invoke(this, new NetUPnPDiscoveryEventArgs(_discoveryStartTime, discoveryEndTime));
             }
+#if !DEBUG
             catch (Exception exc)
             {
+                Status = UPnPStatus.NotAvailable;
                 m_peer.LogVerbose("Exception ignored trying to parse UPnP XML response: " + exc);
             }
 #endif
         }
 
-        private static string CombineUrls(string gatewayURL, string subURL)
-        {
-            // Is Control URL an absolute URL?
-            if ((subURL.Contains("http:")) || (subURL.Contains(".")))
-                return subURL;
-
-            gatewayURL = gatewayURL.Replace("http://", "");  // strip any protocol
-            int n = gatewayURL.IndexOf("/");
-            if (n != -1)
-                gatewayURL = gatewayURL.Substring(0, n);  // Use first portion of URL
-            return "http://" + gatewayURL + subURL;
-        }
-
-        private bool CheckAvailability()
+        private bool IsAvailable()
         {
             switch (Status)
             {
@@ -131,10 +131,7 @@ namespace Lidgren.Network
                     return true;
 
                 case UPnPStatus.Discovering:
-                    if (m_discoveryComplete.WaitOne(DiscoveryTimeOutMillis))
-                        return true;
-
-                    if (NetTime.Now > m_discoveryResponseDeadline)
+                    if (NetTime.Now > DiscoveryDeadline)
                         Status = UPnPStatus.NotAvailable;
                     return false;
             }
@@ -142,26 +139,28 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Add a forwarding rule to the router using UPnP
+        /// Add a forwarding rule to the router using UPnP.
         /// </summary>
-        public bool ForwardPort(int port, string description)
+        public bool ForwardPort(int internalPort, int externalPort, string description)
         {
-            if (!CheckAvailability())
+            if (!IsAvailable() || _serviceUri == null)
                 return false;
 
-            var client = NetUtility.GetMyAddress(out _);
-            if (client == null)
+            if (!NetUtility.GetLocalAddress(out var client, out _))
                 return false;
 
+            var invariant = CultureInfo.InvariantCulture;
             try
             {
-                var newProtocol = ProtocolType.Udp.ToString().ToUpper(System.Globalization.CultureInfo.InvariantCulture);
-                SOAPRequest(m_serviceUrl,
-                    "<u:AddPortMapping xmlns:u=\"urn:schemas-upnp-org:service:" + m_serviceName + ":1\">" +
+                var newProtocol = ProtocolType.Udp.ToString().ToUpper(invariant);
+
+                SOAPRequest(
+                    _serviceUri,
+                    "<u:AddPortMapping xmlns:u=\"urn:schemas-upnp-org:service:" + _serviceName + ":1\">" +
                     "<NewRemoteHost></NewRemoteHost>" +
-                    "<NewExternalPort>" + port.ToString() + "</NewExternalPort>" +
+                    "<NewExternalPort>" + externalPort.ToString(invariant) + "</NewExternalPort>" +
                     "<NewProtocol>" + newProtocol + "</NewProtocol>" +
-                    "<NewInternalPort>" + port.ToString() + "</NewInternalPort>" +
+                    "<NewInternalPort>" + internalPort.ToString(invariant) + "</NewInternalPort>" +
                     "<NewInternalClient>" + client.ToString() + "</NewInternalClient>" +
                     "<NewEnabled>1</NewEnabled>" +
                     "<NewPortMappingDescription>" + description + "</NewPortMappingDescription>" +
@@ -169,11 +168,11 @@ namespace Lidgren.Network
                     "</u:AddPortMapping>",
                     "AddPortMapping");
 
-                m_peer.LogDebug("Sent UPnP port forward request");
+                Peer.LogDebug("Sent UPnP port forward request");
             }
             catch (Exception ex)
             {
-                m_peer.LogWarning("UPnP port forward failed: " + ex.Message);
+                Peer.LogWarning("UPnP port forward failed: " + ex.Message);
                 return false;
             }
             return true;
@@ -184,40 +183,43 @@ namespace Lidgren.Network
         /// </summary>
         public bool DeleteForwardingRule(int port)
         {
-            if (!CheckAvailability())
+            if (!IsAvailable() || _serviceUri == null)
                 return false;
 
             try
             {
-                var newProtocol = ProtocolType.Udp.ToString().ToUpper(System.Globalization.CultureInfo.InvariantCulture);
-                SOAPRequest(m_serviceUrl,
-                    "<u:DeletePortMapping xmlns:u=\"urn:schemas-upnp-org:service:" + m_serviceName + ":1\">" +
+                var newProtocol = ProtocolType.Udp.ToString().ToUpper(CultureInfo.InvariantCulture);
+                SOAPRequest(_serviceUri,
+                    "<u:DeletePortMapping xmlns:u=\"urn:schemas-upnp-org:service:" + _serviceName + ":1\">" +
                     "<NewRemoteHost>" +
                     "</NewRemoteHost>" +
                     "<NewExternalPort>" + port + "</NewExternalPort>" +
-                    "<NewProtocol>" +newProtocol + "</NewProtocol>" +
+                    "<NewProtocol>" + newProtocol + "</NewProtocol>" +
                     "</u:DeletePortMapping>", "DeletePortMapping");
                 return true;
             }
             catch (Exception ex)
             {
-                m_peer.LogWarning("UPnP delete forwarding rule failed: " + ex.Message);
+                Peer.LogWarning("UPnP delete forwarding rule failed: " + ex.Message);
                 return false;
             }
         }
 
         /// <summary>
-        /// Retrieve the extern ip using UPnP
+        /// Retrieve the extern IP address using UPnP.
         /// </summary>
-        public IPAddress GetExternalIP()
+        public IPAddress? GetExternalIP()
         {
-            if (!CheckAvailability())
+            if (!IsAvailable() || _serviceUri == null)
                 return null;
+
             try
             {
                 XmlDocument xdoc = SOAPRequest(
-                    m_serviceUrl, "<u:GetExternalIPAddress xmlns:u=\"urn:schemas-upnp-org:service:" +
-                    m_serviceName + ":1\">" + "</u:GetExternalIPAddress>", "GetExternalIPAddress");
+                    _serviceUri,
+                    "<u:GetExternalIPAddress xmlns:u=\"urn:schemas-upnp-org:service:" + _serviceName + ":1\">" +
+                    "</u:GetExternalIPAddress>",
+                    "GetExternalIPAddress");
 
                 var nsMgr = new XmlNamespaceManager(xdoc.NameTable);
                 nsMgr.AddNamespace("tns", "urn:schemas-upnp-org:device-1-0");
@@ -226,12 +228,12 @@ namespace Lidgren.Network
             }
             catch (Exception ex)
             {
-                m_peer.LogWarning("Failed to get external IP: " + ex.Message);
+                Peer.LogWarning("Failed to get external IP: " + ex.Message);
                 return null;
             }
         }
 
-        private XmlDocument SOAPRequest(string url, string soap, string function)
+        private XmlDocument SOAPRequest(Uri uri, string soap, string function)
         {
             string reqQuery =
                 "<?xml version=\"1.0\"?>" +
@@ -242,11 +244,12 @@ namespace Lidgren.Network
                 "</s:Body>" +
                 "</s:Envelope>";
 
-            var req = WebRequest.Create(url);
+            var req = WebRequest.Create(uri);
             req.Method = "POST";
-            req.Headers.Add(
-                "SOAPACTION", "\"urn:schemas-upnp-org:service:" + m_serviceName + ":1#" + function + "\"");
             req.ContentType = "text/xml; charset=\"utf-8\"";
+            req.Headers.Add(
+                "SOAPACTION",
+                "\"urn:schemas-upnp-org:service:" + _serviceName + ":1#" + function + "\"");
 
             byte[] reqBytes = System.Text.Encoding.UTF8.GetBytes(reqQuery);
             req.ContentLength = reqBytes.Length;

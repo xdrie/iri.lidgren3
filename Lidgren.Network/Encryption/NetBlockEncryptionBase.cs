@@ -1,89 +1,97 @@
 ﻿using System;
-using System.Collections.Generic;
 
 namespace Lidgren.Network
 {
     /// <summary>
-    /// Base for a non-threadsafe encryption class
+    /// Base for a block based encryption class. This class is not thread-safe.
     /// </summary>
     public abstract class NetBlockEncryptionBase : NetEncryption
     {
-        // temporary space for one block to avoid reallocating every time
-        private byte[] m_tmp;
+        private byte[] _buffer;
 
         /// <summary>
         /// Block size in bytes for this cipher
         /// </summary>
         public abstract int BlockSize { get; }
 
-        /// <summary>
-        /// NetBlockEncryptionBase constructor
-        /// </summary>
-        public NetBlockEncryptionBase(NetPeer peer)
-            : base(peer)
+        public NetBlockEncryptionBase(NetPeer peer) : base(peer)
         {
-            m_tmp = new byte[BlockSize];
+            _buffer = new byte[BlockSize];
         }
 
         /// <summary>
-        /// Encrypt am outgoing message with this algorithm; no writing can be done to the message after encryption, or message will be corrupted
+        /// Encrypt a block of bytes.
         /// </summary>
-        public override bool Encrypt(NetOutgoingMessage msg)
+        protected abstract void EncryptBlock(ReadOnlySpan<byte> source, Span<byte> destination);
+
+        /// <summary>
+        /// Decrypt a block of bytes.
+        /// </summary>
+        protected abstract void DecryptBlock(ReadOnlySpan<byte> source, Span<byte> destination);
+
+        /// <summary>
+        /// Encrypt am outgoing message with this algorithm;
+        /// no writing can be done to the message after encryption, 
+        /// or message will be corrupted.
+        /// </summary>
+        public override bool Encrypt(NetOutgoingMessage message)
         {
-            int payloadBitLength = msg.LengthBits;
-            int numBytes = msg.LengthBytes;
+            if (message == null)
+                throw new ArgumentNullException(nameof(message));
+
+            int payloadBitLength = message.BitLength;
+            int numBytes = message.ByteLength;
             int blockSize = BlockSize;
-            int numBlocks = (int)Math.Ceiling((double)numBytes / (double)blockSize);
+            int numBlocks = (int)Math.Ceiling(numBytes / (double)blockSize);
             int dstSize = numBlocks * blockSize;
 
-            msg.EnsureBufferSize(dstSize * 8 + (4 * 8)); // add 4 bytes for payload length at end
-            msg.LengthBits = dstSize * 8; // length will automatically adjust +4 bytes when payload length is written
+            message.EnsureBufferSize(dstSize * 8 + (4 * 8)); // add 4 bytes for payload length at end
+            message.BitLength = dstSize * 8; // length will automatically adjust +4 bytes when payload length is written
 
+            var buffer = _buffer.AsSpan();
+            var messageBuffer = message.Data.AsSpan();
             for (int i = 0; i < numBlocks; i++)
             {
-                EncryptBlock(msg.m_data, (i * blockSize), m_tmp);
-                Buffer.BlockCopy(m_tmp, 0, msg.m_data, (i * blockSize), m_tmp.Length);
+                var messageSlice = messageBuffer.Slice(i * blockSize);
+                EncryptBlock(messageSlice, buffer);
+                buffer.CopyTo(messageSlice);
             }
 
             // add true payload length last
-            msg.Write((uint)payloadBitLength);
+            message.Write((uint)payloadBitLength);
 
             return true;
         }
 
         /// <summary>
-        /// Decrypt an incoming message encrypted with corresponding Encrypt
+        /// Decrypt an incoming message encrypted with corresponding Encrypt.
         /// </summary>
-        /// <param name="msg">message to decrypt</param>
+        /// <param name="message">message to decrypt</param>
         /// <returns>true if successful; false if failed</returns>
-        public override bool Decrypt(NetIncomingMessage msg)
+        public override bool Decrypt(NetIncomingMessage message)
         {
-            int numEncryptedBytes = msg.LengthBytes - 4; // last 4 bytes is true bit length
+            if (message == null)
+                throw new ArgumentNullException(nameof(message));
+
+            int numEncryptedBytes = message.ByteLength - 4; // last 4 bytes is true bit length
             int blockSize = BlockSize;
             int numBlocks = numEncryptedBytes / blockSize;
             if (numBlocks * blockSize != numEncryptedBytes)
                 return false;
 
+            var buffer = _buffer.AsSpan();
+            var messageBuffer = message.Data.AsSpan();
             for (int i = 0; i < numBlocks; i++)
             {
-                DecryptBlock(msg.m_data, (i * blockSize), m_tmp);
-                Buffer.BlockCopy(m_tmp, 0, msg.m_data, (i * blockSize), m_tmp.Length);
+                var messageSlice = messageBuffer.Slice(i * blockSize);
+                DecryptBlock(messageSlice, buffer);
+                buffer.CopyTo(messageSlice);
             }
 
-            // read 32 bits of true payload length
-            uint realSize = NetBitWriter.ReadUInt32(msg.m_data, 32, (numEncryptedBytes * 8));
-            msg.m_bitLength = (int)realSize;
+            uint realSize = NetBitWriter.ReadUInt32(messageBuffer.Slice(numEncryptedBytes));
+            message.BitLength = (int)realSize;
+
             return true;
         }
-
-        /// <summary>
-        /// Encrypt a block of bytes
-        /// </summary>
-        protected abstract void EncryptBlock(byte[] source, int sourceOffset, byte[] destination);
-
-        /// <summary>
-        /// Decrypt a block of bytes
-        /// </summary>
-        protected abstract void DecryptBlock(byte[] source, int sourceOffset, byte[] destination);
     }
 }

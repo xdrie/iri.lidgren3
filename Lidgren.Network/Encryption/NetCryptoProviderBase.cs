@@ -4,97 +4,85 @@ using System.Security.Cryptography;
 
 namespace Lidgren.Network
 {
-    public abstract class NetCryptoProviderBase : NetEncryption, IDisposable
+    public abstract class NetCryptoProviderBase : NetEncryption
     {
         // TODO: cache ICryptoTransform
 
         [CLSCompliant(false)]
-        protected SymmetricAlgorithm _algorithm;
+        protected SymmetricAlgorithm Algorithm { get; private set; }
 
-        public bool IsDisposed { get; private set; }
-
-        public NetCryptoProviderBase(NetPeer peer, SymmetricAlgorithm algo) : base(peer)
+        public NetCryptoProviderBase(NetPeer peer, SymmetricAlgorithm algorithm) : base(peer)
         {
-            _algorithm = algo;
-            _algorithm.GenerateKey();
-            _algorithm.GenerateIV();
+            Algorithm = algorithm ?? throw new ArgumentNullException(nameof(algorithm));
+            Algorithm.GenerateKey();
+            Algorithm.GenerateIV();
         }
 
-        public override void SetKey(byte[] data, int offset, int count)
+        public override void SetKey(ReadOnlySpan<byte> data)
         {
-            int len = _algorithm.Key.Length;
-            var key = new byte[len];
-            for (int i = 0; i < len; i++)
-                key[i] = data[offset + (i % count)];
-            _algorithm.Key = key;
+            var key = new byte[Algorithm.Key.Length];
+            for (int i = 0; i < key.Length; i++)
+                key[i] = data[i % data.Length];
+            Algorithm.Key = key;
 
-            len = _algorithm.IV.Length;
-            key = new byte[len];
-            for (int i = 0; i < len; i++)
-                key[len - 1 - i] = data[offset + (i % count)];
-            _algorithm.IV = key;
+            var iv = new byte[Algorithm.IV.Length];
+            for (int i = 0; i < iv.Length; i++)
+                iv[iv.Length - 1 - i] = data[i % data.Length];
+            Algorithm.IV = iv;
         }
 
-        public override bool Encrypt(NetOutgoingMessage msg)
+        public override bool Encrypt(NetOutgoingMessage message)
         {
-            int unEncLenBits = msg.LengthBits;
+            if (message == null)
+                throw new ArgumentNullException(nameof(message));
+
+            int unEncLenBits = message.BitLength;
 
             var ms = new MemoryStream();
-            using (var cs = new CryptoStream(ms, _algorithm.CreateEncryptor(), CryptoStreamMode.Write, true))
-                cs.Write(msg.m_data, 0, msg.LengthBytes);
+            using (var cs = new CryptoStream(ms, Algorithm.CreateEncryptor(), CryptoStreamMode.Write, true))
+                cs.Write(message.Data, 0, message.ByteLength);
 
             int length = (int)ms.Length;
 
-            msg.EnsureBufferSize((length + 4) * 8);
-            msg.LengthBits = 0; // reset write pointer
-            msg.Write((uint)unEncLenBits);
-            msg.Write(ms.GetBuffer().AsSpan(0, length));
-            msg.LengthBits = (length + 4) * 8;
+            message.EnsureBufferSize((length + 4) * 8);
+            message.BitLength = 0; // reset write pointer
+            message.Write((uint)unEncLenBits);
+            message.Write(ms.GetBuffer().AsSpan(0, length));
+            message.BitLength = (length + 4) * 8;
 
             return true;
         }
 
-        public override bool Decrypt(NetIncomingMessage msg)
+        public override bool Decrypt(NetIncomingMessage message)
         {
-            int unEncLenBits = (int)msg.ReadUInt32();
-            int byteLen = NetUtility.BytesNeededToHoldBits(unEncLenBits);
-            var result = m_peer.GetStorage(byteLen);
+            if (message == null)
+                throw new ArgumentNullException(nameof(message));
 
-            var ms = new MemoryStream(msg.m_data, 4, msg.LengthBytes - 4);
-            using (var cs = new CryptoStream(ms, _algorithm.CreateDecryptor(), CryptoStreamMode.Read))
+            int unEncLenBits = (int)message.ReadUInt32();
+            int byteLen = NetUtility.ByteCountForBits(unEncLenBits);
+            var result = Peer.GetStorage(byteLen);
+
+            var ms = new MemoryStream(message.Data, 4, message.ByteLength - 4);
+            using (var cs = new CryptoStream(ms, Algorithm.CreateDecryptor(), CryptoStreamMode.Read))
                 cs.Read(result, 0, byteLen);
 
             // TODO: recycle existing msg
 
-            msg.m_data = result;
-            msg.m_bitLength = unEncLenBits;
-            msg.m_readPosition = 0;
+            message.Data = result;
+            message.BitLength = unEncLenBits;
+            message.BitPosition = 0;
 
             return true;
         }
 
-        protected virtual void Dispose(bool disposing)
+        protected override void Dispose(bool disposing)
         {
             if (!IsDisposed)
             {
                 if (disposing)
-                {
-                    _algorithm.Dispose();
-                    _algorithm = null;
-                }
-                IsDisposed = true;
+                    Algorithm.Dispose();
             }
-        }
-
-        public void Dispose()
-        {
-            Dispose(true);
-            GC.SuppressFinalize(this);
-        }
-
-        ~NetCryptoProviderBase()
-        {
-            Dispose(false);
+            base.Dispose(disposing);
         }
     }
 }

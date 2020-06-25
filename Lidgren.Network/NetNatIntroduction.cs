@@ -1,75 +1,76 @@
-﻿using System.Net;
+﻿using System;
+using System.Net;
 
 namespace Lidgren.Network
 {
     public partial class NetPeer
     {
         /// <summary>
-        /// Send NetIntroduction to hostExternal and clientExternal; introducing client to host.
+        /// Send a NAT introduction to hostExternal and clientExternal; introducing client to host.
         /// </summary>
         public void Introduce(
             IPEndPoint hostInternal,
             IPEndPoint hostExternal,
             IPEndPoint clientInternal,
             IPEndPoint clientExternal,
-            string token)
+            ReadOnlySpan<char> token)
         {
             // send message to client
             NetOutgoingMessage msg = CreateMessage(10 + token.Length + 1);
-            msg.m_messageType = NetMessageType.NatIntroduction;
+            msg._messageType = NetMessageType.NatIntroduction;
             msg.Write((byte)0);
             msg.Write(hostInternal);
             msg.Write(hostExternal);
             msg.Write(token);
-            m_unsentUnconnectedMessages.Enqueue((clientExternal, msg));
+            UnsentUnconnectedMessages.Enqueue((clientExternal, msg));
 
             // send message to host
             msg = CreateMessage(10 + token.Length + 1);
-            msg.m_messageType = NetMessageType.NatIntroduction;
+            msg._messageType = NetMessageType.NatIntroduction;
             msg.Write((byte)1);
             msg.Write(clientInternal);
             msg.Write(clientExternal);
             msg.Write(token);
-            m_unsentUnconnectedMessages.Enqueue((hostExternal, msg));
+            UnsentUnconnectedMessages.Enqueue((hostExternal, msg));
         }
 
         /// <summary>
         /// Called when host/client receives a NatIntroduction message from a master server
         /// </summary>
-        internal void HandleNatIntroduction(int ptr)
+        internal void HandleNatIntroduction(int offset)
         {
-            VerifyNetworkThread();
+            AssertIsOnLibraryThread();
 
             // read intro
-            NetIncomingMessage tmp = SetupReadHelperMessage(ptr, 1000); // never mind length
+            NetIncomingMessage tmp = SetupReadHelperMessage(offset, 1000); // never mind length
 
             byte hostByte = tmp.ReadByte();
             IPEndPoint remoteInternal = tmp.ReadIPEndPoint();
             IPEndPoint remoteExternal = tmp.ReadIPEndPoint();
             string token = tmp.ReadString();
-            bool isHost = (hostByte != 0);
+            bool isHost = hostByte != 0;
 
             LogDebug("NAT introduction received; we are designated " + (isHost ? "host" : "client"));
 
             NetOutgoingMessage punch;
 
-            if (!isHost && !m_configuration.IsMessageTypeEnabled(NetIncomingMessageType.NatIntroductionSuccess))
+            if (!isHost && !Configuration.IsMessageTypeEnabled(NetIncomingMessageType.NatIntroductionSuccess))
                 return; // no need to punch - we're not listening for nat intros!
 
             // send internal punch
             punch = CreateMessage(1);
-            punch.m_messageType = NetMessageType.NatPunchMessage;
+            punch._messageType = NetMessageType.NatPunchMessage;
             punch.Write(hostByte);
             punch.Write(token);
-            m_unsentUnconnectedMessages.Enqueue((remoteInternal, punch));
+            UnsentUnconnectedMessages.Enqueue((remoteInternal, punch));
             LogDebug("NAT punch sent to " + remoteInternal);
 
             // send external punch
             punch = CreateMessage(1);
-            punch.m_messageType = NetMessageType.NatPunchMessage;
+            punch._messageType = NetMessageType.NatPunchMessage;
             punch.Write(hostByte);
             punch.Write(token);
-            m_unsentUnconnectedMessages.Enqueue((remoteExternal, punch));
+            UnsentUnconnectedMessages.Enqueue((remoteExternal, punch));
             LogDebug("NAT punch sent to " + remoteExternal);
 
         }
@@ -96,16 +97,16 @@ namespace Lidgren.Network
             // Release punch success to client; enabling him to Connect() to msg.SenderIPEndPoint if token is ok
             //
             NetIncomingMessage punchSuccess = CreateIncomingMessage(NetIncomingMessageType.NatIntroductionSuccess, 10);
-            punchSuccess.m_senderEndPoint = senderEndPoint;
+            punchSuccess.SenderEndPoint = senderEndPoint;
             punchSuccess.Write(token);
             ReleaseMessage(punchSuccess);
 
             // send a return punch just for good measure
             var punch = CreateMessage(1);
-            punch.m_messageType = NetMessageType.NatPunchMessage;
+            punch._messageType = NetMessageType.NatPunchMessage;
             punch.Write((byte)0);
             punch.Write(token);
-            m_unsentUnconnectedMessages.Enqueue((senderEndPoint, punch));
+            UnsentUnconnectedMessages.Enqueue((senderEndPoint, punch));
         }
     }
 }

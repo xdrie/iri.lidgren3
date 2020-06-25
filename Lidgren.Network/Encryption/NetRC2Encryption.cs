@@ -1,26 +1,25 @@
 using System;
-using System.IO;
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 
 namespace Lidgren.Network
 {
-	public class NetRC2Encryption : NetCryptoProviderBase
+	[Obsolete("RC2 encryption is very weak and should not be used.")]
+	public sealed class NetRC2Encryption : NetCryptoProviderBase
 	{
-		public NetRC2Encryption(NetPeer peer)
-			: base(peer, new RC2CryptoServiceProvider())
+		[SuppressMessage("Security", "CA5351", Justification = "Encryption is obsoleted.")]
+		public NetRC2Encryption(NetPeer peer) : base(peer, RC2.Create())
 		{
 		}
 
-		public NetRC2Encryption(NetPeer peer, string key)
-			: base(peer, new RC2CryptoServiceProvider())
+		public NetRC2Encryption(NetPeer peer, ReadOnlySpan<byte> key) : this(peer)
 		{
 			SetKey(key);
 		}
 
-		public NetRC2Encryption(NetPeer peer, byte[] data, int offset, int count)
-			: base(peer, new RC2CryptoServiceProvider())
+		public NetRC2Encryption(NetPeer peer, ReadOnlySpan<char> key) : this(peer)
 		{
-			SetKey(data, offset, count);
+			SetKey(key);
 		}
 	}
 }

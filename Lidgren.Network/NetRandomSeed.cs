@@ -8,7 +8,7 @@ namespace Lidgren.Network
 	/// </summary>
 	public static class NetRandomSeed
 	{
-		private static int m_seedIncrement = -1640531527;
+		private static int _seedIncrement = -1640531527;
 
 		/// <summary>
 		/// Generates a 32-bit random seed.
@@ -31,8 +31,8 @@ namespace Lidgren.Network
 #if !__ANDROID__ && !IOS && !UNITY_WEBPLAYER && !UNITY_ANDROID && !UNITY_IPHONE
 			ulong seed = (ulong)System.Diagnostics.Stopwatch.GetTimestamp();
 			seed ^= (ulong)Environment.WorkingSet;
-			ulong s2 = (ulong)Interlocked.Increment(ref m_seedIncrement);
-			s2 |= (((ulong)Guid.NewGuid().GetHashCode()) << 32);
+			ulong s2 = (ulong)Interlocked.Increment(ref _seedIncrement);
+			s2 |= ((ulong)Guid.NewGuid().GetHashCode()) << 32;
 			seed ^= s2;
 #else
 			ulong seed = (ulong)Environment.TickCount;

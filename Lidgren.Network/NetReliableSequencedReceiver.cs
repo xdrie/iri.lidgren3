@@ -2,7 +2,7 @@
 
 namespace Lidgren.Network
 {
-	internal sealed class NetReliableSequencedReceiver : NetReceiverChannelBase
+	internal sealed class NetReliableSequencedReceiver : NetReceiverChannel
 	{
 		private int m_windowStart;
 		private int m_windowSize;
@@ -20,12 +20,12 @@ namespace Lidgren.Network
 
 		internal override void ReceiveMessage(NetIncomingMessage message)
 		{
-			int nr = message.m_sequenceNumber;
+			int nr = message.SequenceNumber;
 
 			int relate = NetUtility.RelativeSequenceNumber(nr, m_windowStart);
 
 			// ack no matter what
-			m_connection.QueueAck(message.m_receivedMessageType, nr);
+			Connection.QueueAck(message._baseMessageType, nr);
 
 			if (relate == 0)
 			{
@@ -36,13 +36,13 @@ namespace Lidgren.Network
 				//
 
 				AdvanceWindow();
-				m_peer.ReleaseMessage(message);
+				Peer.ReleaseMessage(message);
 				return;
 			}
 
 			if (relate < 0)
 			{
-				m_peer.LogVerbose("Received message #" + message.m_sequenceNumber + " DROPPING LATE or DUPE");
+				Peer.LogVerbose("Received message #" + message.SequenceNumber + " DROPPING LATE or DUPE");
 				return;
 			}
 
@@ -50,13 +50,13 @@ namespace Lidgren.Network
 			if (relate > m_windowSize)
 			{
 				// too early message!
-				m_peer.LogDebug("Received " + message + " TOO EARLY! Expected " + m_windowStart);
+				Peer.LogDebug("Received " + message + " TOO EARLY! Expected " + m_windowStart);
 				return;
 			}
 
 			// ok
 			m_windowStart = (m_windowStart + relate) % NetConstants.NumSequenceNumbers;
-			m_peer.ReleaseMessage(message);
+			Peer.ReleaseMessage(message);
 			return;
 		}
 	}

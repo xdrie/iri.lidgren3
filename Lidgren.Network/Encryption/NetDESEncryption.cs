@@ -1,26 +1,25 @@
 using System;
-using System.IO;
+using System.Diagnostics.CodeAnalysis;
 using System.Security.Cryptography;
 
 namespace Lidgren.Network
 {
-	public class NetDESEncryption : NetCryptoProviderBase
-	{
-		public NetDESEncryption(NetPeer peer)
-			: base(peer, new DESCryptoServiceProvider())
-		{
-		}
+    [Obsolete("DES encryption is very weak and should not be used.")]
+    public sealed class NetDESEncryption : NetCryptoProviderBase
+    {
+        [SuppressMessage("Security", "CA5351", Justification = "Encryption is obsoleted.")]
+        public NetDESEncryption(NetPeer peer) : base(peer, DES.Create())
+        {
+        }
 
-		public NetDESEncryption(NetPeer peer, string key)
-			: base(peer, new DESCryptoServiceProvider())
-		{
-			SetKey(key);
-		}
+        public NetDESEncryption(NetPeer peer, ReadOnlySpan<byte> key) : this(peer)
+        {
+            SetKey(key);
+        }
 
-		public NetDESEncryption(NetPeer peer, byte[] data, int offset, int count)
-			: base(peer, new DESCryptoServiceProvider())
-		{
-			SetKey(data, offset, count);
-		}
-	}
+        public NetDESEncryption(NetPeer peer, ReadOnlySpan<char> key) : this(peer)
+        {
+            SetKey(key);
+        }
+    }
 }

@@ -29,7 +29,8 @@ namespace Lidgren.Network
 	public enum NetIncomingMessageType
 	{
 		//
-		// library note: values are power-of-two, but they are not flags - it's a convenience for NetPeerConfiguration.DisabledMessageTypes
+		// library note: values are power-of-two, 
+		// but they are not flags - it's a convenience for NetPeerConfiguration.DisabledMessageTypes
 		//
 
 		/// <summary>
@@ -93,12 +94,12 @@ namespace Lidgren.Network
 		ErrorMessage = 1 << 10,			// Data (string)
 
 		/// <summary>
-		/// NAT introduction was successful
+		/// NAT introduction was successful.
 		/// </summary>
 		NatIntroductionSuccess = 1 << 11, // Data (as passed to master server)
 
 		/// <summary>
-		/// A roundtrip was measured and NetConnection.AverageRoundtripTime was updated
+		/// A roundtrip was measured and <see cref="NetConnection.AverageRoundtripTime"/> was updated.
 		/// </summary>
 		ConnectionLatencyUpdated = 1 << 12, // Seconds as a Single
 	}

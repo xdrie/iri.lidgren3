@@ -45,12 +45,12 @@ namespace Lidgren.Network
 		/// <summary>
 		/// Number of channels which needs a sequence number to work
 		/// </summary>
-		internal const int NumSequencedChannels = ((int)NetMessageType.UserReliableOrdered1 + NetChannelsPerDeliveryMethod) - (int)NetMessageType.UserSequenced1;
+		internal const int NumSequencedChannels = (int)NetMessageType.UserReliableOrdered1 + NetChannelsPerDeliveryMethod - (int)NetMessageType.UserSequenced1;
 
 		/// <summary>
 		/// Number of reliable channels
 		/// </summary>
-		internal const int NumReliableChannels = ((int)NetMessageType.UserReliableOrdered1 + NetChannelsPerDeliveryMethod) - (int)NetMessageType.UserReliableUnordered;
+		internal const int NumReliableChannels = (int)NetMessageType.UserReliableOrdered1 + NetChannelsPerDeliveryMethod - (int)NetMessageType.UserReliableUnordered;
 		
 		internal const string ConnResetMessage = "Connection was reset by remote host";
 	}

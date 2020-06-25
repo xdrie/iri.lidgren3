@@ -1,34 +1,34 @@
-﻿using System;
-
+﻿
 namespace Lidgren.Network
 {
-	internal sealed class NetReliableOrderedReceiver : NetReceiverChannelBase
+	internal sealed class NetReliableOrderedReceiver : NetReceiverChannel
 	{
-		private int m_windowStart;
-		private int m_windowSize;
-		private NetBitVector m_earlyReceived;
-		internal NetIncomingMessage[] m_withheldMessages;
+		private int _windowStart;
+		private int _windowSize;
+		private NetBitVector _earlyReceived;
+
+		internal NetIncomingMessage[] WithheldMessages { get; private set; }
 
 		public NetReliableOrderedReceiver(NetConnection connection, int windowSize)
 			: base(connection)
 		{
-			m_windowSize = windowSize;
-			m_withheldMessages = new NetIncomingMessage[windowSize];
-			m_earlyReceived = new NetBitVector(windowSize);
+			_windowSize = windowSize;
+			_earlyReceived = new NetBitVector(windowSize);
+			WithheldMessages = new NetIncomingMessage[windowSize];
 		}
 
 		private void AdvanceWindow()
 		{
-			m_earlyReceived.Set(m_windowStart % m_windowSize, false);
-			m_windowStart = (m_windowStart + 1) % NetConstants.NumSequenceNumbers;
+			_earlyReceived.Set(_windowStart % _windowSize, false);
+			_windowStart = (_windowStart + 1) % NetConstants.NumSequenceNumbers;
 		}
 
-		internal override void ReceiveMessage(NetIncomingMessage message)
+		public override void ReceiveMessage(NetIncomingMessage message)
 		{
-			int relate = NetUtility.RelativeSequenceNumber(message.m_sequenceNumber, m_windowStart);
+			int relate = NetUtility.RelativeSequenceNumber(message.SequenceNumber, _windowStart);
 
 			// ack no matter what
-			m_connection.QueueAck(message.m_receivedMessageType, message.m_sequenceNumber);
+			Connection.QueueAck(message._baseMessageType, message.SequenceNumber);
 
 			if (relate == 0)
 			{
@@ -40,22 +40,22 @@ namespace Lidgren.Network
 				//m_peer.LogVerbose("Received RIGHT-ON-TIME " + message);
 
 				AdvanceWindow();
-				m_peer.ReleaseMessage(message);
+				Peer.ReleaseMessage(message);
 
 				// release withheld messages
-				int nextSeqNr = (message.m_sequenceNumber + 1) % NetConstants.NumSequenceNumbers;
+				int nextSeqNr = (message.SequenceNumber + 1) % NetConstants.NumSequenceNumbers;
 
-				while (m_earlyReceived[nextSeqNr % m_windowSize])
+				while (_earlyReceived[nextSeqNr % _windowSize])
 				{
-					message = m_withheldMessages[nextSeqNr % m_windowSize];
-					NetException.Assert(message != null);
+					message = WithheldMessages[nextSeqNr % _windowSize];
+					LidgrenException.Assert(message != null);
 
 					// remove it from withheld messages
-					m_withheldMessages[nextSeqNr % m_windowSize] = null;
+					WithheldMessages[nextSeqNr % _windowSize] = default!;
 
-					m_peer.LogVerbose("Releasing withheld message #" + message);
+					Peer.LogVerbose("Releasing withheld message #" + message);
 
-					m_peer.ReleaseMessage(message);
+					Peer.ReleaseMessage(message);
 
 					AdvanceWindow();
 					nextSeqNr++;
@@ -66,22 +66,22 @@ namespace Lidgren.Network
 
 			if (relate < 0)
 			{
-				m_peer.LogVerbose("Received message #" + message.m_sequenceNumber + " DROPPING DUPLICATE");
+				Peer.LogVerbose("Received message #" + message.SequenceNumber + " DROPPING DUPLICATE");
 				// duplicate
 				return;
 			}
 
 			// relate > 0 = early message
-			if (relate > m_windowSize)
+			if (relate > _windowSize)
 			{
 				// too early message!
-				m_peer.LogDebug("Received " + message + " TOO EARLY! Expected " + m_windowStart);
+				Peer.LogDebug("Received " + message + " TOO EARLY! Expected " + _windowStart);
 				return;
 			}
 
-			m_earlyReceived.Set(message.m_sequenceNumber % m_windowSize, true);
-			m_peer.LogVerbose("Received " + message + " WITHHOLDING, waiting for " + m_windowStart);
-			m_withheldMessages[message.m_sequenceNumber % m_windowSize] = message;
+			_earlyReceived.Set(message.SequenceNumber % _windowSize, true);
+			Peer.LogVerbose("Received " + message + " WITHHOLDING, waiting for " + _windowStart);
+			WithheldMessages[message.SequenceNumber % _windowSize] = message;
 		}
 	}
 }

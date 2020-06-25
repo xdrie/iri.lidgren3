@@ -3,57 +3,41 @@ using System.Threading;
 using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
-#if !__NOIPENDPOINT__
-using NetEndPoint = System.Net.IPEndPoint;
-#endif
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 
 namespace Lidgren.Network
 {
     /// <summary>
     /// Represents a local peer capable of holding zero, one or more connections to remote peers.
     /// </summary>
-    public partial class NetPeer
+    public partial class NetPeer : IDisposable
     {
-        private static int s_initializedPeersCount;
-        private object m_messageReceivedEventCreationLock = new object();
+        private static int _initializedPeersCount;
 
-        internal readonly List<NetConnection> m_connections;
-        private readonly Dictionary<NetEndPoint, NetConnection> m_connectionLookup;
+        private static TimeSpan MessageReadWaitSlice => TimeSpan.FromMilliseconds(50);
 
-        private string m_shutdownReason;
+        private bool _isDisposed;
+        private string? _shutdownReason;
+
+        private object MessageReceivedEventInitMutex { get; } = new object();
+
+        private Dictionary<IPEndPoint, NetConnection> ConnectionLookup { get; }
+            = new Dictionary<IPEndPoint, NetConnection>();
+
+        internal List<NetConnection> Connections { get; }
+            = new List<NetConnection>();
 
         /// <summary>
         /// Gets the <see cref="NetPeerStatus"/> of the <see cref="NetPeer"/>.
         /// </summary>
-        public NetPeerStatus Status => m_status;
+        public NetPeerStatus Status { get; private set; }
 
         /// <summary>
-        /// Signalling event which can be waited on to determine when a message is queued for reading.
-        /// Note that there is no guarantee that after the event is signaled the blocked thread will 
-        /// find the message in the queue. Other user created threads could be preempted and dequeue 
-        /// the message before the waiting thread wakes up.
+        /// Gets a unique identifier for this <see cref="NetPeer"/> based on IP/port and MAC address. 
+        /// <para>Not available until <see cref="Start"/> has been called.</para>
         /// </summary>
-        public AutoResetEvent MessageReceivedEvent
-        {
-            get
-            {
-                if (m_messageReceivedEvent == null)
-                {
-                    lock (m_messageReceivedEventCreationLock) // make sure we don't create more than one event object
-                    {
-                        if (m_messageReceivedEvent == null)
-                            m_messageReceivedEvent = new AutoResetEvent(false);
-                    }
-                }
-                return m_messageReceivedEvent;
-            }
-        }
-
-        /// <summary>
-        /// Gets a unique identifier for this <see cref="NetPeer"/> based on Mac address and IP/port. 
-        /// <para>Note: Not available until <see cref="Start"/> has been called.</para>
-        /// </summary>
-        public long UniqueIdentifier => m_uniqueIdentifier;
+        public long UniqueIdentifier { get; private set; }
 
         /// <summary>
         /// Gets the port number this <see cref="NetPeer"/> is listening and sending on,
@@ -62,66 +46,108 @@ namespace Lidgren.Network
         public int Port { get; private set; }
 
         /// <summary>
-        /// Returns an <see cref="NetUPnP"/> object if enabled in the <see cref="NetPeerConfiguration"/>.
+        /// Gets a <see cref="NetUPnP"/> helper if enabled in the <see cref="NetPeerConfiguration"/>.
         /// </summary>
-        public NetUPnP UPnP => m_upnp;
+        public NetUPnP? UPnP { get; private set; }
 
         /// <summary>
         /// Gets or sets the application defined object containing data about the peer.
         /// </summary>
-        public object Tag { get; set; }
-
-        /// <summary>
-        /// Gets a list of the current connections.
-        /// The <see cref="List{T}"/> is rented from the 
-        /// <see cref="NetConnectionListPool"/> and recycling it is advised.
-        /// </summary>
-        public List<NetConnection> GetConnections()
-        {
-            var list = NetConnectionListPool.Rent();
-            lock (m_connections)
-            {
-                foreach (var conn in m_connections)
-                    list.Add(conn);
-            }
-            return list;
-        }
+        public object? Tag { get; set; }
 
         /// <summary>
         /// Gets the number of active connections.
         /// </summary>
-        public int ConnectionCount => m_connections.Count;
+        public int ConnectionCount => Connections.Count;
 
         /// <summary>
         /// Statistics on this <see cref="NetPeer"/> since it was initialized.
         /// </summary>
-        public NetPeerStatistics Statistics => m_statistics;
+        public NetPeerStatistics Statistics { get; }
 
         /// <summary>
         /// Gets the configuration used to instantiate this <see cref="NetPeer"/>.
         /// </summary>
-        public NetPeerConfiguration Configuration => m_configuration;
+        public NetPeerConfiguration Configuration { get; }
 
         /// <summary>
-        /// NetPeer constructor
+        /// Signalling event which can be waited on to determine when a message may be queued for reading.
+        /// </summary>
+        /// <remarks>
+        /// There is no guarantee that after the event is signaled the blocked thread will 
+        /// find the message in the queue. Other user created threads could be preempted and dequeue 
+        /// the message before the waiting thread wakes up.
+        /// </remarks>
+        public AutoResetEvent MessageReceivedEvent
+        {
+            get
+            {
+                if (_messageReceivedEvent == null)
+                {
+                    // make sure we don't create more than one event
+                    lock (MessageReceivedEventInitMutex)
+                    {
+                        if (_messageReceivedEvent == null)
+                            _messageReceivedEvent = new AutoResetEvent(false);
+                    }
+                }
+                return _messageReceivedEvent;
+            }
+        }
+
+        /// <summary>
+        /// Constructs the peer with a given configuration.
         /// </summary>
         public NetPeer(NetPeerConfiguration config)
         {
-            m_configuration = config;
-            m_statistics = new NetPeerStatistics(this);
-            m_releasedIncomingMessages = new NetQueue<NetIncomingMessage>(4);
-            m_unsentUnconnectedMessages = new NetQueue<(NetEndPoint, NetOutgoingMessage)>(2);
-            m_connections = new List<NetConnection>();
-            m_connectionLookup = new Dictionary<NetEndPoint, NetConnection>();
-            m_handshakes = new Dictionary<NetEndPoint, NetConnection>();
+            Configuration = config ?? throw new ArgumentNullException(nameof(config));
 
-            if (m_configuration.LocalAddress.AddressFamily == AddressFamily.InterNetworkV6)
-                m_senderRemote = (EndPoint)new IPEndPoint(IPAddress.IPv6Any, 0);
+            if (Configuration.LocalAddress.AddressFamily == AddressFamily.InterNetworkV6)
+                _senderRemote = new IPEndPoint(IPAddress.IPv6Any, 0);
             else
-                m_senderRemote = (EndPoint)new IPEndPoint(IPAddress.Any, 0);
-            
-            m_status = NetPeerStatus.NotRunning;
-            m_receivedFragmentGroups = new Dictionary<NetConnection, Dictionary<int, ReceivedFragmentGroup>>();
+                _senderRemote = new IPEndPoint(IPAddress.Any, 0);
+
+            Statistics = new NetPeerStatistics(this);
+            Status = NetPeerStatus.NotRunning;
+        }
+
+        /// <summary>
+        /// Gets a list of the current connections if there are any and returns <see langword="null"/> otherwise.
+        /// </summary>
+        /// <remarks>
+        /// The <see cref="List{T}"/> is rented from 
+        /// <see cref="NetConnectionListPool"/> and recycling it is advised.
+        /// </remarks>
+        /// <returns>A list with collections or <see langword="null"/> if there are none.</returns>
+        public List<NetConnection>? GetConnections()
+        {
+            lock (Connections)
+            {
+                if (Connections.Count > 0)
+                {
+                    var list = NetConnectionListPool.Rent();
+                    list.AddRange(Connections);
+                    return list;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// Gets a list of the current connections.
+        /// </summary>
+        /// <returns>The amount of connections appended.</returns>
+        public int GetConnections(ICollection<NetConnection> destination)
+        {
+            if (destination == null)
+                throw new ArgumentNullException(nameof(destination));
+
+            lock (Connections)
+            {
+                foreach (var conn in Connections)
+                    destination.Add(conn);
+                return Connections.Count;
+            }
         }
 
         /// <summary>
@@ -129,208 +155,158 @@ namespace Lidgren.Network
         /// </summary>
         public void Start()
         {
-            if (m_status != NetPeerStatus.NotRunning)
+            if (Status != NetPeerStatus.NotRunning)
             {
                 // already running! Just ignore...
                 LogWarning("Start() called on already running NetPeer - ignoring.");
                 return;
             }
 
-            m_status = NetPeerStatus.Starting;
+            Status = NetPeerStatus.Starting;
 
             // fix network thread name
-            if (m_configuration.NetworkThreadName == "Lidgren network thread")
+            if (Configuration.NetworkThreadName == "Lidgren network thread")
             {
-                int pc = Interlocked.Increment(ref s_initializedPeersCount);
-                m_configuration.NetworkThreadName = "Lidgren network thread " + pc.ToString();
+                int pc = Interlocked.Increment(ref _initializedPeersCount);
+                Configuration.NetworkThreadName = "Lidgren network thread " + pc.ToString(CultureInfo.InvariantCulture);
             }
 
             InitializeNetwork();
-            
+
             // start network thread
-            m_networkThread = new Thread(new ThreadStart(NetworkLoop));
-            m_networkThread.Name = m_configuration.NetworkThreadName;
-            m_networkThread.IsBackground = true;
-            m_networkThread.Start();
+            _networkThread = new Thread(new ThreadStart(NetworkLoop));
+            _networkThread.Name = Configuration.NetworkThreadName;
+            _networkThread.IsBackground = true;
+            _networkThread.Start();
 
             // send upnp discovery
-            if (m_upnp != null)
-                m_upnp.Discover(this);
+            UPnP?.Discover();
 
             // allow some time for network thread to start up in case they call Connect() or UPnP calls immediately
             Thread.Sleep(50);
         }
 
         /// <summary>
-        /// Gets the connection for a certain remote endpoint. Can return <see langword="null"/>.
+        /// Gets the connection for a certain remote endpoint.
         /// </summary>
-        public NetConnection GetConnection(NetEndPoint ep)
+        public NetConnection? GetConnection(IPEndPoint endPoint)
         {
+            if (endPoint == null)
+                throw new ArgumentNullException(nameof(endPoint));
 
-            // this should not pose a threading problem, m_connectionLookup is never added to concurrently
+            // this should not pose a threading problem, _connectionLookup is never added to concurrently
             // and TryGetValue will not throw an exception on fail, only yield null, which is acceptable
-            m_connectionLookup.TryGetValue(ep, out NetConnection retval);
+            ConnectionLookup.TryGetValue(endPoint, out NetConnection? retval);
 
             return retval;
         }
 
-        /// <summary>
-        /// Read a pending message from any connection, 
-        /// blocking up to <paramref name="maxMillis"/> if needed.
-        /// </summary>
-        public NetIncomingMessage WaitMessage(int maxMillis)
+        private static void TryApplyConnectionStatus(NetIncomingMessage message)
         {
-            var msg = ReadMessage();
-            if (msg != null)
-                return msg; // no need to wait; we already have a message to deliver
-            var msgEvt = MessageReceivedEvent;
-            msgEvt.WaitOne(maxMillis);
-            return ReadMessage();
+            if (message.SenderConnection == null)
+                return;
+
+            if (message.MessageType == NetIncomingMessageType.StatusChanged)
+            {
+                var status = message.PeekEnum<NetConnectionStatus>();
+                message.SenderConnection.Status = status;
+            }
         }
 
         /// <summary>
-        /// Read a pending message from any connection, if any.
+        /// Tries to read a pending message from any connection.
         /// </summary>
-        public NetIncomingMessage ReadMessage()
+        /// <returns>Whether a message was successfully read.</returns>
+        public bool TryReadMessage([MaybeNullWhen(false)] out NetIncomingMessage message)
         {
-            if (m_releasedIncomingMessages.TryDequeue(out NetIncomingMessage retval))
+            if (ReleasedIncomingMessages.TryDequeue(out message))
             {
-                if (retval.MessageType == NetIncomingMessageType.StatusChanged)
-                {
-                    NetConnectionStatus status = (NetConnectionStatus)retval.PeekByte();
-                    retval.SenderConnection.m_visibleStatus = status;
-                }
+                TryApplyConnectionStatus(message);
+                return true;
             }
-            return retval;
+            return false;
         }
 
         /// <summary>
-        /// Read a pending message from any connection, if any.
+        /// Tries to read a message from any connection, blocking if needed.
         /// </summary>
-        public int ReadMessages(IList<NetIncomingMessage> destination)
+        /// <returns>Whether a message was successfully read.</returns>
+        public bool TryReadMessage(
+            TimeSpan timeout,
+            [MaybeNullWhen(false)] out NetIncomingMessage message)
         {
-            int added = m_releasedIncomingMessages.TryDrain(destination);
-            if (added > 0)
+            // check if we already have a message to return
+            if (TryReadMessage(out message))
+                return true;
+
+            var resetEvent = MessageReceivedEvent;
+            while (timeout > MessageReadWaitSlice)
             {
-                for (int i = 0; i < added; i++)
-                {
-                    var index = destination.Count - added + i;
-                    var nim = destination[index];
-                    if (nim.MessageType == NetIncomingMessageType.StatusChanged)
-                    {
-                        NetConnectionStatus status = (NetConnectionStatus)nim.PeekByte();
-                        nim.SenderConnection.m_visibleStatus = status;
-                    }
-                }
+                if (ReleasedIncomingMessages.Count > 0 || resetEvent.WaitOne(MessageReadWaitSlice))
+                    break;
+                timeout -= MessageReadWaitSlice;
             }
-            return added;
+
+            if (ReleasedIncomingMessages.Count == 0)
+                resetEvent.WaitOne(timeout);
+
+            return TryReadMessage(out message);
+        }
+
+        /// <summary>
+        /// Tries to read a message from any connection, blocking if needed.
+        /// </summary>
+        /// <returns>Whether a message was successfully read.</returns>
+        public bool TryReadMessage(
+            int millisecondsTimeout,
+            [MaybeNullWhen(false)] out NetIncomingMessage message)
+        {
+            return TryReadMessage(TimeSpan.FromMilliseconds(millisecondsTimeout), out message);
+        }
+
+        /// <summary>
+        /// Tries to read pending messages from any connection.
+        /// </summary>
+        /// <returns>The amount of messages read.</returns>
+        public int TryReadMessages(ICollection<NetIncomingMessage> destination)
+        {
+            if (destination == null)
+                throw new ArgumentNullException(nameof(destination));
+
+            if (destination.IsReadOnly)
+                throw new ArgumentException("The collection is read-only.");
+
+            return ReleasedIncomingMessages.TryDrain(destination, onItem: TryApplyConnectionStatus);
         }
 
         // send message immediately
-        internal void SendLibrary(NetOutgoingMessage msg, NetEndPoint recipient)
+        internal void SendLibraryMessage(NetOutgoingMessage message, IPEndPoint recipient)
         {
-            VerifyNetworkThread();
-            NetException.Assert(!msg.m_isSent);
+            AssertIsOnLibraryThread();
+            LidgrenException.Assert(!message._isSent);
 
-            int len = msg.Encode(m_sendBuffer, 0, 0);
+            int len = message.Encode(_sendBuffer, 0, 0);
             SendPacket(len, recipient, 1, out _);
-        }
-
-        /// <summary>
-        /// Create a connection to a remote endpoint.
-        /// </summary>
-        public NetConnection Connect(string host, int port)
-        {
-            return Connect(new NetEndPoint(NetUtility.Resolve(host), port), null);
-        }
-
-        /// <summary>
-        /// Create a connection to a remote endpoint.
-        /// </summary>
-        public NetConnection Connect(string host, int port, NetOutgoingMessage hailMessage)
-        {
-            return Connect(new NetEndPoint(NetUtility.Resolve(host), port), hailMessage);
-        }
-
-        /// <summary>
-        /// Create a connection to a remote endpoint
-        /// </summary>
-        public NetConnection Connect(NetEndPoint remoteEndPoint)
-        {
-            return Connect(remoteEndPoint, null);
-        }
-
-        /// <summary>
-        /// Create a connection to a remote endpoint.
-        /// </summary>
-        public virtual NetConnection Connect(NetEndPoint remoteEndPoint, NetOutgoingMessage hailMessage)
-        {
-            if (remoteEndPoint == null)
-                throw new ArgumentNullException("remoteEndPoint");
-            if(m_configuration.DualStack)
-                remoteEndPoint = NetUtility.MapToIPv6(remoteEndPoint);
-
-            lock (m_connections)
-            {
-                if (m_status == NetPeerStatus.NotRunning)
-                    throw new NetException("Must call Start() first");
-
-                if (m_connectionLookup.ContainsKey(remoteEndPoint))
-                    throw new NetException("Already connected to that endpoint!");
-
-                if (m_handshakes.TryGetValue(remoteEndPoint, out NetConnection hs))
-                {
-                    // already trying to connect to that endpoint; make another try
-                    switch (hs.m_status)
-                    {
-                        case NetConnectionStatus.InitiatedConnect:
-                            // send another connect
-                            hs.m_connectRequested = true;
-                            break;
-                        case NetConnectionStatus.RespondedConnect:
-                            // send another response
-                            hs.SendConnectResponse((float)NetTime.Now, false);
-                            break;
-                        default:
-                            // weird
-                            LogWarning("Weird situation; Connect() already in progress to remote endpoint; but hs status is " + hs.m_status);
-                            break;
-                    }
-                    return hs;
-                }
-
-                NetConnection conn = new NetConnection(this, remoteEndPoint);
-                conn.m_status = NetConnectionStatus.InitiatedConnect;
-                conn.m_localHailMessage = hailMessage;
-
-                // handle on network thread
-                conn.m_connectRequested = true;
-                conn.m_connectionInitiator = true;
-
-                m_handshakes.Add(remoteEndPoint, conn);
-
-                return conn;
-            }
         }
 
         /// <summary>
         /// Send raw bytes; only used for debugging.
         /// </summary>
-        public void RawSend(byte[] arr, int offset, int length, NetEndPoint destination)
-    {
+        public void RawSend(byte[] buffer, int offset, int length, IPEndPoint destination)
+        {
             // wrong thread - this miiiight crash with network thread... but what's a boy to do.
-            Array.Copy(arr, offset, m_sendBuffer, 0, length);
+            Array.Copy(buffer, offset, _sendBuffer, 0, length);
             SendPacket(length, destination, 1, out _);
         }
 
         /// <summary>
-        /// In DEBUG, throws an exception, in RELEASE logs an error message
+        /// In DEBUG, throws an exception, in RELEASE logs an error message.
         /// </summary>
-        /// <param name="message"></param>
+        [SuppressMessage("Performance", "CA1822", Justification = "Contains compiler conditionals.")]
         internal void ThrowOrLog(string message)
         {
 #if DEBUG
-            throw new NetException(message);
+            throw new LidgrenException(message);
 #else
             LogError(message);
 #endif
@@ -339,15 +315,36 @@ namespace Lidgren.Network
         /// <summary>
         /// Disconnects all active connections and closes the socket.
         /// </summary>
-        public void Shutdown(string reason)
+        public void Shutdown(string? reason)
         {
             // called on user thread
             if (Socket == null)
                 return; // already shut down
 
             LogDebug("Shutdown requested");
-            m_shutdownReason = reason;
-            m_status = NetPeerStatus.ShutdownRequested;
+
+            _shutdownReason = reason;
+            Status = NetPeerStatus.ShutdownRequested;
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_isDisposed)
+            {
+                if (disposing)
+                {
+                    _messageReceivedEvent?.Dispose();
+                    _outgoingMessagePool?.Dispose();
+                    _incomingMessagePool?.Dispose();
+                }
+                _isDisposed = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
         }
     }
 }

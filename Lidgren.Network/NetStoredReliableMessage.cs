@@ -4,16 +4,16 @@ namespace Lidgren.Network
 {
 	internal struct NetStoredReliableMessage
 	{
-		public int NumSent;
-		public float LastSent;
-		public NetOutgoingMessage Message;
 		public int SequenceNumber;
+		public int NumSent;
+		public TimeSpan LastSent;
+		public NetOutgoingMessage? Message;
 
 		public void Reset()
 		{
-			NumSent = 0;
-			LastSent = 0;
-			Message = null;
+			NumSent = default;
+			LastSent = default;
+			Message = default;
 		}
 	}
 }

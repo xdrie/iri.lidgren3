@@ -2,7 +2,7 @@
 
 namespace Lidgren.Network
 {
-	internal sealed class NetUnreliableSequencedReceiver : NetReceiverChannelBase
+	internal sealed class NetUnreliableSequencedReceiver : NetReceiverChannel
 	{
 		private int m_lastReceivedSequenceNumber = -1;
 
@@ -13,17 +13,17 @@ namespace Lidgren.Network
 
 		internal override void ReceiveMessage(NetIncomingMessage msg)
 		{
-			int nr = msg.m_sequenceNumber;
+			int nr = msg.SequenceNumber;
 
 			// ack no matter what
-			m_connection.QueueAck(msg.m_receivedMessageType, nr);
+			Connection.QueueAck(msg._baseMessageType, nr);
 
 			int relate = NetUtility.RelativeSequenceNumber(nr, m_lastReceivedSequenceNumber + 1);
 			if (relate < 0)
 				return; // drop if late
 
 			m_lastReceivedSequenceNumber = nr;
-			m_peer.ReleaseMessage(msg);
+			Peer.ReleaseMessage(msg);
 		}
 	}
 }

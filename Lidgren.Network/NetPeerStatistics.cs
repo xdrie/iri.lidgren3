@@ -23,98 +23,97 @@ using System.Text;
 namespace Lidgren.Network
 {
     /// <summary>
-    /// Statistics for a NetPeer instance
+    /// Statistics for a <see cref="NetPeer"/> instance.
     /// </summary>
     public sealed class NetPeerStatistics
     {
-        private readonly NetPeer m_peer;
+        private readonly NetPeer _peer;
 
-        internal int m_sentPackets;
-        internal int m_receivedPackets;
+        internal int _sentPackets;
+        internal int _receivedPackets;
 
-        internal int m_sentMessages;
-        internal int m_receivedMessages;
-        internal int m_receivedFragments;
+        internal int _sentMessages;
+        internal int _receivedMessages;
+        internal int _receivedFragments;
 
-        internal int m_sentBytes;
-        internal int m_receivedBytes;
+        internal int _sentBytes;
+        internal int _receivedBytes;
 
-        internal long m_totalBytesAllocated;
+        internal long _totalBytesAllocated;
 
         internal NetPeerStatistics(NetPeer peer)
         {
-            m_peer = peer;
-            Reset();
+            _peer = peer;
         }
 
         internal void Reset()
         {
-            m_sentPackets = 0;
-            m_receivedPackets = 0;
+            _sentPackets = 0;
+            _receivedPackets = 0;
 
-            m_sentMessages = 0;
-            m_receivedMessages = 0;
-            m_receivedFragments = 0;
+            _sentMessages = 0;
+            _receivedMessages = 0;
+            _receivedFragments = 0;
 
-            m_sentBytes = 0;
-            m_receivedBytes = 0;
+            _sentBytes = 0;
+            _receivedBytes = 0;
 
-            m_totalBytesAllocated = 0;
+            _totalBytesAllocated = 0;
         }
 
         /// <summary>
-        /// Gets the number of sent packets since the NetPeer was initialized
+        /// Gets the number of sent packets since the NetPeer was initialized.
         /// </summary>
-        public int SentPackets => m_sentPackets;
+        public int SentPackets => _sentPackets;
 
         /// <summary>
-        /// Gets the number of received packets since the NetPeer was initialized
+        /// Gets the number of received packets since the NetPeer was initialized.
         /// </summary>
-        public int ReceivedPackets => m_receivedPackets;
+        public int ReceivedPackets => _receivedPackets;
 
         /// <summary>
-        /// Gets the number of sent messages since the NetPeer was initialized
+        /// Gets the number of sent messages since the NetPeer was initialized.
         /// </summary>
-        public int SentMessages => m_sentMessages;
+        public int SentMessages => _sentMessages;
 
         /// <summary>
-        /// Gets the number of received messages since the NetPeer was initialized
+        /// Gets the number of received messages since the NetPeer was initialized.
         /// </summary>
-        public int ReceivedMessages => m_receivedMessages;
+        public int ReceivedMessages => _receivedMessages;
 
         /// <summary>
-        /// Gets the number of sent bytes since the NetPeer was initialized
+        /// Gets the number of sent bytes since the NetPeer was initialized.
         /// </summary>
-        public int SentBytes => m_sentBytes;
+        public int SentBytes => _sentBytes;
 
         /// <summary>
-        /// Gets the number of received bytes since the NetPeer was initialized
+        /// Gets the number of received bytes since the NetPeer was initialized.
         /// </summary>
-        public int ReceivedBytes => m_receivedBytes;
+        public int ReceivedBytes => _receivedBytes;
 
         /// <summary>
-        /// Gets the number of bytes allocated (and possibly garbage collected) for message storage
+        /// Gets the number of bytes allocated (and possibly garbage collected) for message storage.
         /// </summary>
-        public long StorageBytesAllocated => m_totalBytesAllocated;
+        public long StorageBytesAllocated => _totalBytesAllocated;
 
         /// <summary>
-        /// Gets the number of bytes in the recycled pool
+        /// Gets the number of bytes in the recycled pool.
         /// </summary>
-        public int BytesInRecyclePool => m_peer.m_bytesInPool;
+        public int BytesInRecyclePool => _peer._bytesInPool;
 
-        internal void PacketSent(int numBytes, int numMessages)
+        internal void PacketSent(int byteCount, int messageCount)
         {
-            m_sentPackets++;
-            m_sentBytes += numBytes;
-            m_sentMessages += numMessages;
+            _sentPackets++;
+            _sentBytes += byteCount;
+            _sentMessages += messageCount;
         }
 
-        internal void PacketReceived(int numBytes, int numMessages, int numFragments)
+        internal void PacketReceived(int byteCount, int messageCount, int fragmentCount)
         {
-            m_receivedPackets++;
-            m_receivedBytes += numBytes;
-            m_receivedMessages += numMessages;
-            m_receivedFragments += numFragments;
+            _receivedPackets++;
+            _receivedBytes += byteCount;
+            _receivedMessages += messageCount;
+            _receivedFragments += fragmentCount;
         }
 
         /// <summary>
@@ -124,19 +123,19 @@ namespace Lidgren.Network
         {
             var sb = new StringBuilder();
 
-            sb.AppendFormatLine("{0} active connections", m_peer.ConnectionCount);
+            sb.AppendFormatLine("{0} active connections", _peer.ConnectionCount);
 
             sb.AppendFormatLine(
                 "Sent {0} bytes in {1} messages in {2} packets",
-                m_sentBytes, m_sentMessages, m_sentPackets);
+                _sentBytes, _sentMessages, _sentPackets);
 
             sb.AppendFormatLine(
                 "Received {0} bytes in {1} messages ({2} fragments) in {3} packets", 
-                m_receivedBytes, m_receivedMessages, m_receivedFragments, m_receivedPackets);
+                _receivedBytes, _receivedMessages, _receivedFragments, _receivedPackets);
 
             sb.AppendLine();
             sb.AppendFormatLine("Bytes in pool: {0}", BytesInRecyclePool);
-            sb.AppendFormatLine("Total bytes allocated: {0} bytes", m_totalBytesAllocated);
+            sb.AppendFormatLine("Total bytes allocated: {0} bytes", _totalBytesAllocated);
 
             return sb.ToString();
         }

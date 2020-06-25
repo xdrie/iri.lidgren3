@@ -21,39 +21,48 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using System;
 using System.Diagnostics;
+using System.Globalization;
 
 namespace Lidgren.Network
 {
-	/// <summary>
-	/// Time service
-	/// </summary>
-	public static class NetTime
-	{
-#if IS_STOPWATCH_AVAILABLE
-		private static readonly long s_timeInitialized = Stopwatch.GetTimestamp();
-		private static readonly double s_dInvFreq = 1.0 / (double)Stopwatch.Frequency;
+    /// <summary>
+    /// Time service
+    /// </summary>
+    public static class NetTime
+    {
+        private static readonly long _timeInitialized = Stopwatch.GetTimestamp();
 
         /// <summary>
-        /// Get number of seconds since the application started
+        /// Get the amount of time elapsed since the application started.
         /// </summary>
-        public static double Now => (double)(Stopwatch.GetTimestamp() - s_timeInitialized) * s_dInvFreq;
-#else
-		private static readonly uint s_timeInitialized = (uint)Environment.TickCount;
-
-		/// <summary>
-		/// Get number of seconds since the application started
-		/// </summary>
-		public static double Now { get { return (double)((uint)Environment.TickCount - s_timeInitialized) / 1000.0; } }
-#endif
+        public static TimeSpan Now => TimeSpan.FromTicks(Stopwatch.GetTimestamp() - _timeInitialized);
 
         /// <summary>
-        /// Given seconds it will output a human friendly readable string (milliseconds if less than 60 seconds)
+        /// Given seconds it will output a human friendly readable string
+        /// (milliseconds if less than 10 seconds).
         /// </summary>
         public static string ToReadable(double seconds)
-		{
-			if (seconds > 60)
-				return TimeSpan.FromSeconds(seconds).ToString();
-			return (seconds * 1000.0).ToString("N2") + " ms";
-		}
-	}
+        {
+            var culture = CultureInfo.CurrentCulture;
+
+            if (seconds >= 10)
+                return TimeSpan.FromSeconds(seconds).ToString(null, culture);
+
+            return (seconds * 1000.0).ToString("N2", culture) + " ms";
+        }
+
+        /// <summary>
+        /// Given time it will output a human friendly readable string
+        /// (milliseconds if less than 10 seconds).
+        /// </summary>
+        public static string ToReadable(TimeSpan time)
+        {
+            var culture = CultureInfo.CurrentCulture;
+
+            if (time.TotalSeconds >= 10)
+                return time.ToString(null, culture);
+
+            return time.TotalMilliseconds.ToString("N2", culture) + " ms";
+        }
+    }
 }

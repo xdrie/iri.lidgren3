@@ -14,23 +14,23 @@ namespace UnitTests
 				if (i > 42 && i < 65)
 					v = new NetBitVector(256);
 
-				if (!v.IsEmpty())
-					throw new NetException("bit vector fail 1");
+				if (!v.IsZero)
+					throw new LidgrenException("bit vector fail 1");
 
 				v.Set(i, true);
 
-				if (v.Get(i) == false)
-					throw new NetException("bit vector fail 2");
+				if (!v.Get(i))
+					throw new LidgrenException("bit vector fail 2");
 
-				if (v.IsEmpty())
-					throw new NetException("bit vector fail 3");
+				if (v.IsZero)
+					throw new LidgrenException("bit vector fail 3");
 
-				if (i != 79 && v.Get(79) == true)
-					throw new NetException("bit vector fail 4");
+				if (i != 79 && v.Get(79))
+					throw new LidgrenException("bit vector fail 4");
 
-				int f = v.GetFirstSetIndex();
+				int f = v.IndexOf(true);
 				if (f != i)
-					throw new NetException("bit vector fail 4");
+					throw new LidgrenException("bit vector fail 5");
 			}
 
 			/*

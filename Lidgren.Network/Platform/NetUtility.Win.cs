@@ -1,6 +1,7 @@
 ﻿#if !__ANDROID__ && !__CONSTRAINED__ && !WINDOWS_RUNTIME && !UNITY_STANDALONE_LINUX
 using System;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Net;
 using System.Net.NetworkInformation;
 using System.Net.Sockets;
@@ -11,10 +12,9 @@ namespace Lidgren.Network
     public static partial class NetUtility
     {
         private static readonly long _timeInitialized = Stopwatch.GetTimestamp();
-        private static readonly double _dInvFreq = 1.0 / Stopwatch.Frequency;
-        private static readonly SHA256 _sha256 = SHA256.Create();
+        private static readonly double _invFreq = 1.0 / Stopwatch.Frequency;
 
-        public static double Now => (Stopwatch.GetTimestamp() - _timeInitialized) * _dInvFreq;
+        public static double Now => (Stopwatch.GetTimestamp() - _timeInitialized) * _invFreq;
 
         [CLSCompliant(false)]
         public static ulong GetPlatformSeed(int seedInc)
@@ -23,7 +23,7 @@ namespace Lidgren.Network
             return seed ^ ((ulong)Environment.WorkingSet + (ulong)seedInc);
         }
 
-        private static NetworkInterface GetNetworkInterface()
+        private static NetworkInterface? GetNetworkInterface()
         {
             var computerProperties = IPGlobalProperties.GetIPGlobalProperties();
             if (computerProperties == null)
@@ -33,14 +33,15 @@ namespace Lidgren.Network
             if (nics == null || nics.Length < 1)
                 return null;
 
-            NetworkInterface best = null;
+            NetworkInterface? best = null;
             foreach (NetworkInterface adapter in nics)
             {
                 if (adapter.NetworkInterfaceType == NetworkInterfaceType.Loopback ||
                     adapter.NetworkInterfaceType == NetworkInterfaceType.Unknown)
                     continue;
 
-                if (!adapter.Supports(NetworkInterfaceComponent.IPv4))
+                if (!adapter.Supports(NetworkInterfaceComponent.IPv4) &&
+                    !adapter.Supports(NetworkInterfaceComponent.IPv6))
                     continue;
 
                 if (best == null)
@@ -49,17 +50,15 @@ namespace Lidgren.Network
                 if (adapter.OperationalStatus != OperationalStatus.Up)
                     continue;
 
-                // make sure this adapter has any ipv4 addresses
                 IPInterfaceProperties properties = adapter.GetIPProperties();
                 foreach (UnicastIPAddressInformation unicastAddress in properties.UnicastAddresses)
                 {
-                    if (unicastAddress != null &&
-                        unicastAddress.Address != null &&
-                        unicastAddress.Address.AddressFamily == AddressFamily.InterNetwork)
-                    {
-                        // Yes it does, return this network interface.
+                    if (unicastAddress == null || unicastAddress.Address == null)
+                        continue;
+
+                    if (unicastAddress.Address.AddressFamily == AddressFamily.InterNetwork ||
+                        unicastAddress.Address.AddressFamily == AddressFamily.InterNetworkV6)
                         return adapter;
-                    }
                 }
             }
             return best;
@@ -68,7 +67,7 @@ namespace Lidgren.Network
         /// <summary>
         /// If available, returns the physical (MAC) address for the first usable network interface.
         /// </summary>
-        public static PhysicalAddress GetMacAddress()
+        public static PhysicalAddress? GetPhysicalAddress()
         {
             var ni = GetNetworkInterface();
             if (ni == null)
@@ -76,7 +75,7 @@ namespace Lidgren.Network
             return ni.GetPhysicalAddress();
         }
 
-        public static IPAddress GetBroadcastAddress()
+        public static IPAddress? GetBroadcastAddress()
         {
             var ni = GetNetworkInterface();
             if (ni == null)
@@ -113,36 +112,32 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Gets my local IPv4 address (not necessarily external) and subnet mask.
+        /// Gets local IPv4 address and subnet mask.
         /// </summary>
-        public static IPAddress GetMyAddress(out IPAddress mask)
+        public static bool GetLocalAddress(
+            [MaybeNullWhen(false)] out IPAddress address,
+            [MaybeNullWhen(false)] out IPAddress mask)
         {
             var ni = GetNetworkInterface();
-            if (ni == null)
+            if (ni != null)
             {
-                mask = null;
-                return null;
-            }
-
-            IPInterfaceProperties properties = ni.GetIPProperties();
-            foreach (UnicastIPAddressInformation unicastAddress in properties.UnicastAddresses)
-            {
-                if (unicastAddress != null &&
-                    unicastAddress.Address != null &&
-                    unicastAddress.Address.AddressFamily == AddressFamily.InterNetwork)
+                IPInterfaceProperties properties = ni.GetIPProperties();
+                foreach (UnicastIPAddressInformation unicastAddress in properties.UnicastAddresses)
                 {
-                    mask = unicastAddress.IPv4Mask;
-                    return unicastAddress.Address;
+                    if (unicastAddress != null &&
+                        unicastAddress.Address != null &&
+                        unicastAddress.Address.AddressFamily == AddressFamily.InterNetwork)
+                    {
+                        address = unicastAddress.Address;
+                        mask = unicastAddress.IPv4Mask;
+                        return true;
+                    }
                 }
             }
 
+            address = null;
             mask = null;
-            return null;
-        }
-
-        public static byte[] ComputeSHA256(byte[] bytes, int offset, int count)
-        {
-            return _sha256.ComputeHash(bytes, offset, count);
+            return false;
         }
     }
 }

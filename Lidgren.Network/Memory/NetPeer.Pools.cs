@@ -1,54 +1,45 @@
-﻿using System;
-using System.Collections.Generic;
-using System.IO;
-using System.Text;
+﻿using System.Collections.Generic;
 
 namespace Lidgren.Network
 {
-	public partial class NetPeer
-	{
-        internal List<byte[]> m_storagePool; // sorted smallest to largest
-		internal NetQueue<NetOutgoingMessage> m_outgoingMessagesPool;
-		internal NetQueue<NetIncomingMessage> m_incomingMessagesPool;
+    public partial class NetPeer
+    {
+        internal List<byte[]?>? _storagePool; // sorted smallest to largest
+        internal NetQueue<NetOutgoingMessage>? _outgoingMessagePool;
+        internal NetQueue<NetIncomingMessage>? _incomingMessagePool;
 
-        internal int m_bytesInPool;
+        internal int _bytesInPool;
 
-		private void InitializePools()
-		{
-            if (m_configuration.UseMessageRecycling)
-			{
-				m_storagePool = new List<byte[]>(16);
-				m_outgoingMessagesPool = new NetQueue<NetOutgoingMessage>(32);
-				m_incomingMessagesPool = new NetQueue<NetIncomingMessage>(32);
-			}
-			else
-			{
-				m_storagePool = null;
-				m_outgoingMessagesPool = null;
-				m_incomingMessagesPool = null;
-			}
-		}
+        private void InitializePools()
+        {
+            if (Configuration.UseMessageRecycling)
+            {
+                _storagePool = new List<byte[]?>(16);
+                _outgoingMessagePool = new NetQueue<NetOutgoingMessage>(32);
+                _incomingMessagePool = new NetQueue<NetIncomingMessage>(32);
+            }
+        }
 
-		internal byte[] GetStorage(int minimumCapacityInBytes)
-		{
-			if (m_storagePool == null)
-				return new byte[minimumCapacityInBytes];
+        internal byte[] GetStorage(int minimumCapacityInBytes)
+        {
+            if (_storagePool == null)
+                return new byte[minimumCapacityInBytes];
 
-			lock (m_storagePool)
-			{
-				for (int i = 0; i < m_storagePool.Count; i++)
-				{
-					byte[] retval = m_storagePool[i];
-					if (retval != null && retval.Length >= minimumCapacityInBytes)
-					{
-						m_storagePool[i] = null;
-						m_bytesInPool -= retval.Length;
-						return retval;
-					}
-				}
-			}
-			m_statistics.m_totalBytesAllocated += minimumCapacityInBytes;
-			return new byte[minimumCapacityInBytes];
-		}
-	}
+            lock (_storagePool)
+            {
+                for (int i = 0; i < _storagePool.Count; i++)
+                {
+                    var array = _storagePool[i];
+                    if (array != null && array.Length >= minimumCapacityInBytes)
+                    {
+                        _storagePool[i] = null;
+                        _bytesInPool -= array.Length;
+                        return array;
+                    }
+                }
+            }
+            Statistics._totalBytesAllocated += minimumCapacityInBytes;
+            return new byte[minimumCapacityInBytes];
+        }
+    }
 }

@@ -3,21 +3,24 @@ namespace Lidgren.Network
 {
     public partial class NetPeer
     {
-
         /// <summary>
         /// Creates a new message for sending
         /// </summary>
         public NetOutgoingMessage CreateMessage()
         {
-            return CreateMessage(m_configuration.m_defaultOutgoingMessageCapacity);
+            return CreateMessage(Configuration._defaultOutgoingMessageCapacity);
         }
 
         /// <summary>
-        /// Creates a new message for sending and writes the provided string to it
+        /// Creates a new message for sending and writes the provided string to it.
         /// </summary>
-        public NetOutgoingMessage CreateMessage(string content)
+        public NetOutgoingMessage CreateMessage(string? content)
         {
-            var om = CreateMessage(2 + content.Length); // fair guess
+            if (content == null)
+                content = string.Empty;
+
+            int strByteCount = NetBuffer.StringEncoding.GetByteCount(content);
+            var om = strByteCount == 0 ? CreateMessage(1) : CreateMessage(2 + strByteCount);
             om.Write(content);
             return om;
         }
@@ -28,50 +31,55 @@ namespace Lidgren.Network
         /// <param name="initialCapacity">initial capacity in bytes</param>
         public NetOutgoingMessage CreateMessage(int initialCapacity)
         {
-            if (m_outgoingMessagesPool == null || !m_outgoingMessagesPool.TryDequeue(out NetOutgoingMessage retval))
+            if (_outgoingMessagePool == null || 
+                !_outgoingMessagePool.TryDequeue(out NetOutgoingMessage? retval))
                 retval = new NetOutgoingMessage();
 
             if (initialCapacity > 0)
-                retval.m_data = GetStorage(initialCapacity);
+                retval.Data = GetStorage(initialCapacity);
 
             return retval;
         }
 
-        internal NetIncomingMessage CreateIncomingMessage(NetIncomingMessageType tp, byte[] useStorageData)
+        internal NetIncomingMessage CreateIncomingMessage(NetIncomingMessageType type, byte[] buffer)
         {
-            if (m_incomingMessagesPool == null || !m_incomingMessagesPool.TryDequeue(out NetIncomingMessage retval))
-                retval = new NetIncomingMessage(tp);
+            if (_incomingMessagePool == null ||
+                !_incomingMessagePool.TryDequeue(out NetIncomingMessage? retval))
+                retval = new NetIncomingMessage(type);
             else
-                retval.m_incomingMessageType = tp;
-            retval.m_data = useStorageData;
+                retval.MessageType = type;
+
+            retval.Data = buffer;
             return retval;
         }
 
-        internal NetIncomingMessage CreateIncomingMessage(NetIncomingMessageType tp, int minimumByteSize)
+        internal NetIncomingMessage CreateIncomingMessage(NetIncomingMessageType type, int minimumByteSize)
         {
-            if (m_incomingMessagesPool == null || !m_incomingMessagesPool.TryDequeue(out NetIncomingMessage retval))
-                retval = new NetIncomingMessage(tp);
+            if (_incomingMessagePool == null || 
+                !_incomingMessagePool.TryDequeue(out NetIncomingMessage? retval))
+                retval = new NetIncomingMessage(type);
             else
-                retval.m_incomingMessageType = tp;
-            retval.m_data = GetStorage(minimumByteSize);
+                retval.MessageType = type;
+
+            retval.Data = GetStorage(minimumByteSize);
             return retval;
         }
 
         /// <summary>
         /// Creates an incoming message with the required capacity for releasing to the application
         /// </summary>
-        internal NetIncomingMessage CreateIncomingMessage(NetIncomingMessageType tp, string text)
+        internal NetIncomingMessage CreateIncomingMessage(NetIncomingMessageType type, string text)
         {
             NetIncomingMessage retval;
             if (string.IsNullOrEmpty(text))
             {
-                retval = CreateIncomingMessage(tp, 1);
+                retval = CreateIncomingMessage(type, 1);
                 retval.Write(string.Empty);
                 return retval;
             }
 
-            int numBytes = System.Text.Encoding.UTF8.GetByteCount(text);
-            retval = CreateIncomingMessage(tp, numBytes + (numBytes > 127 ? 2 : 1));
+            int strByteCount = NetBuffer.StringEncoding.GetByteCount(text);
+            retval = CreateIncomingMessage(type, strByteCount + (strByteCount > 127 ? 2 : 1));
             retval.Write(text);
 
             return retval;
