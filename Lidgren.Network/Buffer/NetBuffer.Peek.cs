@@ -36,15 +36,6 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Reads a <see cref="byte"/> without advancing the read pointer.
-        /// </summary>
-        public byte PeekByte()
-        {
-            LidgrenException.Assert(_bitLength - BitPosition >= 8, ReadOverflowError);
-            return NetBitWriter.ReadByteUnchecked(Data, BitPosition, 8);
-        }
-
-        /// <summary>
         /// Reads an <see cref="sbyte"/> without advancing the read pointer.
         /// </summary>
         [CLSCompliant(false)]
@@ -52,6 +43,15 @@ namespace Lidgren.Network
         {
             LidgrenException.Assert(_bitLength - BitPosition >= 8, ReadOverflowError);
             return (sbyte)NetBitWriter.ReadByteUnchecked(Data, BitPosition, 8);
+        }
+
+        /// <summary>
+        /// Reads a <see cref="byte"/> without advancing the read pointer.
+        /// </summary>
+        public byte PeekByte()
+        {
+            LidgrenException.Assert(_bitLength - BitPosition >= 8, ReadOverflowError);
+            return NetBitWriter.ReadByteUnchecked(Data, BitPosition, 8);
         }
 
         /// <summary>
@@ -66,11 +66,11 @@ namespace Lidgren.Network
         /// Reads the specified number of bytes without advancing the read pointer.
         /// </summary>
         [Obsolete("This method allocates a new array for each call.")]
-        public byte[] PeekBytes(int numberOfBytes)
+        public byte[] PeekBytes(int bitCount)
         {
-            LidgrenException.Assert(_bitLength - BitPosition >= (numberOfBytes * 8), ReadOverflowError);
+            LidgrenException.Assert(_bitLength - BitPosition >= (bitCount * 8), ReadOverflowError);
 
-            byte[] retval = new byte[numberOfBytes];
+            byte[] retval = new byte[bitCount];
             // TODO NetBitWriter.ReadBytes(m_data, _readPosition, retval);
             throw new NotImplementedException();
             return retval;

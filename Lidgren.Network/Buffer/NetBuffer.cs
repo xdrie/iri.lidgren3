@@ -17,8 +17,10 @@ namespace Lidgren.Network
         // TODO: move into config
         protected const int ExtraGrowAmount = 8;
 
-        private static readonly Dictionary<Type, MethodInfo> _readMethods = new Dictionary<Type, MethodInfo>();
-        private static readonly Dictionary<Type, MethodInfo> _writeMethods = new Dictionary<Type, MethodInfo>();
+        // TODO: optimize reflection
+
+        private static Dictionary<Type, MethodInfo> ReadMethods { get; } = new Dictionary<Type, MethodInfo>();
+        private static Dictionary<Type, MethodInfo> WriteMethods { get; } = new Dictionary<Type, MethodInfo>();
 
         private int _bitLength;
 
@@ -79,9 +81,9 @@ namespace Lidgren.Network
             foreach (MethodInfo method in inMethods)
             {
                 if (method.GetParameters().Length == 0 &&
-                    method.Name.StartsWith("Read", StringComparison.InvariantCulture) && 
+                    method.Name.StartsWith("Read", StringComparison.InvariantCulture) &&
                     method.Name.Substring(4) == method.ReturnType.Name)
-                    _readMethods[method.ReturnType] = method;
+                    ReadMethods[method.ReturnType] = method;
             }
 
             var outMethods = typeof(NetOutgoingMessage).GetMethods(BindingFlags.Instance | BindingFlags.Public);
@@ -91,7 +93,7 @@ namespace Lidgren.Network
                 {
                     ParameterInfo[] pis = method.GetParameters();
                     if (pis.Length == 1)
-                        _writeMethods[pis[0].ParameterType] = method;
+                        WriteMethods[pis[0].ParameterType] = method;
                 }
             }
         }

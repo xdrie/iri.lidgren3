@@ -23,6 +23,9 @@ using System.Net.Sockets;
 using System.Buffers.Binary;
 using System.Globalization;
 using System.Security.Cryptography;
+using System.Diagnostics;
+using System.Net.NetworkInformation;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Lidgren.Network
 {
@@ -33,7 +36,12 @@ namespace Lidgren.Network
     /// </summary>
     public static partial class NetUtility
     {
+        private static readonly double _inverseFrequency = 1.0 / Stopwatch.Frequency;
+        private static readonly long _timeInitialized = Stopwatch.GetTimestamp();
+
         internal static SHA256 Sha256 { get; } = SHA256.Create();
+
+        public static double Now => (Stopwatch.GetTimestamp() - _timeInitialized) * _inverseFrequency;
 
         /// <summary>
         /// Resolve endpoint callback
@@ -46,6 +54,135 @@ namespace Lidgren.Network
         public delegate void ResolveAddressCallback(IPAddress? address);
 
         private static IPAddress? _cachedBroadcastAddress;
+
+        [CLSCompliant(false)]
+        public static ulong GetPlatformSeed(int seedInc)
+        {
+            ulong seed = (ulong)Stopwatch.GetTimestamp();
+            return seed ^ ((ulong)Environment.WorkingSet + (ulong)seedInc);
+        }
+
+        public static NetworkInterface? GetNetworkInterface()
+        {
+            var nics = NetworkInterface.GetAllNetworkInterfaces();
+            if (nics == null || nics.Length < 1)
+                return null;
+
+            NetworkInterface? best = null;
+            foreach (NetworkInterface adapter in nics)
+            {
+                if (adapter.NetworkInterfaceType == NetworkInterfaceType.Loopback ||
+                    adapter.NetworkInterfaceType == NetworkInterfaceType.Unknown)
+                    continue;
+
+                if (!adapter.Supports(NetworkInterfaceComponent.IPv4) &&
+                    !adapter.Supports(NetworkInterfaceComponent.IPv6))
+                    continue;
+
+                if (best == null)
+                    best = adapter;
+
+                if (adapter.OperationalStatus != OperationalStatus.Up)
+                    continue;
+
+                IPInterfaceProperties properties = adapter.GetIPProperties();
+                foreach (UnicastIPAddressInformation unicastAddress in properties.UnicastAddresses)
+                {
+                    if (unicastAddress == null || unicastAddress.Address == null)
+                        continue;
+
+                    if (unicastAddress.Address.AddressFamily == AddressFamily.InterNetwork ||
+                        unicastAddress.Address.AddressFamily == AddressFamily.InterNetworkV6)
+                        return adapter;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// If available, returns the physical (MAC) address for the first usable network interface.
+        /// </summary>
+        public static PhysicalAddress? GetPhysicalAddress()
+        {
+            var ni = GetNetworkInterface();
+            if (ni == null)
+                return null;
+            return ni.GetPhysicalAddress();
+        }
+
+        public static IPAddress? RetrieveBroadcastAddress()
+        {
+            var ni = GetNetworkInterface();
+            if (ni == null)
+                return null;
+
+            Span<byte> addressTmp = stackalloc byte[16];
+            Span<byte> subnetMaskTmp = stackalloc byte[16];
+
+            var properties = ni.GetIPProperties();
+            foreach (UnicastIPAddressInformation unicastAddress in properties.UnicastAddresses)
+            {
+                if (unicastAddress != null &&
+                    unicastAddress.Address != null &&
+                    unicastAddress.Address.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    if (!unicastAddress.Address.TryWriteBytes(addressTmp, out int addressLength))
+                        throw new NotImplementedException("Unknown address length.");
+
+                    if (!unicastAddress.IPv4Mask.TryWriteBytes(subnetMaskTmp, out int subnetMaskLength))
+                        throw new NotImplementedException("Unknown subnet mask length.");
+
+                    // subnet mask should realistically always have length 4
+                    if (addressLength != subnetMaskLength)
+                        throw new Exception("Length of IP address and subnet mask do not match.");
+
+                    Span<byte> broadcast = stackalloc byte[addressLength];
+                    for (int i = 0; i < broadcast.Length; i++)
+                        broadcast[i] = (byte)(addressTmp[i] | (subnetMaskTmp[i] ^ 255));
+
+                    return new IPAddress(broadcast);
+                }
+            }
+            return IPAddress.Broadcast;
+        }
+
+        public static IPAddress? GetBroadcastAddress()
+        {
+            if (_cachedBroadcastAddress == null)
+                _cachedBroadcastAddress = RetrieveBroadcastAddress();
+            return _cachedBroadcastAddress;
+        }
+
+        /// <summary>
+        /// Gets local IPv4 address and subnet mask.
+        /// </summary>
+        public static bool GetLocalAddress(
+            [MaybeNullWhen(false)] out IPAddress address,
+            [MaybeNullWhen(false)] out IPAddress mask)
+        {
+            var ni = GetNetworkInterface();
+            if (ni != null)
+            {
+                IPInterfaceProperties properties = ni.GetIPProperties();
+                foreach (UnicastIPAddressInformation unicastAddress in properties.UnicastAddresses)
+                {
+                    if (unicastAddress != null &&
+                        unicastAddress.Address != null &&
+                        unicastAddress.Address.AddressFamily == AddressFamily.InterNetwork)
+                    {
+                        address = unicastAddress.Address;
+                        mask = unicastAddress.IPv4Mask;
+                        return true;
+                    }
+                }
+            }
+
+            address = null;
+            mask = null;
+            return false;
+        }
+
+        #region Resolve
 
         /// <summary>
         /// Get IPv4 endpoint from notation (xxx.xxx.xxx.xxx) or hostname and port number asynchronously.
@@ -68,13 +205,6 @@ namespace Lidgren.Network
         {
             var resolved = Resolve(host);
             return resolved == null ? null : new IPEndPoint(resolved, port);
-        }
-
-        public static IPAddress? GetCachedBroadcastAddress()
-        {
-            if (_cachedBroadcastAddress == null)
-                _cachedBroadcastAddress = GetBroadcastAddress();
-            return _cachedBroadcastAddress;
         }
 
         /// <summary>
@@ -210,6 +340,8 @@ namespace Lidgren.Network
             }
         }
 
+        #endregion
+
         // TODO: replace hex methods with fast net5 ones
 
         public static int GetHexCharCount(int byteCount)
@@ -296,9 +428,46 @@ namespace Lidgren.Network
             if (text.IsEmpty)
                 return Array.Empty<byte>();
 
-            byte[] array = new byte[GetHexByteCount(text.Length)];
+            var array = new byte[GetHexByteCount(text.Length)];
             FromHexString(text, array);
             return array;
+        }
+
+        /// <summary>
+        /// Returns true if the supplied address is on the same subnet as this host.
+        /// </summary>
+        public static bool IsLocal(IPAddress remote)
+        {
+            if (remote == null)
+                return false;
+
+            static void GetBytes(IPAddress address, Span<byte> destination)
+            {
+                if (address.AddressFamily != AddressFamily.InterNetwork)
+                    throw new ArgumentException("Unsupported address type. Only IPv4 is supported.");
+
+                if (!address.TryWriteBytes(destination, out int remoteByteCount) ||
+                    remoteByteCount != 4)
+                    throw new ArgumentException("Failed to get address bytes.");
+            }
+
+            Span<byte> remoteBytes = stackalloc byte[4];
+            GetBytes(remote, remoteBytes);
+
+            if (!GetLocalAddress(out IPAddress? local, out IPAddress? mask))
+                return false;
+
+            Span<byte> maskBytes = stackalloc byte[4];
+            Span<byte> localBytes = stackalloc byte[4];
+            GetBytes(mask, maskBytes);
+            GetBytes(local, localBytes);
+
+            uint maskBits = BitConverter.ToUInt32(maskBytes);
+            uint remoteBits = BitConverter.ToUInt32(remoteBytes);
+            uint localBits = BitConverter.ToUInt32(localBytes);
+
+            // compare network portions
+            return (remoteBits & maskBits) == (localBits & maskBits);
         }
 
         /// <summary>
@@ -310,25 +479,6 @@ namespace Lidgren.Network
                 return false;
 
             return IsLocal(endPoint.Address);
-        }
-
-        /// <summary>
-        /// Returns true if the supplied address is on the same subnet as this host.
-        /// </summary>
-        public static bool IsLocal(IPAddress remote)
-        {
-            if (remote == null)
-                return false;
-
-            if (!GetLocalAddress(out IPAddress? local, out IPAddress? mask))
-                return false;
-
-            uint maskBits = BitConverter.ToUInt32(mask.GetAddressBytes(), 0);
-            uint remoteBits = BitConverter.ToUInt32(remote.GetAddressBytes(), 0);
-            uint localBits = BitConverter.ToUInt32(local.GetAddressBytes(), 0);
-
-            // compare network portions
-            return (remoteBits & maskBits) == (localBits & maskBits);
         }
 
         /// <summary>

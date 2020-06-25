@@ -19,18 +19,10 @@
     <None Remove="Documentation\**" />
     <None Remove="Platform\**" />
   </ItemGroup>
-
-  <ItemGroup>
-    <Compile Include="Platform\NetUtility.Win.cs" />
-  </ItemGroup>
   
   <ItemGroup>
     <Compile Remove="NetBigInteger.cs" />
     <Compile Remove="NetFragmentationInfo.cs" />
-  </ItemGroup>
-  
-  <ItemGroup>
-    <Folder Include="NetPeer\" />
   </ItemGroup>
   
   <ItemGroup>
@@ -42,5 +34,9 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Folder Include="Platform\" />
   </ItemGroup>
 </Project>

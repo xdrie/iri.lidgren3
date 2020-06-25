@@ -1,4 +1,4 @@
-/* Copyright (c) 2010 Michael Lidgren
+﻿/* Copyright (c) 2010 Michael Lidgren
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software
 and associated documentation files (the "Software"), to deal in the Software without
@@ -24,72 +24,74 @@ namespace Lidgren.Network
     public partial class NetBuffer
     {
         /// <summary>
-        /// Reads all public and private declared instance fields of the object in alphabetical order using reflection.
+        /// Writes all public and private declared instance fields of the object in alphabetical order using reflection.
         /// </summary>
-        public void ReadAllFields(object target)
+        public void WriteAllFields(object ob)
         {
-            ReadAllFields(
-                target,
+            WriteAllFields(
+                ob,
                 BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
         }
 
         /// <summary>
-        /// Reads all fields with the specified binding of the object in alphabetical order using reflection.
+        /// Writes all fields with specified binding in alphabetical order using reflection.
         /// </summary>
-        public void ReadAllFields(object target, BindingFlags flags)
+        public void WriteAllFields(object ob, BindingFlags flags)
         {
-            if (target == null)
-                throw new ArgumentNullException(nameof(target));
+            if (ob == null)
+                return;
 
-            Type type = target.GetType();
-            FieldInfo[] fields = type.GetFields(flags);
+            Type tp = ob.GetType();
+            FieldInfo[] fields = tp.GetFields(flags);
             NetUtility.SortMembersList(fields);
 
             foreach (FieldInfo fi in fields)
             {
-                // find read method
-                if (_readMethods.TryGetValue(fi.FieldType, out var readMethod))
-                {
-                    // read value
-                    var value = readMethod.Invoke(this, null);
+                var value = fi.GetValue(ob);
 
-                    // set the value
-                    fi.SetValue(target, value);
-                }
+                // find the appropriate Write method
+                if (WriteMethods.TryGetValue(fi.FieldType, out var writeMethod))
+                    writeMethod.Invoke(this, new[] { value });
+                else
+                    throw new LidgrenException("Failed to find write method for type " + fi.FieldType);
             }
         }
 
         /// <summary>
-        /// Reads all public and private declared instance fields of the object in alphabetical order using reflection.
+        /// Writes all public and private declared instance properties of the object in alphabetical order using reflection.
         /// </summary>
-        public void ReadAllProperties(object target)
+        public void WriteAllProperties(object ob)
         {
-            ReadAllProperties(
-                target,
+            WriteAllProperties(
+                ob,
                 BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
         }
 
         /// <summary>
-        /// Reads all fields with the specified binding of the object in alphabetical order using reflection.
+        /// Writes all properties with specified binding in alphabetical order using reflection.
         /// </summary>
-        public void ReadAllProperties(object target, BindingFlags flags)
+        public void WriteAllProperties(object ob, BindingFlags flags)
         {
-            if (target == null)
-                throw new ArgumentNullException(nameof(target));
+            if (ob == null)
+                return;
 
-            Type type = target.GetType();
+            Type type = ob.GetType();
             PropertyInfo[] fields = type.GetProperties(flags);
             NetUtility.SortMembersList(fields);
+
             foreach (PropertyInfo fi in fields)
             {
-                // find read method
-                if (_readMethods.TryGetValue(fi.PropertyType, out var readMethod))
+                var getMethod = fi.GetMethod;
+                if (getMethod == null)
+                    continue;
                 {
-                    // read value
-                    var value = readMethod.Invoke(this, null);
+                    var value = getMethod.Invoke(ob, null);
 
-                    // set the value
-                    fi.SetMethod?.Invoke(target, new[] { value });
+                    // find the appropriate Write method
+                    if (WriteMethods.TryGetValue(fi.PropertyType, out var writeMethod))
+                        writeMethod.Invoke(this, new[] { value });
+                    else
+                        throw new LidgrenException("Failed to find write method for type " + fi.PropertyType);
                 }
             }
         }
