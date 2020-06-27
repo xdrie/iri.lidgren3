@@ -11,9 +11,13 @@ namespace Lidgren.Network
     /// </summary>
     public static class NetSRP
     {
-        private static readonly BigInteger N = BigInteger.Parse(
-            "0115b8b692e0e045692cf280b436735c77a5a9e8a9e7ed56c965f87db5b2a2ece3",
-            NumberStyles.HexNumber, CultureInfo.InvariantCulture);
+        private static readonly BigInteger N = new BigInteger(
+            new byte[]
+            {
+                227, 236, 162, 178, 181, 125, 248, 101, 201, 86, 237, 231, 169, 232, 169, 165,
+                119, 92, 115, 54, 180, 128, 242, 44, 105, 69, 224, 224, 146, 182, 184, 21, 1,
+            },
+            isUnsigned: true);
 
         private static readonly BigInteger g = 2;
         private static readonly BigInteger k = ComputeMultiplier();
@@ -28,8 +32,8 @@ namespace Lidgren.Network
         /// </summary>
         private static BigInteger ComputeMultiplier()
         {
-            string one = NetUtility.ToHexString(N.ToByteArray(true));
-            string two = NetUtility.ToHexString(g.ToByteArray(true));
+            string one = NetUtility.ToHexString(N.ToByteArray(isUnsigned: true));
+            string two = NetUtility.ToHexString(g.ToByteArray(isUnsigned: true));
 
             string ccstr = one + two.PadLeft(one.Length, '0');
             byte[] cc = NetUtility.FromHexString(ccstr);
@@ -37,8 +41,9 @@ namespace Lidgren.Network
             using var algorithm = GetHashAlgorithm();
             var ccHashed = algorithm.ComputeHash(cc);
 
-            Span<char> tmp = stackalloc char[NetUtility.GetHexCharCount(ccHashed.Length)];
-            NetUtility.ToHexString(ccHashed, tmp);
+            Span<char> tmp = stackalloc char[1 + NetUtility.GetHexCharCount(ccHashed.Length)];
+            tmp[0] = '0'; // ensure that the value is unsigned
+            NetUtility.ToHexString(ccHashed, tmp.Slice(1));
 
             return BigInteger.Parse(tmp, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
         }
@@ -58,9 +63,9 @@ namespace Lidgren.Network
         /// </summary>
         public static BigInteger CreateRandomEphemeral()
         {
-            Span<byte> value = stackalloc byte[33];
-            CryptoRandom.Global.NextBytes(value[0..^1]);
-            return new BigInteger(value);
+            Span<byte> value = stackalloc byte[32];
+            CryptoRandom.Global.NextBytes(value);
+            return new BigInteger(value, isUnsigned: true);
         }
 
         /// <summary>
@@ -71,19 +76,21 @@ namespace Lidgren.Network
             byte[] tmp = Encoding.UTF8.GetBytes(username + ":" + password);
 
             using var algorithm = GetHashAlgorithm();
-            byte[] innerHash = algorithm.ComputeHash(tmp);
+            Span<byte> innerHash = stackalloc byte[NetBitWriter.ByteCountForBits(algorithm.HashSize)];
+            if (!algorithm.TryComputeHash(tmp, innerHash, out _))
+                throw new Exception();
 
             // x   ie. H(salt || H(username || ":" || password))
-            var total = new byte[innerHash.Length + salt.Length];
+            int totalLength = innerHash.Length + salt.Length;
+            var total = totalLength < 4096 ? stackalloc byte[totalLength] : new byte[totalLength];
             salt.CopyTo(total);
-            innerHash.CopyTo(total.AsSpan(salt.Length));
+            innerHash.CopyTo(total.Slice(salt.Length));
 
-            Span<byte> totalHash = stackalloc byte[(algorithm.HashSize + 15) / 8];
+            Span<byte> totalHash = stackalloc byte[NetBitWriter.ByteCountForBits(algorithm.HashSize)];
             if (!algorithm.TryComputeHash(total, totalHash, out _))
                 throw new Exception();
-            totalHash[^1] = 0;
 
-            return new BigInteger(totalHash);
+            return new BigInteger(totalHash, isUnsigned: true);
         }
 
         /// <summary>
@@ -132,21 +139,20 @@ namespace Lidgren.Network
             BigInteger serverPublicEphemeral)
         {
             // u = SHA-1(A || B)
-            
+
             int byteCount = clientPublicEphemeral.GetByteCount() + serverPublicEphemeral.GetByteCount();
             var buffer = byteCount < 4096 ? stackalloc byte[byteCount] : new byte[byteCount];
 
-            if (!clientPublicEphemeral.TryWriteBytes(buffer, out int clientBytesWritten) ||
-                !serverPublicEphemeral.TryWriteBytes(buffer.Slice(clientBytesWritten), out _))
+            if (!clientPublicEphemeral.TryWriteBytes(buffer, out int clientBytesWritten, isUnsigned: true) ||
+                !serverPublicEphemeral.TryWriteBytes(buffer.Slice(clientBytesWritten), out _, isUnsigned: true))
                 throw new Exception();
 
             using var algorithm = GetHashAlgorithm();
-            Span<byte> hash = stackalloc byte[(algorithm.HashSize + 15) / 8];
+            Span<byte> hash = stackalloc byte[NetBitWriter.ByteCountForBits(algorithm.HashSize)];
             if (!algorithm.TryComputeHash(buffer, hash, out _))
                 throw new Exception();
-            hash[^1] = 0;
-
-            return new BigInteger(hash);
+            
+            return new BigInteger(hash, isUnsigned: true);
         }
 
         /// <summary>
@@ -193,7 +199,7 @@ namespace Lidgren.Network
         public static NetXteaEncryption CreateEncryption(NetPeer peer, ReadOnlySpan<byte> sessionValue)
         {
             using var algorithm = GetHashAlgorithm();
-            Span<byte> hash = stackalloc byte[(algorithm.HashSize + 7) / 8];
+            Span<byte> hash = stackalloc byte[NetBitWriter.ByteCountForBits(algorithm.HashSize)];
             if (!algorithm.TryComputeHash(sessionValue, hash, out _))
                 throw new Exception();
 

@@ -1,4 +1,5 @@
-﻿
+﻿using System.Text;
+
 namespace Lidgren.Network
 {
     public partial class NetPeer
@@ -19,7 +20,7 @@ namespace Lidgren.Network
             if (content == null)
                 content = string.Empty;
 
-            int strByteCount = NetBuffer.StringEncoding.GetByteCount(content);
+            int strByteCount = Encoding.UTF8.GetByteCount(content);
             var om = strByteCount == 0 ? CreateMessage(1) : CreateMessage(2 + strByteCount);
             om.Write(content);
             return om;
@@ -66,23 +67,25 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Creates an incoming message with the required capacity for releasing to the application
+        /// Creates an incoming message with the required capacity for releasing to the application.
         /// </summary>
         internal NetIncomingMessage CreateIncomingMessage(NetIncomingMessageType type, string text)
         {
-            NetIncomingMessage retval;
+            NetIncomingMessage msg;
             if (string.IsNullOrEmpty(text))
             {
-                retval = CreateIncomingMessage(type, 1);
-                retval.Write(string.Empty);
-                return retval;
+                msg = CreateIncomingMessage(type, 1);
+                msg.Write(string.Empty);
+                msg.BitPosition = 0;
+                return msg;
             }
 
-            int strByteCount = NetBuffer.StringEncoding.GetByteCount(text);
-            retval = CreateIncomingMessage(type, strByteCount + (strByteCount > 127 ? 2 : 1));
-            retval.Write(text);
+            int strByteCount = Encoding.UTF8.GetMaxByteCount(text.Length);
+            msg = CreateIncomingMessage(type, strByteCount + 10);
+            msg.Write(text);
+            msg.BitPosition = 0;
 
-            return retval;
+            return msg;
         }
     }
 }

@@ -44,11 +44,11 @@ namespace UnitTests
             msg.Write((ushort)44);
             msg.Write(ulong.MaxValue, 64);
             msg.Write(true);
-
+            
             msg.WritePadBits();
-
+            
             int bcnt = 0;
-
+            
             msg.Write(567845.0f);
             msg.WriteVar(2115998022);
             msg.Write(46.0);
@@ -57,16 +57,16 @@ namespace UnitTests
             msg.WriteVar(470000);
             msg.WriteVar((uint)48);
             bcnt += msg.WriteVar((long)-49);
-
+            
             if (bcnt != 2)
-                throw new LidgrenException("WriteVariable* wrote too many bytes!");
+                throw new LidgrenException("WriteVar* wrote too many bytes!");
            
             byte[] data = msg.Data;
             NetIncomingMessage inc = Program.CreateIncomingMessage(data, msg.BitLength);
 
             var bdr = new StringBuilder();
 
-            bdr.Append(inc.ReadBoolean());
+            bdr.Append(inc.ReadBool());
             bdr.Append(inc.ReadInt32(6));
             bdr.Append(inc.ReadInt32());
 
@@ -78,15 +78,14 @@ namespace UnitTests
 
             if (inc.PeekUInt16() != 44)
                 throw new LidgrenException("Read/write failure");
-
             bdr.Append(inc.ReadUInt16());
 
             var pp = inc.PeekUInt64(64);
             if (pp != ulong.MaxValue)
                 throw new LidgrenException("Read/write failure");
-
             bdr.Append(inc.ReadUInt64());
-            bdr.Append(inc.ReadBoolean());
+
+            bdr.Append(inc.ReadBool());
         
             inc.SkipPadBits();
 
@@ -118,7 +117,7 @@ namespace UnitTests
 
             tmp = peer.CreateMessage();
 
-            Test test = new Test();
+            var test = new Test();
             test.Number = 42;
             test.Name = "Hallon";
             test.Age = 8.2f;
@@ -129,7 +128,7 @@ namespace UnitTests
 
             inc = Program.CreateIncomingMessage(data, tmp.BitLength);
 
-            Test readTest = new Test();
+            var readTest = new Test();
             inc.ReadAllFields(readTest, BindingFlags.Public | BindingFlags.Instance);
 
             LidgrenException.Assert(readTest.Number == 42);
@@ -138,14 +137,14 @@ namespace UnitTests
             
             // test aligned WriteBytes/ReadBytes
             msg = peer.CreateMessage();
-            byte[] originalData = new byte[] { 5, 6, 7, 8, 9 };
+            var originalData = new byte[] { 5, 6, 7, 8, 9 };
             msg.Write(originalData);
 
             inc = Program.CreateIncomingMessage(msg.Data, msg.BitLength);
-            Span<byte> readData = stackalloc byte[originalData.Length]; 
+            var readData = new byte[originalData.Length]; 
             inc.Read(readData);
 
-            if(!readData.SequenceEqual(originalData))
+            if(!readData.AsSpan().SequenceEqual(originalData))
                     throw new Exception("Read fail");
         }
     }

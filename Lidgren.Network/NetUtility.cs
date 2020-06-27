@@ -482,38 +482,6 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Returns how many bits are necessary to hold a certain number
-        /// </summary>
-        [CLSCompliant(false)]
-        public static int BitCountForValue(uint value)
-        {
-            int bits = 1;
-            while ((value >>= 1) != 0)
-                bits++;
-            return bits;
-        }
-
-        /// <summary>
-        /// Returns how many bits are necessary to hold a certain number.
-        /// </summary>
-        [CLSCompliant(false)]
-        public static int BitCountForValue(ulong value)
-        {
-            int bits = 1;
-            while ((value >>= 1) != 0)
-                bits++;
-            return bits;
-        }
-
-        /// <summary>
-        /// Returns how many bytes are required to hold a certain number of bits.
-        /// </summary>
-        public static int ByteCountForBits(int bitCount)
-        {
-            return (bitCount + 7) / 8;
-        }
-
-        /// <summary>
         /// Converts a number of bytes to a shorter, more readable string representation
         /// </summary>
         public static string ToHumanReadable(long bytes)

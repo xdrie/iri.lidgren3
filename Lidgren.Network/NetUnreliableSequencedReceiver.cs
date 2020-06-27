@@ -11,7 +11,7 @@ namespace Lidgren.Network
 		{
 		}
 
-		internal override void ReceiveMessage(NetIncomingMessage msg)
+		public override void ReceiveMessage(NetIncomingMessage msg)
 		{
 			int nr = msg.SequenceNumber;
 

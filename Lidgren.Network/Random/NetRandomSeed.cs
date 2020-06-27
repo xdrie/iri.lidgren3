@@ -28,19 +28,13 @@ namespace Lidgren.Network
 		[CLSCompliant(false)]
 		public static ulong GetUInt64()
 		{
-#if !__ANDROID__ && !IOS && !UNITY_WEBPLAYER && !UNITY_ANDROID && !UNITY_IPHONE
+			// TODO: optimize
+
 			ulong seed = (ulong)System.Diagnostics.Stopwatch.GetTimestamp();
 			seed ^= (ulong)Environment.WorkingSet;
 			ulong s2 = (ulong)Interlocked.Increment(ref _seedIncrement);
 			s2 |= ((ulong)Guid.NewGuid().GetHashCode()) << 32;
 			seed ^= s2;
-#else
-			ulong seed = (ulong)Environment.TickCount;
-			seed |= (((ulong)(new object().GetHashCode())) << 32);
-			ulong s2 = (ulong)Guid.NewGuid().GetHashCode();
-			s2 |= (((ulong)Interlocked.Increment(ref m_seedIncrement)) << 32);
-			seed ^= s2;
-#endif
 			return seed;
 		}
 	}

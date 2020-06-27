@@ -1,5 +1,4 @@
-﻿using System;
-
+﻿
 namespace Lidgren.Network
 {
 	internal sealed class NetReliableUnorderedReceiver : NetReceiverChannel
@@ -21,7 +20,7 @@ namespace Lidgren.Network
 			m_windowStart = (m_windowStart + 1) % NetConstants.NumSequenceNumbers;
 		}
 
-		internal override void ReceiveMessage(NetIncomingMessage message)
+		public override void ReceiveMessage(NetIncomingMessage message)
 		{
 			int relate = NetUtility.RelativeSequenceNumber(message.SequenceNumber, m_windowStart);
 

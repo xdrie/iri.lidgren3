@@ -20,6 +20,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 using System;
+using System.Buffers;
 using System.Runtime.CompilerServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
@@ -33,6 +34,9 @@ namespace Lidgren.Network
     /// </summary>
     public static class NetBitWriter
     {
+        public const int MaxVarInt64Size = 10;
+        public const int MaxVarInt32Size = 5;
+
         #region CopyBits
 
         /// <summary>
@@ -60,7 +64,7 @@ namespace Lidgren.Network
             int i;
             if (sourceBitOffset > 0)
             {
-                var byteSrc = src.Slice(0, (bitCount + 7) / 8);
+                var byteSrc = src.Slice(0, ByteCountForBits(bitCount));
                 if (destinationBitOffset > 0)
                 {
                     for (i = 0; i < byteSrc.Length - 1; i++)
@@ -80,7 +84,7 @@ namespace Lidgren.Network
             }
             else if (destinationBitOffset > 0)
             {
-                var byteSrc = src.Slice(0, (bitCount + 7) / 8);
+                var byteSrc = src.Slice(0, ByteCountForBits(bitCount));
                 for (i = 0; i < byteSrc.Length - 1; i++)
                 {
                     int value = byteSrc[i];
@@ -451,46 +455,199 @@ namespace Lidgren.Network
 
         #endregion
 
+        #region VarInt
+
         /// <summary>
-        /// Write Base128 encoded variable sized <see cref="uint"/>.
+        /// Gets the amount of bytes needed to store a variable sized <see cref="ulong"/>.
         /// </summary>
-        /// <returns>Number of bytes written.</returns>
+        /// <returns>Amount of bytes written.</returns>
         [CLSCompliant(false)]
-        public static int WriteVarUInt32(uint value, Span<byte> destination)
+        public static int GetVarIntSize(ulong value)
         {
             int offset = 0;
-            uint num1 = value;
-            while (num1 >= 0x80)
+            ulong bits = value;
+            while (bits > 0x7Fu)
             {
-                destination[offset] = (byte)(num1 | 0x80);
-                num1 >>= 7;
                 offset++;
+                bits >>= 7;
             }
-            destination[offset] = (byte)num1;
             return offset + 1;
         }
 
         /// <summary>
-        /// Reads a <see cref="uint"/> written using <see cref="WriteVarUInt32"/>.
+        /// Gets the amount of bytes needed to store a variable sized <see cref="long"/>.
+        /// </summary>
+        /// <returns>Amount of bytes written.</returns>
+        public static int GetVarIntSize(long value)
+        {
+            ulong zigzag = (ulong)(value << 1) ^ (ulong)(value >> 63);
+            return GetVarIntSize(zigzag);
+        }
+
+        /// <summary>
+        /// Gets the amount of bytes needed to store a variable sized <see cref="uint"/>.
+        /// </summary>
+        /// <returns>Amount of bytes written.</returns>
+        [CLSCompliant(false)]
+        public static int GetVarIntSize(uint value)
+        {
+            int offset = 0;
+            uint bits = value;
+            while (bits > 0x7Fu)
+            {
+                offset++;
+                bits >>= 7;
+            }
+            return offset + 1;
+        }
+
+        /// <summary>
+        /// Gets the amount of bytes needed to store a variable sized <see cref="int"/>.
+        /// </summary>
+        /// <returns>Amount of bytes written.</returns>
+        public static int GetVarIntSize(int value)
+        {
+            uint zigzag = (uint)(value << 1) ^ (uint)(value >> 31);
+            return GetVarIntSize(zigzag);
+        }
+
+        #endregion
+
+        /// <summary>
+        /// Returns how many bits are necessary to hold a certain number
         /// </summary>
         [CLSCompliant(false)]
-        public static uint ReadVarUInt32(ReadOnlySpan<byte> buffer, out int bytesRead)
+        public static int BitCountForValue(uint value)
         {
-            int num1 = 0;
-            int num2 = 0;
-            int offset = 0;
-            while (true)
-            {
-                LidgrenException.Assert(num2 != 0x23, "Bad 7-bit encoded integer");
+            int bits = 1;
+            while ((value >>= 1) != 0)
+                bits++;
+            return bits;
+        }
 
-                byte num3 = buffer[offset++];
-                num1 |= (num3 & 0x7f) << (num2 & 0x1f);
-                num2 += 7;
-                if ((num3 & 0x80) == 0)
+        /// <summary>
+        /// Returns how many bits are necessary to hold a certain number.
+        /// </summary>
+        [CLSCompliant(false)]
+        public static int BitCountForValue(ulong value)
+        {
+            int bits = 1;
+            while ((value >>= 1) != 0)
+                bits++;
+            return bits;
+        }
+
+        /// <summary>
+        /// Returns how many bytes are required to hold a certain number of bits.
+        /// </summary>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static int ByteCountForBits(int bitCount)
+        {
+            return (bitCount + 7) / 8;
+        }
+
+        /// <summary>
+        /// Tries to read a variable sized <see cref="uint"/>.
+        /// </summary>
+        [CLSCompliant(false)]
+        public static OperationStatus ReadVarUInt32(NetBuffer buffer, bool peek, out uint result)
+        {
+            const int MaxBytesWithoutOverflow = MaxVarInt32Size - 1;
+
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
+
+            result = 0;
+            if (!buffer.HasEnough(8))
+                return OperationStatus.NeedMoreData;
+
+            int startPosition = buffer.BitPosition;
+            try
+            {
+                // Read the integer 7 bits at a time. 
+                // The high bit of the byte when on means to continue reading more bytes.
+
+                byte tmp;
+                for (int shift = 0; shift < MaxBytesWithoutOverflow * 7; shift += 7)
                 {
-                    bytesRead = offset;
-                    return (uint)num1;
+                    tmp = buffer.ReadByte();
+                    result |= (tmp & 0x7Fu) << shift;
+
+                    if (tmp <= 0x7Fu)
+                        return OperationStatus.Done;
+
+                    if (!buffer.HasEnough(8))
+                        return OperationStatus.NeedMoreData;
                 }
+
+                // Read the 5th byte. Since we already read 28 bits,
+                // the value of this byte must fit within 4 bits (32 - 28),
+                // and it must not have the high bit set.
+                tmp = buffer.ReadByte();
+                if (tmp > 0b_1111u)
+                {
+                    result = default;
+                    return OperationStatus.InvalidData;
+                }
+
+                result |= (uint)tmp << (MaxBytesWithoutOverflow * 7);
+                return OperationStatus.Done;
+            }
+            finally
+            {
+                if (peek)
+                    buffer.BitPosition = startPosition;
+            }
+        }
+
+        /// <summary>
+        /// Tries to read a variable sized <see cref="ulong"/>.
+        /// </summary>
+        [CLSCompliant(false)]
+        public static OperationStatus ReadVarUInt64(NetBuffer buffer, bool peek, out ulong result)
+        {
+            const int MaxBytesWithoutOverflow = MaxVarInt64Size - 1;
+
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
+
+            result = 0;
+            if (!buffer.HasEnough(8))
+                return OperationStatus.NeedMoreData;
+
+            int startPosition = buffer.BitPosition;
+            try
+            {
+                // Read the integer 7 bits at a time. 
+                // The high bit of the byte when on means to continue reading more bytes.
+
+                byte tmp;
+                for (int shift = 0; shift < MaxBytesWithoutOverflow * 7; shift += 7)
+                {
+                    tmp = buffer.ReadByte();
+                    result |= (tmp & 0x7Ful) << shift;
+
+                    if (tmp <= 0x7Fu)
+                        return OperationStatus.Done;
+
+                    if (!buffer.HasEnough(8))
+                        return OperationStatus.NeedMoreData;
+                }
+
+                // Read the 10th byte. Since we already read 63 bits,
+                // the value of this byte must fit within 1 bit (64 - 63),
+                // and it must not have the high bit set.
+                tmp = buffer.ReadByte();
+                if (tmp > 0b_1u)
+                    return OperationStatus.InvalidData;
+
+                result |= (ulong)tmp << (MaxBytesWithoutOverflow * 7);
+                return OperationStatus.Done;
+            }
+            finally
+            {
+                if (peek)
+                    buffer.BitPosition = startPosition;
             }
         }
     }

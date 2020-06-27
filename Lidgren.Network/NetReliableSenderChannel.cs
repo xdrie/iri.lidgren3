@@ -140,7 +140,7 @@ namespace Lidgren.Network
                     "sent " + storedMessage.NumSent + " times, " +
                     "last time " + (NetTime.Now - storedMessage.LastSent) + " seconds ago");
 #else
-            if (storedMessage != null)
+            if (storedMessage.Message != null)
 #endif
             {
                 if (Interlocked.Decrement(ref storedMessage.Message._recyclingCount) <= 0)

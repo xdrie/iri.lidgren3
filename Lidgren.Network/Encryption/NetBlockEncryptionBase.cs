@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers.Binary;
 
 namespace Lidgren.Network
 {
@@ -45,8 +46,8 @@ namespace Lidgren.Network
             int numBlocks = (int)Math.Ceiling(numBytes / (double)blockSize);
             int dstSize = numBlocks * blockSize;
 
-            message.EnsureBufferSize(dstSize * 8 + (4 * 8)); // add 4 bytes for payload length at end
-            message.BitLength = dstSize * 8; // length will automatically adjust +4 bytes when payload length is written
+            message.EnsureCapacity((dstSize + 4) * 8); // add 4 bytes for payload length
+            message.BitPosition = 0;
 
             var buffer = _buffer.AsSpan();
             var messageBuffer = message.Data.AsSpan();
@@ -56,6 +57,8 @@ namespace Lidgren.Network
                 EncryptBlock(messageSlice, buffer);
                 buffer.CopyTo(messageSlice);
             }
+            message.ByteLength = dstSize;
+            message.BitPosition = message.BitLength;
 
             // add true payload length last
             message.Write((uint)payloadBitLength);
@@ -88,7 +91,7 @@ namespace Lidgren.Network
                 buffer.CopyTo(messageSlice);
             }
 
-            uint realSize = NetBitWriter.ReadUInt32(messageBuffer.Slice(numEncryptedBytes));
+            uint realSize = BinaryPrimitives.ReadUInt32LittleEndian(messageBuffer.Slice(numEncryptedBytes));
             message.BitLength = (int)realSize;
 
             return true;

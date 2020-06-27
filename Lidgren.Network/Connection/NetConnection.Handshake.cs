@@ -28,7 +28,7 @@ namespace Lidgren.Network
 
             if (_connectRequested)
             {
-                switch (_status)
+                switch (_internalStatus)
                 {
                     case NetConnectionStatus.Connected:
                     case NetConnectionStatus.RespondedConnect:
@@ -67,7 +67,7 @@ namespace Lidgren.Network
                 }
 
                 // resend handshake
-                switch (_status)
+                switch (_internalStatus)
                 {
                     case NetConnectionStatus.InitiatedConnect:
                         SendConnect(now);
@@ -85,7 +85,7 @@ namespace Lidgren.Network
                     case NetConnectionStatus.None:
                     case NetConnectionStatus.ReceivedInitiation:
                     default:
-                        Peer.LogWarning("Time to resend handshake, but status is " + _status);
+                        Peer.LogWarning("Time to resend handshake, but status is " + _internalStatus);
                         break;
                 }
             }
@@ -106,10 +106,10 @@ namespace Lidgren.Network
             if (sendByeMessage)
                 SendDisconnect(reason, true);
 
-            if (_status == NetConnectionStatus.ReceivedInitiation)
+            if (_internalStatus == NetConnectionStatus.ReceivedInitiation)
             {
                 // nothing much has happened yet; no need to send disconnected status message
-                _status = NetConnectionStatus.Disconnected;
+                _internalStatus = NetConnectionStatus.Disconnected;
             }
             else
             {
@@ -223,7 +223,7 @@ namespace Lidgren.Network
             _handshakeAttempts = 0;
 
             InitializePing();
-            if (_status != NetConnectionStatus.Connected)
+            if (_internalStatus != NetConnectionStatus.Connected)
                 SetStatus(NetConnectionStatus.Connected, "Connected to " + NetUtility.ToHexString(RemoteUniqueIdentifier));
         }
 
@@ -232,9 +232,9 @@ namespace Lidgren.Network
         /// </summary>
         public void Approve()
         {
-            if (_status != NetConnectionStatus.RespondedAwaitingApproval)
+            if (_internalStatus != NetConnectionStatus.RespondedAwaitingApproval)
             {
-                Peer.LogWarning("Approve() called in wrong status; expected RespondedAwaitingApproval; got " + _status);
+                Peer.LogWarning("Approve() called in wrong status; expected RespondedAwaitingApproval; got " + _internalStatus);
                 return;
             }
 
@@ -249,9 +249,9 @@ namespace Lidgren.Network
         /// <param name="localHail">The local hail message that will be set as RemoteHailMessage on the remote host</param>
         public void Approve(NetOutgoingMessage localHail)
         {
-            if (_status != NetConnectionStatus.RespondedAwaitingApproval)
+            if (_internalStatus != NetConnectionStatus.RespondedAwaitingApproval)
             {
-                Peer.LogWarning("Approve() called in wrong status; expected RespondedAwaitingApproval; got " + _status);
+                Peer.LogWarning("Approve() called in wrong status; expected RespondedAwaitingApproval; got " + _internalStatus);
                 return;
             }
 
@@ -290,7 +290,7 @@ namespace Lidgren.Network
             switch (tp)
             {
                 case NetMessageType.Connect:
-                    if (_status == NetConnectionStatus.ReceivedInitiation)
+                    if (_internalStatus == NetConnectionStatus.ReceivedInitiation)
                     {
                         // Whee! Server full has already been checked
                         if (ValidateHandshakeData(offset, payloadLength, out byte[]? hail))
@@ -298,7 +298,7 @@ namespace Lidgren.Network
                             if (hail != null)
                             {
                                 RemoteHailMessage = Peer.CreateIncomingMessage(NetIncomingMessageType.Data, hail);
-                                RemoteHailMessage.BitLength = hail.Length * 8;
+                                RemoteHailMessage.ByteLength = hail.Length;
                             }
                             else
                             {
@@ -328,19 +328,19 @@ namespace Lidgren.Network
                         }
                         return;
                     }
-                    if (_status == NetConnectionStatus.RespondedAwaitingApproval)
+                    if (_internalStatus == NetConnectionStatus.RespondedAwaitingApproval)
                     {
                         Peer.LogWarning("Ignoring multiple Connect() most likely due to a delayed Approval");
                         return;
                     }
-                    if (_status == NetConnectionStatus.RespondedConnect)
+                    if (_internalStatus == NetConnectionStatus.RespondedConnect)
                     {
                         // our ConnectResponse must have been lost
                         SendConnectResponse(now, true);
                         return;
                     }
                     Peer.LogDebug(
-                        "Unhandled Connect: " + tp + ", status is " + _status + " length: " + payloadLength);
+                        "Unhandled Connect: " + tp + ", status is " + _internalStatus + " length: " + payloadLength);
                     break;
 
                 case NetMessageType.ConnectResponse:
@@ -348,7 +348,7 @@ namespace Lidgren.Network
                     break;
 
                 case NetMessageType.ConnectionEstablished:
-                    switch (_status)
+                    switch (_internalStatus)
                     {
                         case NetConnectionStatus.Connected:
                             // ok...
@@ -416,7 +416,7 @@ namespace Lidgren.Network
         private void HandleConnectResponse(int offset, int payloadLength)
         {
             byte[]? hail;
-            switch (_status)
+            switch (_internalStatus)
             {
                 case NetConnectionStatus.InitiatedConnect:
                     // awesome
@@ -503,13 +503,13 @@ namespace Lidgren.Network
         public void Disconnect(string? reason)
         {
             // user or library thread
-            if (_status == NetConnectionStatus.None || _status == NetConnectionStatus.Disconnected)
+            if (_internalStatus == NetConnectionStatus.None || _internalStatus == NetConnectionStatus.Disconnected)
                 return;
 
             Peer.LogVerbose("Disconnect requested for " + this);
             _disconnectMessage = reason;
 
-            if (_status != NetConnectionStatus.Disconnected && _status != NetConnectionStatus.None)
+            if (_internalStatus != NetConnectionStatus.Disconnected && _internalStatus != NetConnectionStatus.None)
                 SetStatus(NetConnectionStatus.Disconnecting, reason);
 
             _handshakeAttempts = 0;

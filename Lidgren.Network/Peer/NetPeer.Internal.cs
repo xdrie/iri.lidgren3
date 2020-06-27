@@ -68,17 +68,17 @@ namespace Lidgren.Network
             _receiveCallbacks.RemoveAll((x) => x.Callback.Equals(callback));
         }
 
-        internal void ReleaseMessage(NetIncomingMessage msg)
+        internal void ReleaseMessage(NetIncomingMessage message)
         {
-            LidgrenException.Assert(msg.MessageType != NetIncomingMessageType.Error);
+            LidgrenException.Assert(message.MessageType != NetIncomingMessageType.Error);
 
-            if (msg.IsFragment)
+            if (message.IsFragment)
             {
-                HandleReleasedFragment(msg);
+                HandleReleasedFragment(message);
                 return;
             }
 
-            ReleasedIncomingMessages.Enqueue(msg);
+            ReleasedIncomingMessages.Enqueue(message);
 
             _messageReceivedEvent?.Set();
 
@@ -197,7 +197,7 @@ namespace Lidgren.Network
                 epBytes.CopyTo(combined);
                 macBytes.CopyTo(combined.AsSpan(epBytes.Length));
 
-                Span<byte> hash = stackalloc byte[(NetUtility.Sha256.HashSize + 7) / 8];
+                Span<byte> hash = stackalloc byte[NetBitWriter.ByteCountForBits(NetUtility.Sha256.HashSize)];
                 if (!NetUtility.Sha256.TryComputeHash(combined, hash, out _))
                     throw new Exception();
                 UniqueIdentifier = BitConverter.ToInt64(hash);
@@ -336,12 +336,12 @@ namespace Lidgren.Network
                             var conn = kvp.Value;
                             conn.UnconnectedHeartbeat(now);
 
-                            if (conn._status == NetConnectionStatus.Connected ||
-                                conn._status == NetConnectionStatus.Disconnected)
+                            if (conn._internalStatus == NetConnectionStatus.Connected ||
+                                conn._internalStatus == NetConnectionStatus.Disconnected)
                             {
 #if DEBUG
                                 // sanity check
-                                if (conn._status == NetConnectionStatus.Disconnected &&
+                                if (conn._internalStatus == NetConnectionStatus.Disconnected &&
                                     Handshakes.ContainsKey(conn.RemoteEndPoint))
                                 {
                                     LogWarning("Sanity fail! Handshakes list contained disconnected connection!");
@@ -366,7 +366,7 @@ namespace Lidgren.Network
                     foreach (NetConnection conn in Connections)
                     {
                         conn.Heartbeat(now, _frameCounter);
-                        if (conn._status == NetConnectionStatus.Disconnected)
+                        if (conn._internalStatus == NetConnectionStatus.Disconnected)
                         {
                             //
                             // remove connection
@@ -447,7 +447,7 @@ namespace Lidgren.Network
 
                 var senderEndPoint = (IPEndPoint)_senderRemote;
 
-                if (UPnP != null)
+                if (UPnP != null && UPnP.Status == UPnPStatus.Discovering)
                     if (SetupUpnp(UPnP, now, _receiveBuffer.AsSpan(0, bytesReceived)))
                         return;
 
@@ -465,7 +465,7 @@ namespace Lidgren.Network
                     //  8 bits - NetMessageType
                     //  1 bit  - Fragment?
                     // 15 bits - Sequence number
-                    // 16 bits - Payload length in bits
+                    // 16 bits - Payload bit length
 
                     numMessages++;
 
@@ -475,12 +475,12 @@ namespace Lidgren.Network
                     byte high = _receiveBuffer[offset++];
 
                     bool isFragment = (low & 1) == 1;
-                    ushort sequenceNumber = (ushort)((low >> 1) | (high << 7));
+                    var sequenceNumber = (ushort)((low >> 1) | (high << 7));
 
                     numFragments++;
 
-                    ushort payloadBitLength = (ushort)(_receiveBuffer[offset++] | (_receiveBuffer[offset++] << 8));
-                    int payloadByteLength = NetUtility.ByteCountForBits(payloadBitLength);
+                    var payloadBitLength = (ushort)(_receiveBuffer[offset++] | (_receiveBuffer[offset++] << 8));
+                    int payloadByteLength = NetBitWriter.ByteCountForBits(payloadBitLength);
 
                     if (bytesReceived - offset < payloadByteLength)
                     {
@@ -553,8 +553,7 @@ namespace Lidgren.Network
                 }
 
                 Statistics.PacketReceived(bytesReceived, numMessages, numFragments);
-                if (sender != null)
-                    sender.Statistics.PacketReceived(bytesReceived, numMessages, numFragments);
+                sender?.Statistics.PacketReceived(bytesReceived, numMessages, numFragments);
 
             } while (Socket.Available > 0);
         }
@@ -718,7 +717,7 @@ namespace Lidgren.Network
 
                     // Ok, start handshake!
                     NetConnection conn = new NetConnection(this, senderEndPoint);
-                    conn._status = NetConnectionStatus.ReceivedInitiation;
+                    conn._internalStatus = NetConnectionStatus.ReceivedInitiation;
                     Handshakes.Add(senderEndPoint, conn);
                     conn.ReceivedHandshake(now, tp, offset, payloadByteLength);
                     return;

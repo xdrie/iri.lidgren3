@@ -27,7 +27,7 @@ namespace Lidgren.Network
                 if (Handshakes.TryGetValue(remoteEndPoint, out NetConnection? hs))
                 {
                     // already trying to connect to that endpoint; make another try
-                    switch (hs._status)
+                    switch (hs._internalStatus)
                     {
                         case NetConnectionStatus.InitiatedConnect:
                             // send another connect
@@ -42,14 +42,14 @@ namespace Lidgren.Network
                         default:
                             // weird
                             LogWarning(
-                                "Weird situation; Connect() already in progress to remote endpoint; but hs status is " + hs._status);
+                                "Weird situation; Connect() already in progress to remote endpoint; but hs status is " + hs._internalStatus);
                             break;
                     }
                     return hs;
                 }
 
                 var conn = new NetConnection(this, remoteEndPoint);
-                conn._status = NetConnectionStatus.InitiatedConnect;
+                conn._internalStatus = NetConnectionStatus.InitiatedConnect;
                 conn.LocalHailMessage = hailMessage;
 
                 // handle on network thread

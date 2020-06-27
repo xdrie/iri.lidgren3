@@ -18,6 +18,8 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 using System;
+using System.Buffers;
+using System.Buffers.Binary;
 
 namespace Lidgren.Network
 {
@@ -27,267 +29,358 @@ namespace Lidgren.Network
     public partial class NetBuffer
     {
         /// <summary>
-        /// Reads a 1-bit <see cref="bool"/> without advancing the read pointer.
+        /// Tries to read the specified number of bits without advancing the read position.
         /// </summary>
-        public bool PeekBoolean()
+        public bool TryPeek(Span<byte> destination, int bitCount)
         {
-            LidgrenException.Assert(_bitLength - BitPosition >= 1, ReadOverflowError);
-            return NetBitWriter.ReadByteUnchecked(Data, BitPosition, 1) > 0;
-        }
-
-        /// <summary>
-        /// Reads an <see cref="sbyte"/> without advancing the read pointer.
-        /// </summary>
-        [CLSCompliant(false)]
-        public sbyte PeekSByte()
-        {
-            LidgrenException.Assert(_bitLength - BitPosition >= 8, ReadOverflowError);
-            return (sbyte)NetBitWriter.ReadByteUnchecked(Data, BitPosition, 8);
-        }
-
-        /// <summary>
-        /// Reads a <see cref="byte"/> without advancing the read pointer.
-        /// </summary>
-        public byte PeekByte()
-        {
-            LidgrenException.Assert(_bitLength - BitPosition >= 8, ReadOverflowError);
-            return NetBitWriter.ReadByteUnchecked(Data, BitPosition, 8);
-        }
-
-        /// <summary>
-        /// Reads the specified number of bits into a <see cref="byte"/> without advancing the read pointer.
-        /// </summary>
-        public byte PeekByte(int bitCount)
-        {
-            return NetBitWriter.ReadByteUnchecked(Data, BitPosition, bitCount);
-        }
-
-        /// <summary>
-        /// Reads the specified number of bytes without advancing the read pointer.
-        /// </summary>
-        [Obsolete("This method allocates a new array for each call.")]
-        public byte[] PeekBytes(int bitCount)
-        {
-            LidgrenException.Assert(_bitLength - BitPosition >= (bitCount * 8), ReadOverflowError);
-
-            byte[] retval = new byte[bitCount];
-            // TODO NetBitWriter.ReadBytes(m_data, _readPosition, retval);
-            throw new NotImplementedException();
-            return retval;
-        }
-
-        /// <summary>
-        /// Tries to read the specified number of bits without advancing the read pointer.
-        /// </summary>
-        public bool TryPeekBits(Span<byte> span, int bitCount)
-        {
-            if (_bitLength - BitPosition >= bitCount)
+            if (!HasEnough(bitCount))
                 return false;
 
-            throw new NotImplementedException();
-            // TODO NetBitWriter.ReadBytes(m_data, _readPosition, span);
+            NetBitWriter.CopyBits(Data, BitPosition, bitCount, destination, 0);
             return true;
         }
 
         /// <summary>
-        /// Reads the specified number of bits without advancing the read pointer.
+        /// Tries to read the specified number of bits, 
+        /// between one and <paramref name="maxBitCount"/>, 
+        /// without advancing the read position.
         /// </summary>
-        public void PeekBits(Span<byte> span, int bitCount)
+        public bool TryPeek(Span<byte> destination, int bitCount, int maxBitCount)
         {
-            if (!TryPeekBits(span, bitCount))
+            if (bitCount < 1)
+                throw new ArgumentOutOfRangeException(nameof(bitCount));
+
+            if (bitCount > maxBitCount)
+                throw new ArgumentOutOfRangeException(nameof(bitCount));
+
+            return TryPeek(destination, bitCount);
+        }
+
+        /// <summary>
+        /// Reads the specified number of bits without advancing the read position.
+        /// </summary>
+        public void Peek(Span<byte> destination, int bitCount)
+        {
+            if (!TryPeek(destination, bitCount))
                 throw new EndOfMessageException();
         }
 
         /// <summary>
-        /// Tries to read the specified number of bytes without advancing the read pointer.
+        /// Reads the specified number of bits,
+        /// between one and <paramref name="maxBitCount"/>, 
+        /// without advancing the read position.
         /// </summary>
-        public bool TryPeekBytes(Span<byte> span)
+        public void Peek(Span<byte> destination, int bitCount, int maxBitCount)
         {
-            return TryPeekBits(span, span.Length * 8);
-        }
-
-        /// <summary>
-        /// Reads the specified number of bytes without advancing the read pointer.
-        /// </summary>
-        public void PeekBytes(Span<byte> span)
-        {
-            if (!TryPeekBytes(span))
+            if (!TryPeek(destination, bitCount, maxBitCount))
                 throw new EndOfMessageException();
         }
 
         /// <summary>
-        /// Reads an <see cref="short"/> without advancing the read pointer.
+        /// Tries to read the specified number of bytes without advancing the read position.
+        /// </summary>
+        public bool TryPeek(Span<byte> destination)
+        {
+            if (!IsByteAligned)
+                return TryPeek(destination, destination.Length * 8);
+
+            if (!HasEnough(destination.Length))
+                return false;
+
+            Data.AsSpan(BytePosition, destination.Length).CopyTo(destination);
+            return true;
+        }
+
+        /// <summary>
+        /// Reads the specified number of bytes without advancing the read position.
+        /// </summary>
+        public void Peek(Span<byte> destination)
+        {
+            if (!TryPeek(destination))
+                throw new EndOfMessageException();
+        }
+
+        /// <summary>
+        /// Reads a 1-bit <see cref="bool"/> without advancing the read position.
+        /// </summary>
+        public bool PeekBool()
+        {
+            if (!HasEnough(1))
+                throw new EndOfMessageException();
+            return NetBitWriter.ReadByteUnchecked(Data, BitPosition, 1) > 0;
+        }
+
+        /// <summary>
+        /// Reads an <see cref="sbyte"/> without advancing the read position.
+        /// </summary>
+        [CLSCompliant(false)]
+        public sbyte PeekSByte()
+        {
+            if (!HasEnough(8))
+                throw new EndOfMessageException();
+            return (sbyte)NetBitWriter.ReadByteUnchecked(Data, BitPosition, 8);
+        }
+
+        /// <summary>
+        /// Reads a <see cref="byte"/> without advancing the read position.
+        /// </summary>
+        public byte PeekByte()
+        {
+            if (!HasEnough(8))
+                throw new EndOfMessageException();
+            return NetBitWriter.ReadByteUnchecked(Data, BitPosition, 8);
+        }
+
+        /// <summary>
+        /// Reads the specified number of bits into a <see cref="byte"/> without advancing the read position.
+        /// </summary>
+        public byte PeekByte(int bitCount)
+        {
+            if (!HasEnough(bitCount))
+                throw new EndOfMessageException();
+            return NetBitWriter.ReadByteUnchecked(Data, BitPosition, bitCount);
+        }
+
+        #region Int16
+
+        /// <summary>
+        /// Reads an <see cref="short"/> without advancing the read position.
         /// </summary>
         public short PeekInt16()
         {
-            LidgrenException.Assert(_bitLength - BitPosition >= 16, ReadOverflowError);
-            return (short)NetBitWriter.ReadUInt16(Data, 16, BitPosition);
+            Span<byte> tmp = stackalloc byte[sizeof(short)];
+            Peek(tmp);
+            return BinaryPrimitives.ReadInt16LittleEndian(tmp);
         }
 
         /// <summary>
-        /// Reads a <see cref="ushort"/> without advancing the read pointer.
+        /// Reads a <see cref="ushort"/> without advancing the read position.
         /// </summary>
         [CLSCompliant(false)]
         public ushort PeekUInt16()
         {
-            LidgrenException.Assert(_bitLength - BitPosition >= 16, ReadOverflowError);
-            return NetBitWriter.ReadUInt16(Data, 16, BitPosition);
+            Span<byte> tmp = stackalloc byte[sizeof(ushort)];
+            Peek(tmp);
+            return BinaryPrimitives.ReadUInt16LittleEndian(tmp);
         }
 
         /// <summary>
-        /// Reads an <see cref="int"/> without advancing the read pointer.
+        /// Reads the specified number of bits into an <see cref="short"/> without advancing the read position.
+        /// </summary>
+        public short PeekInt16(int bitCount)
+        {
+            Span<byte> tmp = stackalloc byte[sizeof(short)];
+            Peek(tmp, bitCount, tmp.Length * 8);
+            return BinaryPrimitives.ReadInt16LittleEndian(tmp);
+        }
+
+        /// <summary>
+        /// Reads the specified number of bits into an <see cref="ushort"/> without advancing the read position.
+        /// </summary>
+        [CLSCompliant(false)]
+        public ushort PeekUInt16(int bitCount)
+        {
+            Span<byte> tmp = stackalloc byte[sizeof(ushort)];
+            Peek(tmp, bitCount, tmp.Length * 8);
+            return BinaryPrimitives.ReadUInt16LittleEndian(tmp);
+        }
+
+        #endregion
+
+        #region Int32
+
+        /// <summary>
+        /// Reads an <see cref="int"/> without advancing the read position.
         /// </summary>
         public int PeekInt32()
         {
-            LidgrenException.Assert(_bitLength - BitPosition >= 32, ReadOverflowError);
-            return (int)NetBitWriter.ReadUInt32(Data, BitPosition, 32);
+            Span<byte> tmp = stackalloc byte[sizeof(int)];
+            Peek(tmp);
+            return BinaryPrimitives.ReadInt32LittleEndian(tmp);
         }
 
         /// <summary>
-        /// Reads the specified number of bits into an <see cref="int"/> without advancing the read pointer.
-        /// </summary>
-        public int PeekInt32(int numberOfBits)
-        {
-            LidgrenException.Assert(numberOfBits > 0 && numberOfBits <= 32, "ReadInt() can only read between 1 and 32 bits");
-            LidgrenException.Assert(_bitLength - BitPosition >= numberOfBits, ReadOverflowError);
-
-            uint retval = NetBitWriter.ReadUInt32(Data, BitPosition, numberOfBits);
-
-            if (numberOfBits == 32)
-                return (int)retval;
-
-            int signBit = 1 << (numberOfBits - 1);
-            if ((retval & signBit) == 0)
-                return (int)retval; // positive
-
-            // negative
-            unchecked
-            {
-                uint mask = ((uint)-1) >> (33 - numberOfBits);
-                uint tmp = (retval & mask) + 1;
-                return -(int)tmp;
-            }
-        }
-
-        /// <summary>
-        /// Reads a <see cref="uint"/> without advancing the read pointer.
+        /// Reads a <see cref="uint"/> without advancing the read position.
         /// </summary>
         [CLSCompliant(false)]
         public uint PeekUInt32()
         {
-            LidgrenException.Assert(_bitLength - BitPosition >= 32, ReadOverflowError);
-            return NetBitWriter.ReadUInt32(Data, BitPosition, 32);
+            Span<byte> tmp = stackalloc byte[sizeof(uint)];
+            Peek(tmp);
+            return BinaryPrimitives.ReadUInt32LittleEndian(tmp);
         }
 
         /// <summary>
-        /// Reads the specified number of bits into a <see cref="uint"/> without advancing the read pointer.
+        /// Reads the specified number of bits into an <see cref="int"/> without advancing the read position.
+        /// </summary>
+        public int PeekInt32(int bitCount)
+        {
+            Span<byte> tmp = stackalloc byte[sizeof(int)];
+            Peek(tmp, bitCount, tmp.Length * 8);
+            return BinaryPrimitives.ReadInt32LittleEndian(tmp);
+        }
+
+        /// <summary>
+        /// Reads the specified number of bits into an <see cref="uint"/> without advancing the read position.
         /// </summary>
         [CLSCompliant(false)]
-        public uint PeekUInt32(int numberOfBits)
+        public uint PeekUInt32(int bitCount)
         {
-            LidgrenException.Assert(numberOfBits > 0 && numberOfBits <= 32, "ReadUInt() can only read between 1 and 32 bits");
-            //NetException.Assert(m_bitLength - m_readBitPtr >= numberOfBits, "tried to read past buffer size");
+            Span<byte> tmp = stackalloc byte[sizeof(uint)];
+            Peek(tmp, bitCount, tmp.Length * 8);
+            return BinaryPrimitives.ReadUInt32LittleEndian(tmp);
+        }
 
-            return NetBitWriter.ReadUInt32(Data, BitPosition, numberOfBits);
+        #endregion
+
+        #region Int64
+
+        /// <summary>
+        /// Reads an <see cref="long"/> without advancing the read position.
+        /// </summary>
+        public long PeekInt64()
+        {
+            Span<byte> tmp = stackalloc byte[sizeof(long)];
+            Peek(tmp);
+            return BinaryPrimitives.ReadInt64LittleEndian(tmp);
         }
 
         /// <summary>
-        /// Reads a <see cref="ulong"/> without advancing the read pointer.
+        /// Reads a <see cref="ulong"/> without advancing the read position.
         /// </summary>
         [CLSCompliant(false)]
         public ulong PeekUInt64()
         {
-            LidgrenException.Assert(_bitLength - BitPosition >= 64, ReadOverflowError);
-
-            ulong low = NetBitWriter.ReadUInt32(Data, BitPosition, 32);
-            ulong high = NetBitWriter.ReadUInt32(Data, BitPosition + 32, 32);
-
-            return low + (high << 32);
+            Span<byte> tmp = stackalloc byte[sizeof(ulong)];
+            Peek(tmp);
+            return BinaryPrimitives.ReadUInt64LittleEndian(tmp);
         }
 
         /// <summary>
-        /// Reads an <see cref="long"/> without advancing the read pointer.
+        /// Reads the specified number of bits into an <see cref="long"/> without advancing the read position.
         /// </summary>
-        public long PeekInt64()
+        public long PeekInt64(int bitCount)
         {
-            LidgrenException.Assert(_bitLength - BitPosition >= 64, ReadOverflowError);
-            unchecked
-            {
-                return (long)PeekUInt64();
-            }
+            Span<byte> tmp = stackalloc byte[sizeof(long)];
+            Peek(tmp, bitCount, tmp.Length * 8);
+            return BinaryPrimitives.ReadInt64LittleEndian(tmp);
         }
 
         /// <summary>
-        /// Reads the specified number of bits into an <see cref="ulong"/> without advancing the read pointer.
+        /// Reads the specified number of bits into an <see cref="ulong"/> without advancing the read position.
         /// </summary>
         [CLSCompliant(false)]
-        public ulong PeekUInt64(int numberOfBits)
+        public ulong PeekUInt64(int bitCount)
         {
-            LidgrenException.Assert(numberOfBits > 0 && numberOfBits <= 64, "ReadUInt() can only read between 1 and 64 bits");
-            LidgrenException.Assert(_bitLength - BitPosition >= numberOfBits, ReadOverflowError);
-
-            if (numberOfBits <= 32)
-            {
-                return NetBitWriter.ReadUInt32(Data, BitPosition, numberOfBits);
-            }
-            else
-            {
-                uint v1 = NetBitWriter.ReadUInt32(Data, BitPosition, 32);
-                uint v2 = NetBitWriter.ReadUInt32(Data, BitPosition, numberOfBits - 32);
-                return (ulong)(v1 | ((long)v2 << 32));
-            }
+            Span<byte> tmp = stackalloc byte[sizeof(ulong)];
+            Peek(tmp, bitCount, tmp.Length * 8);
+            return BinaryPrimitives.ReadUInt64LittleEndian(tmp);
         }
 
+        #endregion
+
+        #region VarInt 
+
         /// <summary>
-        /// Reads the specified number of bits into an <see cref="long"/> without advancing the read pointer.
+        /// Tries to read a variable sized <see cref="uint"/> without advancing the read position.
         /// </summary>
-        public long PeekInt64(int numberOfBits)
+        [CLSCompliant(false)]
+        public OperationStatus PeekVarUInt32(out uint result)
         {
-            LidgrenException.Assert((numberOfBits > 0) && (numberOfBits < 65), "ReadInt64(bits) can only read between 1 and 64 bits");
-            return (long)PeekUInt64(numberOfBits);
+            return NetBitWriter.ReadVarUInt32(this, peek: true, out result);
         }
 
         /// <summary>
-        /// Reads a 32-bit <see cref="float"/> without advancing the read pointer.
+        /// Tries to read a variable sized <see cref="ulong"/> without advancing the read position.
+        /// </summary>
+        [CLSCompliant(false)]
+        public OperationStatus PeekVarUInt64(out ulong result)
+        {
+            return NetBitWriter.ReadVarUInt64(this, peek: true, out result);
+        }
+
+        [CLSCompliant(false)]
+        public uint PeekVarUInt32()
+        {
+            var status = PeekVarUInt32(out uint value);
+            if (status == OperationStatus.Done)
+                return value;
+
+            if (status == OperationStatus.NeedMoreData)
+                throw new EndOfMessageException();
+
+            return default;
+        }
+
+        [CLSCompliant(false)]
+        public ulong PeekVarUInt64()
+        {
+            var status = PeekVarUInt64(out ulong value);
+            if (status == OperationStatus.Done)
+                return value;
+
+            if (status == OperationStatus.NeedMoreData)
+                throw new EndOfMessageException();
+
+            return default;
+        }
+
+        /// <summary>
+        /// Reads a variable sized <see cref="int"/> written by <see cref="WriteVar(int)"/>.
+        /// </summary>
+        public int PeekVarInt32()
+        {
+            uint n = PeekVarUInt32();
+            return (int)(n >> 1) ^ -(int)(n & 1); // decode zigzag
+        }
+
+        /// <summary>
+        /// Reads a variable sized <see cref="long"/> written by <see cref="WriteVar(long)"/>.
+        /// </summary>
+        public long PeekVarInt64()
+        {
+            ulong n = PeekVarUInt64();
+            return (long)(n >> 1) ^ -(long)(n & 1); // decode zigzag
+        }
+
+
+        #endregion
+
+        #region Float
+
+        /// <summary>
+        /// Reads a 32-bit <see cref="float"/> without advancing the read position.
         /// </summary>
         public float PeekSingle()
         {
-            LidgrenException.Assert(_bitLength - BitPosition >= 32, ReadOverflowError);
-
-            if ((BitPosition & 7) == 0) // read directly
-                return BitConverter.ToSingle(Data, BitPosition >> 3);
-
-            byte[] bytes = PeekBytes(4);
-            return BitConverter.ToSingle(bytes, 0);
+            int intValue = PeekInt32();
+            return BitConverter.Int32BitsToSingle(intValue);
         }
 
         /// <summary>
-        /// Reads a 64-bit <see cref="double"/> without advancing the read pointer.
+        /// Reads a 64-bit <see cref="double"/> without advancing the read position.
         /// </summary>
         public double PeekDouble()
         {
-            LidgrenException.Assert(_bitLength - BitPosition >= 64, ReadOverflowError);
-
-            if ((BitPosition & 7) == 0) // read directly
-                return BitConverter.ToDouble(Data, BitPosition >> 3);
-
-            byte[] bytes = PeekBytes(8);
-            return BitConverter.ToDouble(bytes, 0);
+            long intValue = PeekInt64();
+            return BitConverter.Int64BitsToDouble(intValue);
         }
 
+        #endregion
+
         /// <summary>
-        /// Reads a <see cref="string"/> without advancing the read pointer.
+        /// Reads a <see cref="string"/> without advancing the read position.
         /// </summary>
         public string PeekString()
         {
-            int wasReadPosition = BitPosition;
+            int lastPosition = BitPosition;
             string str = ReadString();
-            BitPosition = wasReadPosition;
+            BitPosition = lastPosition;
             return str;
         }
 
         /// <summary>
-        /// Reads a <see cref="TimeSpan"/> without advancing the read pointer.
+        /// Reads a <see cref="TimeSpan"/> without advancing the read position.
         /// </summary>
         public TimeSpan PeekTimeSpan()
         {
@@ -295,7 +388,7 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Reads an enum of type <typeparamref name="TEnum"/> without advancing the read pointer.
+        /// Reads an enum of type <typeparamref name="TEnum"/> without advancing the read position.
         /// </summary>
         public TEnum PeekEnum<TEnum>()
             where TEnum : Enum

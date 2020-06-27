@@ -15,9 +15,9 @@ namespace Lidgren.Network
 
         private NetBitVector m_receivedAcks;
 
-        internal override int WindowSize => m_windowSize;
+        public override int WindowSize => m_windowSize;
 
-        internal NetUnreliableSenderChannel(NetConnection connection, int windowSize)
+        public NetUnreliableSenderChannel(NetConnection connection, int windowSize)
         {
             m_connection = connection;
             m_windowSize = windowSize;
@@ -26,14 +26,14 @@ namespace Lidgren.Network
             m_receivedAcks = new NetBitVector(NetConstants.NumSequenceNumbers);
         }
 
-        internal override int GetAllowedSends()
+        public override int GetAllowedSends()
         {
             int retval = m_windowSize - (m_sendStart + NetConstants.NumSequenceNumbers - m_windowStart) % m_windowSize;
             LidgrenException.Assert(retval >= 0 && retval <= m_windowSize);
             return retval;
         }
 
-        internal override void Reset()
+        public override void Reset()
         {
             m_receivedAcks.Clear();
             QueuedSends.Clear();
@@ -41,7 +41,7 @@ namespace Lidgren.Network
             m_sendStart = 0;
         }
 
-        internal override NetSendResult Enqueue(NetOutgoingMessage message)
+        public override NetSendResult Enqueue(NetOutgoingMessage message)
         {
             int queueLen = QueuedSends.Count + 1;
             int left = GetAllowedSends();
@@ -58,7 +58,7 @@ namespace Lidgren.Network
         }
 
         // call this regularely
-        internal override void SendQueuedMessages(TimeSpan now)
+        public override void SendQueuedMessages(TimeSpan now)
         {
             int num = GetAllowedSends();
             if (num < 1)
@@ -88,10 +88,10 @@ namespace Lidgren.Network
 
             return;
         }
-        
+
         // remoteWindowStart is remote expected sequence number; everything below this has arrived properly
         // seqNr is the actual nr received
-        internal override void ReceiveAcknowledge(TimeSpan now, int seqNr)
+        public override void ReceiveAcknowledge(TimeSpan now, int seqNr)
         {
             // late (dupe), on time or early ack?
             int relate = NetUtility.RelativeSequenceNumber(seqNr, m_windowStart);

@@ -8,29 +8,6 @@ namespace UnitTests
 {
     class Program
     {
-        public static unsafe string ToHexString(ReadOnlySpan<byte> data)
-        {
-            // TODO: pass Span directly, not now as ref-structs are not supported by generics
-
-            fixed (byte* dataPtr = data)
-            {
-                return string.Create(data.Length * 2, (IntPtr)dataPtr, (dst, srcPtr) =>
-                {
-                    var src = new ReadOnlySpan<byte>((byte*)srcPtr, dst.Length / 2);
-
-                    for (int i = 0; i < dst.Length / 2; i++)
-                    {
-                        int value = src[i];
-
-                        int a = value >> 4;
-                        dst[i * 2 + 0] = (char)(a > 9 ? a + 0x37 : a + 0x30);
-
-                        int b = value & 0xF;
-                        dst[i * 2 + 1] = (char)(b > 9 ? b + 0x37 : b + 0x30);
-                    }
-                });
-            }
-        }
         static void Main(string[] args)
         {
             //Span<byte> src = new byte[3] { 254, 255, 255 };
@@ -49,6 +26,7 @@ namespace UnitTests
             //Console.WriteLine(r);
 
             var config = new NetPeerConfiguration("unittests");
+            config.EnableMessageType(NetIncomingMessageType.UnconnectedData);
             config.EnableUPnP = true;
 
             var peer = new NetPeer(config);
@@ -64,13 +42,13 @@ namespace UnitTests
 
             BitVectorTests.Run();
 
-            EncryptionTests.Run(peer);
+            //EncryptionTests.Run(peer);
 
-            var om = peer.CreateMessage();
-            peer.SendUnconnectedMessage(om, new IPEndPoint(IPAddress.Loopback, 14242));
+            var om = peer.CreateMessage("henlo from myself");
+            peer.SendUnconnectedMessage(om, new IPEndPoint(IPAddress.Loopback, peer.Port));
             try
             {
-                peer.SendUnconnectedMessage(om, new IPEndPoint(IPAddress.Loopback, 14242));
+                peer.SendUnconnectedMessage(om, new IPEndPoint(IPAddress.Loopback, peer.Port));
 
                 Console.WriteLine(nameof(CannotResendException) + " check failed");
             }
@@ -80,7 +58,9 @@ namespace UnitTests
             }
 
             // read all message
-            while (peer.TryReadMessage(10000, out var message))
+            while (
+                peer.TryReadMessage(out var message) ||
+                peer.TryReadMessage(10000, out message))
             {
                 switch (message.MessageType)
                 {
@@ -93,6 +73,18 @@ namespace UnitTests
 
                     case NetIncomingMessageType.Error:
                         throw new Exception("Received error message!");
+
+                    case NetIncomingMessageType.Data:
+                        Console.WriteLine("Data: " + message.ReadString());
+                        break;
+
+                    case NetIncomingMessageType.UnconnectedData:
+                        Console.WriteLine("UnconnectedData: " + message.ReadString());
+                        break;
+
+                    default:
+                        Console.WriteLine(message.MessageType);
+                        break;
                 }
             }
 

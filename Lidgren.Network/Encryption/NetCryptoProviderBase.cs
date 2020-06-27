@@ -7,6 +7,8 @@ namespace Lidgren.Network
     public abstract class NetCryptoProviderBase : NetEncryption
     {
         // TODO: cache ICryptoTransform
+        // TODO: optimize by not creating a new MemoryStream for every call (possibly with span)
+
 
         [CLSCompliant(false)]
         protected SymmetricAlgorithm Algorithm { get; private set; }
@@ -44,11 +46,11 @@ namespace Lidgren.Network
 
             int length = (int)ms.Length;
 
-            message.EnsureBufferSize((length + 4) * 8);
-            message.BitLength = 0; // reset write pointer
+            message.BitPosition = 0;
+            message.EnsureCapacity((length + 4) * 8);
             message.Write((uint)unEncLenBits);
             message.Write(ms.GetBuffer().AsSpan(0, length));
-            message.BitLength = (length + 4) * 8;
+            message.ByteLength = length + 4;
 
             return true;
         }
@@ -59,7 +61,7 @@ namespace Lidgren.Network
                 throw new ArgumentNullException(nameof(message));
 
             int unEncLenBits = (int)message.ReadUInt32();
-            int byteLen = NetUtility.ByteCountForBits(unEncLenBits);
+            int byteLen = NetBitWriter.ByteCountForBits(unEncLenBits);
             var result = Peer.GetStorage(byteLen);
 
             var ms = new MemoryStream(message.Data, 4, message.ByteLength - 4);

@@ -2,26 +2,23 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
-using System.Text;
 
 namespace Lidgren.Network
 {
     public partial class NetBuffer
     {
-        // TODO: move into config
-        public static Encoding StringEncoding { get; } = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false);
-
         /// <summary>
         /// Number of extra bytes to overallocate for message buffers to avoid resizing.
         /// </summary>
         // TODO: move into config
-        protected const int ExtraGrowAmount = 8;
+        protected const int ExtraGrowAmount = 32;
 
         // TODO: optimize reflection
 
         private static Dictionary<Type, MethodInfo> ReadMethods { get; } = new Dictionary<Type, MethodInfo>();
         private static Dictionary<Type, MethodInfo> WriteMethods { get; } = new Dictionary<Type, MethodInfo>();
 
+        private int _bitPosition;
         private int _bitLength;
 
         /// <summary>
@@ -33,12 +30,16 @@ namespace Lidgren.Network
         /// <summary>
         /// Gets or sets the position within the buffer in bits.
         /// </summary>
-        public int BitPosition { get; set; }
-
-        /// <summary>
-        /// Gets whether <see cref="BitPosition"/> is byte-aligned and contains no stray bits.
-        /// </summary>
-        public bool IsByteAligned => BitPosition % 8 == 0;
+        public int BitPosition
+        {
+            get => _bitPosition;
+            set
+            {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException(nameof(value));
+                _bitPosition = value;
+            }
+        }
 
         /// <summary>
         /// Gets the position within the buffer in bytes.
@@ -50,6 +51,11 @@ namespace Lidgren.Network
         public int BytePosition => BitPosition / 8;
 
         /// <summary>
+        /// Gets whether <see cref="BitPosition"/> is byte-aligned and contains no stray bits.
+        /// </summary>
+        public bool IsByteAligned => BitPosition % 8 == 0;
+
+        /// <summary>
         /// Gets or sets the length of the used portion of the buffer in bits.
         /// </summary>
         public int BitLength
@@ -57,8 +63,11 @@ namespace Lidgren.Network
             get => _bitLength;
             set
             {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException(nameof(value));
+                if (value > BitCapacity)
+                    throw new ArgumentOutOfRangeException(nameof(value));
                 _bitLength = value;
-                EnsureBufferSize(_bitLength, 0);
             }
         }
 
@@ -67,11 +76,37 @@ namespace Lidgren.Network
         /// </summary>
         public int ByteLength
         {
-            get => (_bitLength + 7) / 8;
+            get => NetBitWriter.ByteCountForBits(_bitLength);
             set
             {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException(nameof(value));
+                if (value > ByteCapacity)
+                    throw new ArgumentOutOfRangeException(nameof(value));
                 _bitLength = value * 8;
-                EnsureBufferSize(_bitLength, 0);
+            }
+        }
+
+        public int BitCapacity 
+        { 
+            get => Data.Length * 8;
+            set => ByteCapacity = NetBitWriter.ByteCountForBits(value);
+        }
+
+        public int ByteCapacity
+        {
+            get => Data.Length;
+            set
+            {
+                if (value < 0)
+                    throw new ArgumentOutOfRangeException(nameof(value));
+
+                if (Data.Length != value)
+                {
+                    var newBuffer = new byte[value];
+                    Data.AsMemory(0, ByteLength).CopyTo(newBuffer);
+                    Data = newBuffer;
+                }
             }
         }
 
@@ -96,6 +131,12 @@ namespace Lidgren.Network
                         WriteMethods[pis[0].ParameterType] = method;
                 }
             }
+        }
+
+        public void SetLengthByPosition()
+        {
+            if (_bitLength < _bitPosition)
+                _bitLength = _bitPosition;
         }
     }
 }

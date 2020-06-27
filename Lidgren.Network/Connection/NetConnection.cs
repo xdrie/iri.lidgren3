@@ -24,7 +24,7 @@ namespace Lidgren.Network
         private int _sendBufferWritePtr;
         private int _sendBufferNumMessages;
         internal NetPeerConfiguration _peerConfiguration;
-        internal NetConnectionStatus _status;
+        internal NetConnectionStatus _internalStatus;
         internal NetSenderChannel[] _sendChannels;
         internal NetReceiverChannel[] _receiveChannels;
         internal NetQueue<(NetMessageType Type, int SequenceNumber)> _queuedOutgoingAcks;
@@ -86,7 +86,7 @@ namespace Lidgren.Network
         {
             Peer = peer;
             _peerConfiguration = Peer.Configuration;
-            _status = NetConnectionStatus.None;
+            _internalStatus = NetConnectionStatus.None;
             Status = NetConnectionStatus.None;
             RemoteEndPoint = remoteEndPoint;
             _sendChannels = new NetSenderChannel[NetConstants.NumTotalChannels];
@@ -111,14 +111,14 @@ namespace Lidgren.Network
         {
             // user or library thread
 
-            if (status == _status)
+            if (status == _internalStatus)
                 return;
-            _status = status;
+            _internalStatus = status;
 
             if (reason == null)
                 reason = string.Empty;
 
-            if (_status == NetConnectionStatus.Connected)
+            if (_internalStatus == NetConnectionStatus.Connected)
             {
                 _timeoutDeadline = NetTime.Now + _peerConfiguration._connectionTimeout;
                 Peer.LogVerbose("Timeout deadline initialized to  " + _timeoutDeadline);
@@ -131,14 +131,14 @@ namespace Lidgren.Network
 
                 info.SenderConnection = this;
                 info.SenderEndPoint = RemoteEndPoint;
-                info.Write(_status);
+                info.Write(_internalStatus);
                 info.Write(reason);
                 Peer.ReleaseMessage(info);
             }
             else
             {
                 // app dont want those messages, update visible status immediately
-                Status = _status;
+                Status = _internalStatus;
             }
         }
 
@@ -147,8 +147,8 @@ namespace Lidgren.Network
             Peer.AssertIsOnLibraryThread();
 
             LidgrenException.Assert(
-                _status != NetConnectionStatus.InitiatedConnect &&
-                _status != NetConnectionStatus.RespondedConnect);
+                _internalStatus != NetConnectionStatus.InitiatedConnect &&
+                _internalStatus != NetConnectionStatus.RespondedConnect);
 
             if ((frameCounter % InfrequentEventsSkipFrames) == 0)
             {
@@ -163,7 +163,7 @@ namespace Lidgren.Network
                 }
 
                 // send ping?
-                if (_status == NetConnectionStatus.Connected)
+                if (_internalStatus == NetConnectionStatus.Connected)
                 {
                     if (now > _sentPingTime + Peer.Configuration._pingInterval)
                         SendPing();
@@ -326,7 +326,7 @@ namespace Lidgren.Network
         internal NetSendResult EnqueueMessage(
             NetOutgoingMessage message, NetDeliveryMethod method, int sequenceChannel)
         {
-            if (_status != NetConnectionStatus.Connected)
+            if (_internalStatus != NetConnectionStatus.Connected)
                 return NetSendResult.FailedNotConnected;
 
             var tp = (NetMessageType)((int)method + sequenceChannel);

@@ -70,10 +70,10 @@ namespace Lidgren.Network
                 destination[offset++] = (byte)BitLength;
                 destination[offset++] = (byte)(BitLength >> 8);
 
-                int byteLen = NetUtility.ByteCountForBits(BitLength);
+                int byteLen = NetBitWriter.ByteCountForBits(BitLength);
                 if (byteLen > 0)
                 {
-                    System.Buffer.BlockCopy(Data, 0, destination, offset, byteLen);
+                    Buffer.BlockCopy(Data, 0, destination, offset, byteLen);
                     offset += byteLen;
                 }
             }
@@ -96,7 +96,7 @@ namespace Lidgren.Network
                 destination[offsetBase] = (byte)realBitLength;
                 destination[offsetBase + 1] = (byte)(realBitLength >> 8);
 
-                int byteLen = NetUtility.ByteCountForBits(BitLength);
+                int byteLen = NetBitWriter.ByteCountForBits(BitLength);
                 if (byteLen > 0)
                 {
                     Buffer.BlockCopy(

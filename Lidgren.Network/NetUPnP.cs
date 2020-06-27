@@ -115,7 +115,7 @@ namespace Lidgren.Network
             catch (Exception exc)
             {
                 Status = UPnPStatus.NotAvailable;
-                m_peer.LogVerbose("Exception ignored trying to parse UPnP XML response: " + exc);
+                Peer.LogVerbose("Exception ignored trying to parse UPnP XML response: " + exc);
             }
 #endif
         }

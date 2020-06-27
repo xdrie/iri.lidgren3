@@ -20,8 +20,8 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 using System;
 using System.Net;
-using System.Text;
 using System.Buffers.Binary;
+using System.Text.Unicode;
 
 namespace Lidgren.Network
 {
@@ -32,27 +32,30 @@ namespace Lidgren.Network
         /// <summary>
         /// Ensures the buffer can hold this number of bits with overallocating.
         /// </summary>
-        internal void EnsureBufferSize(int bitCount, int extraByteGrowSize)
+        internal void ExpandCapacity(int bitCount, int extraByteGrowSize)
         {
-            int byteLength = (bitCount + 7) / 8;
-
+            int byteLength = NetBitWriter.ByteCountForBits(bitCount);
             if (Data == null || Data.Length < byteLength)
-            {
-                var newBuffer = new byte[byteLength + extraByteGrowSize];
-                Data.AsMemory(0, ByteLength).CopyTo(newBuffer);
-                Data = newBuffer;
-            }
+                ByteCapacity = byteLength + extraByteGrowSize;
         }
 
         /// <summary>
         /// Ensures the buffer can hold this number of bits.
         /// </summary>
-        public void EnsureBufferSize(int bitCount)
+        public void EnsureCapacity(int bitCount)
         {
-            EnsureBufferSize(bitCount, ExtraGrowAmount);
+            ExpandCapacity(bitCount, ExtraGrowAmount);
         }
 
-        internal void ExpandBufferSize(int bitCount, int maxBitCount)
+        /// <summary>
+        /// Ensures the buffer can hold it's current bits and the given amount.
+        /// </summary>
+        public void EnsureEnoughCapacity(int bitCount)
+        {
+            EnsureCapacity(BitLength + bitCount);
+        }
+
+        public void EnsureEnoughCapacity(int bitCount, int maxBitCount)
         {
             if (bitCount < 1)
                 throw new ArgumentOutOfRangeException(nameof(bitCount));
@@ -60,50 +63,29 @@ namespace Lidgren.Network
             if (bitCount > maxBitCount)
                 throw new ArgumentOutOfRangeException(nameof(bitCount));
 
-            EnsureBufferSize(_bitLength + bitCount);
-        }
-
-        /// <summary>
-        /// Writes an amount of bits from a span into a specified part of the buffer.
-        /// </summary>
-        public void WriteBitsAt(ReadOnlySpan<byte> source, int sourceBitOffset, int bitCount, int destinationBitOffset)
-        {
-            if (source.IsEmpty)
-                return;
-
-            int newBitLength = Math.Max(_bitLength, destinationBitOffset + 16);
-            EnsureBufferSize(newBitLength);
-            NetBitWriter.CopyBits(source, sourceBitOffset, bitCount, Data, destinationBitOffset);
-            _bitLength = newBitLength;
-        }
-
-        /// <summary>
-        /// Writes an amount of bits from a span into a specified part of the buffer.
-        /// </summary>
-        public void WriteBitsAt(ReadOnlySpan<byte> source, int bitCount, int destinationBitOffset)
-        {
-            WriteBitsAt(source, 0, bitCount, destinationBitOffset);
+            EnsureEnoughCapacity(bitCount);
         }
 
         /// <summary>
         /// Writes a certain amount of bits from a span.
         /// </summary>
-        public void WriteBits(ReadOnlySpan<byte> source, int sourceBitOffset, int bitCount)
+        public void Write(ReadOnlySpan<byte> source, int sourceBitOffset, int bitCount)
         {
             if (source.IsEmpty)
                 return;
 
-            EnsureBufferSize(_bitLength + bitCount);
-            NetBitWriter.CopyBits(source, sourceBitOffset, bitCount, Data, _bitLength);
-            _bitLength += bitCount;
+            EnsureEnoughCapacity(bitCount);
+            NetBitWriter.CopyBits(source, sourceBitOffset, bitCount, Data, BitPosition);
+            BitPosition += bitCount;
+            SetLengthByPosition();
         }
 
         /// <summary>
         /// Writes a certain amount of bits from a span.
         /// </summary>
-        public void WriteBits(ReadOnlySpan<byte> source, int bitCount)
+        public void Write(ReadOnlySpan<byte> source, int bitCount)
         {
-            WriteBits(source, 0, bitCount);
+            Write(source, 0, bitCount);
         }
 
         /// <summary>
@@ -111,41 +93,72 @@ namespace Lidgren.Network
         /// </summary>
         public void Write(ReadOnlySpan<byte> source)
         {
-            WriteBits(source, source.Length * 8);
+            if (!IsByteAligned)
+            {
+                Write(source, source.Length * 8);
+                return;
+            }
+
+            EnsureEnoughCapacity(source.Length * 8);
+            source.CopyTo(Data.AsSpan(BytePosition));
+            BitPosition += source.Length * 8;
+            SetLengthByPosition();
         }
 
-        #region Write(value)
+        #region Bool
 
         /// <summary>
         /// Writes a <see cref="bool"/> value using 1 bit.
         /// </summary>
         public void Write(bool value)
         {
-            EnsureBufferSize(_bitLength + 1);
-            NetBitWriter.WriteByteUnchecked(value ? 1 : 0, 1, Data, _bitLength);
-            _bitLength += 1;
+            EnsureEnoughCapacity(1);
+            NetBitWriter.WriteByteUnchecked(value ? 1 : 0, 1, Data, BitPosition);
+            BitPosition += 1;
+            SetLengthByPosition();
         }
+
+        #endregion
+
+        #region Int8
 
         /// <summary>
         /// Writes a <see cref="sbyte"/>.
         /// </summary>
         [CLSCompliant(false)]
-        public void Write(sbyte source)
+        public void Write(sbyte value)
         {
-            EnsureBufferSize(_bitLength + 8);
-            NetBitWriter.WriteByteUnchecked((byte)source, 8, Data, _bitLength);
-            _bitLength += 8;
+            EnsureEnoughCapacity(8);
+            NetBitWriter.WriteByteUnchecked((byte)value, 8, Data, BitPosition);
+            BitPosition += 8;
+            SetLengthByPosition();
         }
 
         /// <summary>
         /// Write a <see cref="byte"/>.
         /// </summary>
-        public void Write(byte source)
+        public void Write(byte value)
         {
-            EnsureBufferSize(_bitLength + 8);
-            NetBitWriter.WriteByteUnchecked(source, 8, Data, _bitLength);
-            _bitLength += 8;
+            EnsureEnoughCapacity(8);
+            NetBitWriter.WriteByteUnchecked(value, 8, Data, BitPosition);
+            BitPosition += 8;
+            SetLengthByPosition();
         }
+
+        /// <summary>
+        /// Writes a <see cref="byte"/> using 1 to 8 bits.
+        /// </summary>
+        public void Write(byte source, int bitCount)
+        {
+            EnsureEnoughCapacity(bitCount, 8);
+            NetBitWriter.WriteByteUnchecked(source, bitCount, Data, BitPosition);
+            BitPosition += bitCount;
+            SetLengthByPosition();
+        }
+
+        #endregion
+
+        #region Int16
 
         /// <summary>
         /// Writes a 16-bit <see cref="short"/>.
@@ -154,7 +167,7 @@ namespace Lidgren.Network
         {
             Span<byte> tmp = stackalloc byte[sizeof(short)];
             BinaryPrimitives.WriteInt16LittleEndian(tmp, value);
-            WriteBits(tmp, 0, tmp.Length * 8);
+            Write(tmp);
         }
 
         /// <summary>
@@ -165,8 +178,13 @@ namespace Lidgren.Network
         public void Write(ushort value)
         {
             Span<byte> tmp = stackalloc byte[sizeof(ushort)];
-            WriteBits(tmp, 0, tmp.Length * 8);
+            BinaryPrimitives.WriteUInt16LittleEndian(tmp, value);
+            Write(tmp);
         }
+
+        #endregion
+
+        #region Int32
 
         /// <summary>
         /// Writes a 32-bit <see cref="int"/>.
@@ -175,7 +193,7 @@ namespace Lidgren.Network
         {
             Span<byte> tmp = stackalloc byte[sizeof(int)];
             BinaryPrimitives.WriteInt32LittleEndian(tmp, value);
-            WriteBits(tmp, 0, tmp.Length * 8);
+            Write(tmp);
         }
 
         /// <summary>
@@ -186,8 +204,12 @@ namespace Lidgren.Network
         {
             Span<byte> tmp = stackalloc byte[sizeof(uint)];
             BinaryPrimitives.WriteUInt32LittleEndian(tmp, value);
-            WriteBits(tmp, 0, tmp.Length * 8);
+            Write(tmp);
         }
+
+        #endregion
+
+        #region Int64
 
         /// <summary>
         /// Writes a 64-bit <see cref="long"/>.
@@ -196,7 +218,7 @@ namespace Lidgren.Network
         {
             Span<byte> tmp = stackalloc byte[sizeof(long)];
             BinaryPrimitives.WriteInt64LittleEndian(tmp, value);
-            WriteBits(tmp, 0, tmp.Length * 8);
+            Write(tmp);
         }
 
         /// <summary>
@@ -207,8 +229,12 @@ namespace Lidgren.Network
         {
             Span<byte> tmp = stackalloc byte[sizeof(ulong)];
             BinaryPrimitives.WriteUInt64LittleEndian(tmp, value);
-            WriteBits(tmp, 0, tmp.Length * 8);
+            Write(tmp);
         }
+
+        #endregion
+
+        #region Float
 
         /// <summary>
         /// Writes a 32-bit <see cref="float"/>.
@@ -230,169 +256,106 @@ namespace Lidgren.Network
 
         #endregion
 
-        #region WriteAt(bitOffset, value)
-
-        /// <summary>
-        /// Writes a 16-bit <see cref="uint"/> at a given offset in the buffer.
-        /// </summary>
-        [CLSCompliant(false)]
-        public void WriteAt(int bitOffset, ushort source)
-        {
-            int newBitLength = Math.Max(_bitLength, bitOffset + 16);
-            EnsureBufferSize(newBitLength);
-            NetBitWriter.WriteUInt16(source, 16, Data, bitOffset);
-            _bitLength = newBitLength;
-        }
-
-        #endregion
-
-        /// <summary>
-        /// Writes a <see cref="byte"/> using 1 to 8 bits.
-        /// </summary>
-        public void Write(byte source, int bitCount)
-        {
-            ExpandBufferSize(bitCount, 8);
-            // call the unchecked write as we check beforehand
-            NetBitWriter.WriteByteUnchecked(source, bitCount, Data, _bitLength);
-            _bitLength += bitCount;
-        }
-
         /// <summary>
         /// Writes an unsigned <see cref="ushort"/> using 1 to 16 bits.
         /// </summary>
         [CLSCompliant(false)]
-        public void Write(ushort source, int bitCount)
+        public void Write(ushort value, int bitCount)
         {
-            ExpandBufferSize(bitCount, 16);
-            NetBitWriter.WriteUInt16(source, bitCount, Data, _bitLength);
-            _bitLength += bitCount;
-        }
-
-        /// <summary>
-        /// Writes a 16-bit <see cref="short"/> at a given bit offset in the buffer.
-        /// </summary>
-        public void WriteAt(int offset, short value)
-        {
-            int newBitLength = Math.Max(_bitLength, offset + 16);
-            EnsureBufferSize(newBitLength);
-            NetBitWriter.WriteUInt16((ushort)value, 16, Data, offset);
-            _bitLength = newBitLength;
-        }
-
-        /// <summary>
-        /// Writes a 32-bit <see cref="int"/> at a given bit offset in the buffer.
-        /// </summary>
-        public void WriteAt(int bitOffset, int value)
-        {
-            int newBitLength = Math.Max(_bitLength, bitOffset + 32);
-            EnsureBufferSize(newBitLength);
-            NetBitWriter.WriteUInt32((uint)value, 32, Data, bitOffset);
-            _bitLength = newBitLength;
-        }
-
-        /// <summary>
-        /// Writes a 32-bit <see cref="uint"/> at a given offset in the buffer.
-        /// </summary>
-        [CLSCompliant(false)]
-        public void WriteAt(int offset, uint source)
-        {
-            int newBitLength = Math.Max(_bitLength, offset + 32);
-            EnsureBufferSize(newBitLength);
-            NetBitWriter.WriteUInt32(source, 32, Data, offset);
-            _bitLength = newBitLength;
+            Span<byte> tmp = stackalloc byte[sizeof(ushort)];
+            BinaryPrimitives.WriteUInt16LittleEndian(tmp, value);
+            Write(tmp, bitCount);
         }
 
         /// <summary>
         /// Writes a <see cref="uint"/> using 1 to 32 bits.
         /// </summary>
         [CLSCompliant(false)]
-        public void Write(uint source, int bitCount)
+        public void Write(uint value, int bitCount)
         {
-            ExpandBufferSize(bitCount, 32);
-            NetBitWriter.WriteUInt32(source, bitCount, Data, _bitLength);
-            _bitLength += bitCount;
+            Span<byte> tmp = stackalloc byte[sizeof(uint)];
+            BinaryPrimitives.WriteUInt32LittleEndian(tmp, value);
+            Write(tmp, bitCount);
         }
 
         /// <summary>
         /// Writes a <see cref="int"/> using 1 to 32 bits.
         /// </summary>
-        public void Write(int source, int bitCount)
+        public void Write(int value, int bitCount)
         {
-            ExpandBufferSize(bitCount, 32);
-
-            if (bitCount != 32)
+            Span<byte> tmp = stackalloc byte[sizeof(int)];
+            if (bitCount != tmp.Length * 8)
             {
                 // make first bit sign
                 int signBit = 1 << (bitCount - 1);
-                if (source < 0)
-                    source = (-source - 1) | signBit;
+                if (value < 0)
+                    value = (-value - 1) | signBit;
                 else
-                    source &= ~signBit;
+                    value &= ~signBit;
             }
 
-            Span<byte> tmp = stackalloc byte[sizeof(int)];
-            BinaryPrimitives.WriteInt32LittleEndian(tmp, source);
-            WriteBits(tmp, bitCount);
-        }
-
-        /// <summary>
-        /// Writes a 64-bit <see cref="ulong"/> at a given offset in the buffer.
-        /// </summary>
-        [CLSCompliant(false)]
-        public void WriteAt(int offset, ulong source)
-        {
-            int newBitLength = Math.Max(_bitLength, offset + 64);
-            EnsureBufferSize(newBitLength);
-            NetBitWriter.WriteUInt64(source, 64, Data, offset);
-            _bitLength = newBitLength;
+            BinaryPrimitives.WriteInt32LittleEndian(tmp, value);
+            Write(tmp, bitCount);
         }
 
         /// <summary>
         /// Writes an <see cref="ulong"/> using 1 to 64 bits
         /// </summary>
         [CLSCompliant(false)]
-        public void Write(ulong source, int bitCount)
+        public void Write(ulong value, int bitCount)
         {
-            ExpandBufferSize(bitCount, 64);
-            NetBitWriter.WriteUInt64(source, bitCount, Data, _bitLength);
-            _bitLength += bitCount;
+            Span<byte> tmp = stackalloc byte[sizeof(ulong)];
+            BinaryPrimitives.WriteUInt64LittleEndian(tmp, value);
+            Write(tmp, bitCount);
         }
 
         /// <summary>
         /// Writes a <see cref="long"/> using 1 to 64 bits.
         /// </summary>
-        public void Write(long source, int bitCount)
+        public void Write(long value, int bitCount)
         {
-            ExpandBufferSize(bitCount, 64);
-            ulong usource = (ulong)source;
-            NetBitWriter.WriteUInt64(usource, bitCount, Data, _bitLength);
-            _bitLength += bitCount;
+            Span<byte> tmp = stackalloc byte[sizeof(long)];
+            if (bitCount != tmp.Length * 8)
+            {
+                // make first bit sign
+                long signBit = 1 << (bitCount - 1);
+                if (value < 0)
+                    value = (-value - 1) | signBit;
+                else
+                    value &= ~signBit;
+            }
+
+            BinaryPrimitives.WriteInt64LittleEndian(tmp, value);
+            Write(tmp, bitCount);
         }
 
-        #region WriteVar
+        #region VarInt
 
         /// <summary>
-        /// Write Base128 encoded variable sized <see cref="ulong"/> of up to 64 bits.
+        /// Write variable sized <see cref="ulong"/>.
         /// </summary>
         /// <returns>Amount of bytes written.</returns>
         [CLSCompliant(false)]
         public int WriteVar(ulong value)
         {
-            int retval = 1;
-            ulong num1 = value;
-            while (num1 >= 0x80)
+            Span<byte> tmp = stackalloc byte[NetBitWriter.MaxVarInt64Size];
+
+            int offset = 0;
+            ulong bits = value;
+            while (bits > 0x7Fu)
             {
-                Write((byte)(num1 | 0x80));
-                num1 >>= 7;
-                retval++;
+                tmp[offset++] = (byte)(bits | ~0x7Fu);
+                bits >>= 7;
             }
 
-            Write((byte)num1);
-            return retval;
+            tmp[offset++] = (byte)bits;
+
+            Write(tmp.Slice(0, offset));
+            return offset;
         }
 
         /// <summary>
-        /// Write Base128 encoded variable sized <see cref="long"/> of up to 64 bits.
+        /// Write variable sized <see cref="long"/>.
         /// </summary>
         /// <returns>Amount of bytes written.</returns>
         public int WriteVar(long value)
@@ -402,17 +365,30 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Write Base128 encoded variable sized <see cref="uint"/> of up to 32 bits.
+        /// Write variable sized <see cref="uint"/>.
         /// </summary>
         /// <returns>Amount of bytes written.</returns>
         [CLSCompliant(false)]
         public int WriteVar(uint value)
         {
-            return WriteVar((ulong)value);
+            Span<byte> tmp = stackalloc byte[NetBitWriter.MaxVarInt32Size];
+
+            int offset = 0;
+            uint bits = value;
+            while (bits > 0x7Fu)
+            {
+                tmp[offset++] = (byte)(bits | ~0x7Fu);
+                bits >>= 7;
+            }
+
+            tmp[offset++] = (byte)bits;
+
+            Write(tmp.Slice(0, offset));
+            return offset;
         }
 
         /// <summary>
-        /// Write Base128 encoded variable sized <see cref="int"/> of up to 32 bits.
+        /// Write variable sized <see cref="int"/>.
         /// </summary>
         /// <returns>Amount of bytes written.</returns>
         public int WriteVar(int value)
@@ -476,7 +452,7 @@ namespace Lidgren.Network
             LidgrenException.Assert(value >= min && value <= max, "Value not within min/max range!");
 
             uint range = (uint)(max - min);
-            int numBits = NetUtility.BitCountForValue(range);
+            int numBits = NetBitWriter.BitCountForValue(range);
 
             uint rvalue = (uint)(value - min);
             Write(rvalue, numBits);
@@ -489,23 +465,38 @@ namespace Lidgren.Network
         /// </summary>
         public void Write(ReadOnlySpan<char> source)
         {
+            var initialHeader = new NetStringHeader(source.Length, null);
             if (source.IsEmpty)
             {
-                WriteVar((uint)0);
+                Write(NetStringHeader.Empty);
                 return;
             }
 
-            // TODO: improve this by not allocating array (use stackalloced buffer and arraypooling)
-            int byteCount = StringEncoding.GetByteCount(source);
-            var buffer = byteCount < 4096 ? stackalloc byte[byteCount] : new byte[byteCount];
+            int startPosition = BitPosition;
+            BitPosition += initialHeader.Size * 8;
 
-            if (StringEncoding.GetBytes(source, buffer) != byteCount)
+            Span<byte> buffer = stackalloc byte[4096];
+            int totalBytesWritten = 0;
+            var charSource = source;
+            while (charSource.Length > 0)
+            {
+                var status = Utf8.FromUtf16(charSource, buffer, out int charsRead, out int bytesWritten, true, true);
+                // TODO: check status
+
+                charSource = charSource.Slice(charsRead);
+
+                totalBytesWritten += bytesWritten;
+                Write(buffer.Slice(0, bytesWritten));
+            }
+
+            if (charSource.Length > 0)
                 throw new Exception();
 
-            EnsureBufferSize(_bitLength + (4 + byteCount) * 8);
-            WriteVar((uint)byteCount);
-            WriteVar((uint)source.Length);
-            Write(buffer);
+            int endPosition = BitPosition;
+            BitPosition = startPosition;
+            Write(new NetStringHeader(source.Length, totalBytesWritten));
+            BitPosition = endPosition;
+            SetLengthByPosition();
         }
 
         /// <summary>
@@ -570,8 +561,8 @@ namespace Lidgren.Network
             if (buffer == null)
                 throw new ArgumentNullException(nameof(buffer));
 
-            EnsureBufferSize(BitLength + buffer.BitLength);
-            WriteBits(buffer.Data, BitLength, buffer.BitLength);
+            EnsureEnoughCapacity(buffer.BitLength);
+            Write(buffer.Data, 0, buffer.BitLength);
         }
 
         public void Write<TEnum>(TEnum value)
@@ -580,14 +571,52 @@ namespace Lidgren.Network
             WriteVar(EnumConverter.Convert(value));
         }
 
+        public void Write(NetStringHeader value)
+        {
+            WriteVar((uint)value.CharCount);
+
+            if (value.CharCount == 0)
+                return;
+
+            // Both MaxByteCount and ByteCount should take the same amount
+            // of bytes when encoded as variable ints.
+            // That is why we need to check if ByteCount has to be "extended" with bytes.
+            if (value.ByteCount == null)
+            {
+                WriteVar((uint)value.MaxByteCount);
+            }
+            else
+            {
+                WriteVar((uint)value.ByteCount);
+
+                int byteCountVarSize = value.ByteCountVarSize;
+                int sizeDiff = value.MaxByteCountVarSize - byteCountVarSize;
+                if (sizeDiff > 0)
+                {
+                    BitPosition -= 1; // rewind to last byte's high bit
+                    Write(true); // set high bit to true
+
+                    // Write empty 7-bit values with high bit set.
+                    // This should only write if size diff is more than 2, 
+                    // which should realistically never occur.
+                    for (int i = 1; i < sizeDiff - 1; i++)
+                        Write((byte)0b1000_0000);
+
+                    if (sizeDiff - 1 > 0)
+                        Write((byte)0);
+                }
+            }
+        }
+
         /// <summary>
         /// Byte-aligns the write position, 
         /// decreasing work for subsequent writes if the position was not aligned.
         /// </summary>
         public void WritePadBits()
         {
-            _bitLength = (_bitLength + 7) / 8 * 8;
-            EnsureBufferSize(_bitLength);
+            BitPosition = NetBitWriter.ByteCountForBits(BitPosition) * 8;
+            EnsureCapacity(BitPosition);
+            SetLengthByPosition();
         }
 
         /// <summary>
@@ -595,8 +624,9 @@ namespace Lidgren.Network
         /// </summary>
         public void WritePadBits(int bitCount)
         {
-            _bitLength += bitCount;
-            EnsureBufferSize(_bitLength);
+            BitPosition += bitCount;
+            EnsureCapacity(BitPosition);
+            SetLengthByPosition();
         }
     }
 }

@@ -39,14 +39,16 @@ namespace UnitTests
             om.Write("kokos");
 
             int unencLen = om.BitLength;
-            om.Encrypt(algo);
+            if(!om.Encrypt(algo))
+                throw new LidgrenException("failed to encrypt");
 
             // convert to incoming message
             NetIncomingMessage im = Program.CreateIncomingMessage(om.Data, om.BitLength);
             if (im.Data == null || im.Data.Length == 0)
                 throw new LidgrenException("bad im!");
 
-            im.Decrypt(algo);
+            if (!im.Decrypt(algo))
+                throw new LidgrenException("failed to decrypt");
 
             if (im.Data == null || im.Data.Length == 0 || im.BitLength != unencLen)
                 throw new LidgrenException("Length fail");
@@ -58,7 +60,7 @@ namespace UnitTests
                 throw new LidgrenException("fail");
             if (im.ReadInt32(5) != 5)
                 throw new LidgrenException("fail");
-            if (im.ReadBoolean() != true)
+            if (im.ReadBool() != true)
                 throw new LidgrenException("fail");
             if (im.ReadString() != "kokos")
                 throw new LidgrenException("fail");
@@ -71,7 +73,7 @@ namespace UnitTests
         {
             int parallelism = (int)Math.Max(1, Environment.ProcessorCount * 0.75);
 
-            var xtea = new NetXteaEncryption[4000 + 2000 * parallelism];
+            var xtea = new NetXteaEncryption[2000 + 1000 * parallelism];
 
             Console.WriteLine(
                 $"Testing SRP helper {xtea.Length} times (degree of parallelism: {parallelism})...");
