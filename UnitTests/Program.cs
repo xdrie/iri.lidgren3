@@ -25,6 +25,10 @@ namespace UnitTests
             //    Convert.ToString(dst[2], 2).PadLeft(8, '0');
             //Console.WriteLine(r);
 
+            NetQueueTests.Run();
+
+            BitVectorTests.Run();
+
             var config = new NetPeerConfiguration("unittests");
             config.EnableMessageType(NetIncomingMessageType.UnconnectedData);
             config.EnableUPnP = true;
@@ -36,11 +40,7 @@ namespace UnitTests
 
             ReadWriteTests.Run(peer);
 
-            NetQueueTests.Run();
-
             MiscTests.Run(peer);
-
-            BitVectorTests.Run();
 
             //EncryptionTests.Run(peer);
 
@@ -58,9 +58,7 @@ namespace UnitTests
             }
 
             // read all message
-            while (
-                peer.TryReadMessage(out var message) ||
-                peer.TryReadMessage(10000, out message))
+            while (peer.TryReadMessage(5000, out var message))
             {
                 switch (message.MessageType)
                 {

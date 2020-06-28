@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 
 namespace Lidgren.Network
 {
@@ -10,8 +11,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Number of extra bytes to overallocate for message buffers to avoid resizing.
         /// </summary>
-        // TODO: move into config
-        protected const int ExtraGrowAmount = 32;
+        protected const int ExtraGrowAmount = 32; // TODO: move to config
 
         // TODO: optimize reflection
 
@@ -87,8 +87,8 @@ namespace Lidgren.Network
             }
         }
 
-        public int BitCapacity 
-        { 
+        public int BitCapacity
+        {
             get => Data.Length * 8;
             set => ByteCapacity = NetBitWriter.ByteCountForBits(value);
         }
@@ -133,10 +133,20 @@ namespace Lidgren.Network
             }
         }
 
-        public void SetLengthByPosition()
+        public void IncrementBitPosition(int bitCount)
         {
-            if (_bitLength < _bitPosition)
-                _bitLength = _bitPosition;
+            if (bitCount < 0)
+                throw new ArgumentOutOfRangeException(nameof(bitCount));
+
+            _bitPosition += bitCount;
+            SetLengthByPosition();
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private void SetLengthByPosition()
+        {
+            if (_bitLength < BitPosition)
+                _bitLength = BitPosition;
         }
     }
 }

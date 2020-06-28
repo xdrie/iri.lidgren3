@@ -32,7 +32,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Ensures the buffer can hold this number of bits with overallocating.
         /// </summary>
-        internal void ExpandCapacity(int bitCount, int extraByteGrowSize)
+        internal void EnsureCapacity(int bitCount, int extraByteGrowSize)
         {
             int byteLength = NetBitWriter.ByteCountForBits(bitCount);
             if (Data == null || Data.Length < byteLength)
@@ -44,7 +44,7 @@ namespace Lidgren.Network
         /// </summary>
         public void EnsureCapacity(int bitCount)
         {
-            ExpandCapacity(bitCount, ExtraGrowAmount);
+            EnsureCapacity(bitCount, ExtraGrowAmount);
         }
 
         /// <summary>
@@ -76,8 +76,7 @@ namespace Lidgren.Network
 
             EnsureEnoughCapacity(bitCount);
             NetBitWriter.CopyBits(source, sourceBitOffset, bitCount, Data, BitPosition);
-            BitPosition += bitCount;
-            SetLengthByPosition();
+            IncrementBitPosition(bitCount);
         }
 
         /// <summary>
@@ -101,8 +100,7 @@ namespace Lidgren.Network
 
             EnsureEnoughCapacity(source.Length * 8);
             source.CopyTo(Data.AsSpan(BytePosition));
-            BitPosition += source.Length * 8;
-            SetLengthByPosition();
+            IncrementBitPosition(source.Length * 8);
         }
 
         #region Bool
@@ -114,8 +112,7 @@ namespace Lidgren.Network
         {
             EnsureEnoughCapacity(1);
             NetBitWriter.WriteByteUnchecked(value ? 1 : 0, 1, Data, BitPosition);
-            BitPosition += 1;
-            SetLengthByPosition();
+            IncrementBitPosition(1);
         }
 
         #endregion
@@ -130,8 +127,7 @@ namespace Lidgren.Network
         {
             EnsureEnoughCapacity(8);
             NetBitWriter.WriteByteUnchecked((byte)value, 8, Data, BitPosition);
-            BitPosition += 8;
-            SetLengthByPosition();
+            IncrementBitPosition(8);
         }
 
         /// <summary>
@@ -141,8 +137,7 @@ namespace Lidgren.Network
         {
             EnsureEnoughCapacity(8);
             NetBitWriter.WriteByteUnchecked(value, 8, Data, BitPosition);
-            BitPosition += 8;
-            SetLengthByPosition();
+            IncrementBitPosition(8);
         }
 
         /// <summary>
@@ -152,8 +147,7 @@ namespace Lidgren.Network
         {
             EnsureEnoughCapacity(bitCount, 8);
             NetBitWriter.WriteByteUnchecked(source, bitCount, Data, BitPosition);
-            BitPosition += bitCount;
-            SetLengthByPosition();
+            IncrementBitPosition(bitCount);
         }
 
         #endregion
@@ -496,7 +490,6 @@ namespace Lidgren.Network
             BitPosition = startPosition;
             Write(new NetStringHeader(source.Length, totalBytesWritten));
             BitPosition = endPosition;
-            SetLengthByPosition();
         }
 
         /// <summary>
@@ -624,6 +617,9 @@ namespace Lidgren.Network
         /// </summary>
         public void WritePadBits(int bitCount)
         {
+            if (bitCount < 0)
+                throw new ArgumentOutOfRangeException(nameof(bitCount));
+
             BitPosition += bitCount;
             EnsureCapacity(BitPosition);
             SetLengthByPosition();

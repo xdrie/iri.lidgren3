@@ -15,7 +15,7 @@ namespace Lidgren.Network
     {
         private static int _initializedPeersCount;
 
-        private static TimeSpan MessageReadWaitSlice => TimeSpan.FromMilliseconds(50);
+        private static TimeSpan MaxMessageReadWaitSlice => TimeSpan.FromMilliseconds(100);
 
         private bool _isDisposed;
         private string? _shutdownReason;
@@ -236,16 +236,21 @@ namespace Lidgren.Network
             if (TryReadMessage(out message))
                 return true;
 
+            WaitForMessage:
             var resetEvent = MessageReceivedEvent;
-            while (timeout > MessageReadWaitSlice)
+            while (timeout > MaxMessageReadWaitSlice)
             {
-                if (ReleasedIncomingMessages.Count > 0 || resetEvent.WaitOne(MessageReadWaitSlice))
+                var toWait = timeout < MaxMessageReadWaitSlice ? timeout : MaxMessageReadWaitSlice;
+                if (ReleasedIncomingMessages.Count > 0 || resetEvent.WaitOne(toWait))
                     break;
-                timeout -= MessageReadWaitSlice;
+                timeout -= toWait;
             }
 
-            if (ReleasedIncomingMessages.Count == 0)
-                resetEvent.WaitOne(timeout);
+            // Can happen when multiple threads read the same peer.
+            // It's probably best to go back and wait again.
+            if (ReleasedIncomingMessages.Count == 0 &&
+                timeout > TimeSpan.Zero)
+                goto WaitForMessage;
 
             return TryReadMessage(out message);
         }
