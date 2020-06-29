@@ -73,10 +73,11 @@ namespace Lidgren.Network
                 bool wasSent = ActuallySendPacket(_sendBuffer, byteCount, target, out connectionReset);
                 // TODO: handle 'wasSent == false' better?
 
-                if (!wasSent || 
+                if ((!wasSent && !connectionReset) ||
                     Configuration._duplicates > 0f && MWCRandom.Global.NextSingle() < Configuration._duplicates)
+                {
                     ActuallySendPacket(_sendBuffer, byteCount, target, out connectionReset); // send it again!
-
+                }
                 return;
             }
 
@@ -85,7 +86,6 @@ namespace Lidgren.Network
                 num++;
 
             var now = NetTime.Now;
-
             for (int i = 0; i < num; i++)
             {
                 var delay = Configuration._minimumOneWayLatency +
@@ -104,19 +104,17 @@ namespace Lidgren.Network
 
         private void SendDelayedPackets()
         {
-            if (_delayedPackets.Count <= 0)
+            if (_delayedPackets.Count == 0)
                 return;
 
             var now = NetTime.Now;
-
-            RestartDelaySending:
-            foreach (DelayedPacket p in _delayedPackets)
+            for (int i = _delayedPackets.Count; i-- > 0;)
             {
+                var p = _delayedPackets[i];
                 if (now > p.DelayedUntil)
                 {
                     ActuallySendPacket(p.Data, p.Data.Length, p.Target, out _);
-                    _delayedPackets.Remove(p);
-                    goto RestartDelaySending;
+                    _delayedPackets.RemoveAt(i);
                 }
             }
         }

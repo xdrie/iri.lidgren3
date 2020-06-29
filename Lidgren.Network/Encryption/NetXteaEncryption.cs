@@ -61,10 +61,8 @@ namespace Lidgren.Network
             var key = data.Length > KeySize ? hash : data;
 
             if (data.Length > KeySize)
-            {
                 if (!NetUtility.Sha256.TryComputeHash(data, hash, out _))
                     throw new Exception();
-            }
 
             Span<uint> tmp = stackalloc uint[8];
             int i = 0;

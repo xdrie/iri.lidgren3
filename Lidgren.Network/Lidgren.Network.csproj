@@ -12,12 +12,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Remove="Documentation\**" />
-    <Compile Remove="Platform\**" />
-    <EmbeddedResource Remove="Documentation\**" />
-    <EmbeddedResource Remove="Platform\**" />
     <None Remove="Documentation\**" />
-    <None Remove="Platform\**" />
+    <Compile Remove="Documentation\**" />
+    <EmbeddedResource Remove="Documentation\**" />
   </ItemGroup>
   
   <ItemGroup>
@@ -34,9 +31,5 @@
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-  </ItemGroup>
-  
-  <ItemGroup>
-    <Folder Include="Platform\" />
   </ItemGroup>
 </Project>

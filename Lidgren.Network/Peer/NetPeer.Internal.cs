@@ -193,13 +193,12 @@ namespace Lidgren.Network
 
                 var epBytes = MemoryMarshal.AsBytes(socket.LocalEndPoint.ToString().AsSpan());
                 var macBytes = NetUtility.GetPhysicalAddress()?.GetAddressBytes() ?? Array.Empty<byte>();
-                var combined = new byte[epBytes.Length + macBytes.Length];
+                int combinedLength = epBytes.Length + macBytes.Length;
+                var combined = new byte[combinedLength];
                 epBytes.CopyTo(combined);
                 macBytes.CopyTo(combined.AsSpan(epBytes.Length));
 
-                Span<byte> hash = stackalloc byte[NetBitWriter.ByteCountForBits(NetUtility.Sha256.HashSize)];
-                if (!NetUtility.Sha256.TryComputeHash(combined, hash, out _))
-                    throw new Exception();
+                var hash = NetUtility.Sha256.ComputeHash(combined);
                 UniqueIdentifier = BitConverter.ToInt64(hash);
 
                 Status = NetPeerStatus.Running;
@@ -733,24 +732,24 @@ namespace Lidgren.Network
             }
         }
 
-        internal void AcceptConnection(NetConnection conn)
+        internal void AcceptConnection(NetConnection connection)
         {
             // LogDebug("Accepted connection " + conn);
-            conn.InitExpandMTU(NetTime.Now);
+            connection.InitExpandMTU(NetTime.Now);
 
-            if (!Handshakes.Remove(conn.RemoteEndPoint))
+            if (!Handshakes.Remove(connection.RemoteEndPoint))
                 LogWarning("AcceptConnection called but m_handshakes did not contain it!");
 
             lock (Connections)
             {
-                if (Connections.Contains(conn))
+                if (Connections.Contains(connection))
                 {
                     LogWarning("AcceptConnection called but m_connection already contains it!");
                 }
                 else
                 {
-                    Connections.Add(conn);
-                    ConnectionLookup.Add(conn.RemoteEndPoint, conn);
+                    Connections.Add(connection);
+                    ConnectionLookup.Add(connection.RemoteEndPoint, connection);
                 }
             }
         }

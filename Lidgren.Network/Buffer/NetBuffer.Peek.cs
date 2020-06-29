@@ -20,6 +20,8 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 using System;
 using System.Buffers;
 using System.Buffers.Binary;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Lidgren.Network
 {
@@ -343,7 +345,6 @@ namespace Lidgren.Network
             return (long)(n >> 1) ^ -(long)(n & 1); // decode zigzag
         }
 
-
         #endregion
 
         #region Float
@@ -353,8 +354,9 @@ namespace Lidgren.Network
         /// </summary>
         public float PeekSingle()
         {
-            int intValue = PeekInt32();
-            return BitConverter.Int32BitsToSingle(intValue);
+            Span<byte> tmp = stackalloc byte[sizeof(float)];
+            Peek(tmp);
+            return Unsafe.ReadUnaligned<float>(ref MemoryMarshal.GetReference(tmp));
         }
 
         /// <summary>
@@ -362,20 +364,29 @@ namespace Lidgren.Network
         /// </summary>
         public double PeekDouble()
         {
-            long intValue = PeekInt64();
-            return BitConverter.Int64BitsToDouble(intValue);
+            Span<byte> tmp = stackalloc byte[sizeof(double)];
+            Peek(tmp);
+            return Unsafe.ReadUnaligned<double>(ref MemoryMarshal.GetReference(tmp));
         }
 
         #endregion
+
+        public bool PeekStringHeader(out NetStringHeader header)
+        {
+            int startPosition = BitPosition;
+            bool read = ReadStringHeader(out header);
+            BitPosition = startPosition;
+            return read;
+        }
 
         /// <summary>
         /// Reads a <see cref="string"/> without advancing the read position.
         /// </summary>
         public string PeekString()
         {
-            int lastPosition = BitPosition;
+            int startPosition = BitPosition;
             string str = ReadString();
-            BitPosition = lastPosition;
+            BitPosition = startPosition;
             return str;
         }
 

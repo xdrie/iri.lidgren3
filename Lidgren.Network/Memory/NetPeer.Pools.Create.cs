@@ -20,7 +20,7 @@ namespace Lidgren.Network
             if (content == null)
                 content = string.Empty;
 
-            int strByteCount = Encoding.UTF8.GetByteCount(content);
+            int strByteCount = NetBuffer.StringEncoding.GetByteCount(content);
             var om = strByteCount == 0 ? CreateMessage(1) : CreateMessage(2 + strByteCount);
             om.Write(content);
             return om;
@@ -80,7 +80,7 @@ namespace Lidgren.Network
                 return msg;
             }
 
-            int strByteCount = Encoding.UTF8.GetMaxByteCount(text.Length);
+            int strByteCount = NetBuffer.StringEncoding.GetMaxByteCount(text.Length);
             msg = CreateIncomingMessage(type, strByteCount + 10);
             msg.Write(text);
             msg.BitPosition = 0;

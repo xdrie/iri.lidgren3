@@ -15,7 +15,7 @@ namespace Lidgren.Network
     {
         private static int _initializedPeersCount;
 
-        private static TimeSpan MaxMessageReadWaitSlice => TimeSpan.FromMilliseconds(100);
+        private static TimeSpan MaxMessageReadWaitSlice { get; } = TimeSpan.FromMilliseconds(100);
 
         private bool _isDisposed;
         private string? _shutdownReason;
@@ -238,7 +238,7 @@ namespace Lidgren.Network
 
             WaitForMessage:
             var resetEvent = MessageReceivedEvent;
-            while (timeout > MaxMessageReadWaitSlice)
+            while (timeout > TimeSpan.Zero)
             {
                 var toWait = timeout < MaxMessageReadWaitSlice ? timeout : MaxMessageReadWaitSlice;
                 if (ReleasedIncomingMessages.Count > 0 || resetEvent.WaitOne(toWait))

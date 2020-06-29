@@ -2,6 +2,8 @@
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Net;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text.Unicode;
 
 namespace Lidgren.Network
@@ -434,8 +436,9 @@ namespace Lidgren.Network
         /// </summary>
         public float ReadSingle()
         {
-            int intValue = ReadInt32();
-            return BitConverter.Int32BitsToSingle(intValue);
+            Span<byte> tmp = stackalloc byte[sizeof(float)];
+            Read(tmp);
+            return Unsafe.ReadUnaligned<float>(ref MemoryMarshal.GetReference(tmp));
         }
 
         /// <summary>
@@ -443,8 +446,9 @@ namespace Lidgren.Network
         /// </summary>
         public double ReadDouble()
         {
-            long intValue = ReadInt64();
-            return BitConverter.Int64BitsToDouble(intValue);
+            Span<byte> tmp = stackalloc byte[sizeof(double)];
+            Read(tmp);
+            return Unsafe.ReadUnaligned<double>(ref MemoryMarshal.GetReference(tmp));
         }
 
         /// <summary>

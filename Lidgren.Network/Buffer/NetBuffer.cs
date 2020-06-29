@@ -3,11 +3,14 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Text;
 
 namespace Lidgren.Network
 {
     public partial class NetBuffer
     {
+        public static Encoding StringEncoding { get; } = new UTF8Encoding(false, false);
+
         /// <summary>
         /// Number of extra bytes to overallocate for message buffers to avoid resizing.
         /// </summary>

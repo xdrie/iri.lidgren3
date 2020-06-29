@@ -3,6 +3,8 @@ using System.Reflection;
 using Lidgren.Network;
 using System.Net;
 using System.Runtime.Intrinsics.X86;
+using System.Buffers.Binary;
+using System.Numerics;
 
 namespace UnitTests
 {

@@ -22,6 +22,8 @@ using System;
 using System.Net;
 using System.Buffers.Binary;
 using System.Text.Unicode;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace Lidgren.Network
 {
@@ -235,8 +237,9 @@ namespace Lidgren.Network
         /// </summary>
         public void Write(float value)
         {
-            int intValue = BitConverter.SingleToInt32Bits(value);
-            Write(intValue);
+            Span<byte> tmp = stackalloc byte[sizeof(float)];
+            Unsafe.As<byte, float>(ref MemoryMarshal.GetReference(tmp)) = value;
+            Write(tmp);
         }
 
         /// <summary>
@@ -244,8 +247,9 @@ namespace Lidgren.Network
         /// </summary>
         public void Write(double value)
         {
-            long intValue = BitConverter.DoubleToInt64Bits(value);
-            Write(intValue);
+            Span<byte> tmp = stackalloc byte[sizeof(double)];
+            Unsafe.As<byte, double>(ref MemoryMarshal.GetReference(tmp)) = value;
+            Write(tmp);
         }
 
         #endregion
