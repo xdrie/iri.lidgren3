@@ -2,8 +2,6 @@
 using System.Buffers;
 using System.Buffers.Binary;
 using System.Net;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 using System.Text.Unicode;
 
 namespace Lidgren.Network
@@ -33,7 +31,7 @@ namespace Lidgren.Network
             if (!HasEnough(bitCount))
                 return false;
 
-            NetBitWriter.CopyBits(Data, BitPosition, bitCount, destination, 0);
+            NetBitWriter.CopyBits(Span, BitPosition, bitCount, destination, 0);
             BitPosition += bitCount;
             return true;
         }
@@ -44,13 +42,13 @@ namespace Lidgren.Network
         /// <param name="destination">The destination span.</param>
         public bool TryRead(Span<byte> destination)
         {
-            if (!IsByteAligned)
+            if (!this.IsByteAligned())
                 return TryReadBits(destination, destination.Length * 8);
 
             if (!HasEnough(destination.Length))
                 return false;
 
-            Data.AsSpan(BytePosition, destination.Length).CopyTo(destination);
+            Span.Slice(BytePosition, destination.Length).CopyTo(destination);
             BitPosition += destination.Length * 8;
             return true;
         }
@@ -105,7 +103,7 @@ namespace Lidgren.Network
             if (!HasEnough(1))
                 throw new EndOfMessageException();
 
-            byte value = NetBitWriter.ReadByteUnchecked(Data, BitPosition, 1);
+            byte value = NetBitWriter.ReadByteUnchecked(Span, BitPosition, 1);
             BitPosition += 1;
             return value > 0;
         }
@@ -126,7 +124,7 @@ namespace Lidgren.Network
                 return false;
             }
 
-            result = NetBitWriter.ReadByteUnchecked(Data, BitPosition, 8);
+            result = NetBitWriter.ReadByteUnchecked(Span, BitPosition, 8);
             BitPosition += 8;
             return true;
         }
@@ -436,9 +434,8 @@ namespace Lidgren.Network
         /// </summary>
         public float ReadSingle()
         {
-            Span<byte> tmp = stackalloc byte[sizeof(float)];
-            Read(tmp);
-            return Unsafe.ReadUnaligned<float>(ref MemoryMarshal.GetReference(tmp));
+            int intValue = ReadInt32();
+            return BitConverter.Int32BitsToSingle(intValue);
         }
 
         /// <summary>
@@ -446,9 +443,8 @@ namespace Lidgren.Network
         /// </summary>
         public double ReadDouble()
         {
-            Span<byte> tmp = stackalloc byte[sizeof(double)];
-            Read(tmp);
-            return Unsafe.ReadUnaligned<double>(ref MemoryMarshal.GetReference(tmp));
+            long intValue = ReadInt64();
+            return BitConverter.Int64BitsToDouble(intValue);
         }
 
         /// <summary>
@@ -528,16 +524,16 @@ namespace Lidgren.Network
             if (byteCount < 0)
                 throw new ArgumentNullException(nameof(byteCount));
 
-            if (IsByteAligned)
+            if (this.IsByteAligned())
             {
-                var source = Data.AsSpan(BytePosition, byteCount);
+                var source = Span.Slice(BytePosition, byteCount);
                 var status = Utf8.ToUtf16(source, destination, out bytesRead, out charsWritten, false, false);
                 BitPosition += bytesRead * 8;
                 return status;
             }
             else
             {
-                Span<byte> buffer = stackalloc byte[Math.Min(byteCount, 2048)];
+                Span<byte> buffer = stackalloc byte[Math.Min(byteCount, 4096)];
                 var status = OperationStatus.Done;
                 bytesRead = 0;
                 charsWritten = 0;

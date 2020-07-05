@@ -33,8 +33,8 @@ namespace Lidgren.Network
             if (message == null)
                 throw new ArgumentNullException(nameof(message));
 
-            var data = message.Data;
-            var slice = data.AsSpan(0, message.ByteLength);
+            var data = message.Span;
+            var slice = data.Slice(0, message.ByteLength);
             for (int i = 0; i < slice.Length; i++)
             {
                 int offset = i % _key.Length;
@@ -48,8 +48,8 @@ namespace Lidgren.Network
             if (message == null)
                 throw new ArgumentNullException(nameof(message));
 
-            var data = message.Data;
-            var slice = data.AsSpan(0, message.ByteLength);
+            var data = message.Span;
+            var slice = data.Slice(0, message.ByteLength);
             for (int i = 0; i < slice.Length; i++)
             {
                 int offset = i % _key.Length;

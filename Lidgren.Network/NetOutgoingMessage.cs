@@ -39,7 +39,7 @@ namespace Lidgren.Network
 
         internal string DebuggerDisplay => $"BitLength = {BitLength}";
 
-        internal NetOutgoingMessage()
+        public NetOutgoingMessage(byte[]? buffer) : base(buffer)
         {
         }
 
@@ -73,7 +73,7 @@ namespace Lidgren.Network
                 int byteLen = NetBitWriter.ByteCountForBits(BitLength);
                 if (byteLen > 0)
                 {
-                    Buffer.BlockCopy(Data, 0, destination, offset, byteLen);
+                    Span.Slice(0, byteLen).CopyTo(destination.AsSpan(offset));
                     offset += byteLen;
                 }
             }
@@ -99,8 +99,7 @@ namespace Lidgren.Network
                 int byteLen = NetBitWriter.ByteCountForBits(BitLength);
                 if (byteLen > 0)
                 {
-                    Buffer.BlockCopy(
-                        Data, _fragmentChunkNumber * _fragmentChunkByteSize, destination, offset, byteLen);
+                    Span.Slice(_fragmentChunkNumber * _fragmentChunkByteSize, byteLen).CopyTo(destination.AsSpan(offset));
                     offset += byteLen;
                 }
             }

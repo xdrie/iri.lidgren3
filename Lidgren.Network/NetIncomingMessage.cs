@@ -29,7 +29,7 @@ namespace Lidgren.Network
     public sealed class NetIncomingMessage : NetBuffer
     {
         internal NetMessageType _baseMessageType;
-        
+
         internal string DebuggerDisplay => $"Type = {MessageType}, BitLength = {BitLength}";
 
         /// <summary>
@@ -66,11 +66,7 @@ namespace Lidgren.Network
         /// </summary>
         public NetDeliveryMethod DeliveryMethod => NetUtility.GetDeliveryMethod(_baseMessageType);
 
-        private NetIncomingMessage()
-        {
-        }
-
-        internal NetIncomingMessage(NetIncomingMessageType type)
+        public NetIncomingMessage(byte[]? buffer, NetIncomingMessageType type = default) : base(buffer)
         {
             MessageType = type;
         }

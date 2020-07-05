@@ -42,12 +42,12 @@ namespace Lidgren.Network
 
             var ms = new MemoryStream();
             using (var cs = new CryptoStream(ms, Algorithm.CreateEncryptor(), CryptoStreamMode.Write, true))
-                cs.Write(message.Data, 0, message.ByteLength);
+                cs.Write(message.Span.Slice(0, message.ByteLength));
 
             int length = (int)ms.Length;
 
             message.BitPosition = 0;
-            message.EnsureCapacity((length + 4) * 8);
+            message.EnsureBitCapacity((length + 4) * 8);
             message.Write((uint)unEncLenBits);
             message.Write(ms.GetBuffer().AsSpan(0, length));
             message.ByteLength = length + 4;
@@ -55,7 +55,7 @@ namespace Lidgren.Network
             return true;
         }
 
-        public override bool Decrypt(NetIncomingMessage message)
+        public override unsafe bool Decrypt(NetIncomingMessage message)
         {
             if (message == null)
                 throw new ArgumentNullException(nameof(message));
@@ -64,13 +64,16 @@ namespace Lidgren.Network
             int byteLen = NetBitWriter.ByteCountForBits(unEncLenBits);
             var result = Peer.GetStorage(byteLen);
 
-            var ms = new MemoryStream(message.Data, 4, message.ByteLength - 4);
-            using (var cs = new CryptoStream(ms, Algorithm.CreateDecryptor(), CryptoStreamMode.Read))
+            fixed (byte* msgPtr = message.Span)
+            {
+                using var ms = new UnmanagedMemoryStream(msgPtr + 4, message.ByteLength - 4);
+                using var cs = new CryptoStream(ms, Algorithm.CreateDecryptor(), CryptoStreamMode.Read);
                 cs.Read(result, 0, byteLen);
+            }
 
             // TODO: recycle existing msg
 
-            message.Data = result;
+            message._data = result; // TODO: make api for this
             message.BitLength = unEncLenBits;
             message.BitPosition = 0;
 

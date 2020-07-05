@@ -39,18 +39,20 @@ namespace UnitTests
             om.Write("kokos");
 
             int unencLen = om.BitLength;
-            if(!om.Encrypt(algo))
+            if (!om.Encrypt(algo))
                 throw new LidgrenException("failed to encrypt");
 
             // convert to incoming message
-            NetIncomingMessage im = Program.CreateIncomingMessage(om.Data, om.BitLength);
-            if (im.Data == null || im.Data.Length == 0)
+            NetIncomingMessage im = Program.CreateIncomingMessage(
+                om.Span.Slice(0, om.ByteLength).ToArray(), om.BitLength);
+
+            if (im.Span.Length == 0)
                 throw new LidgrenException("bad im!");
 
             if (!im.Decrypt(algo))
                 throw new LidgrenException("failed to decrypt");
 
-            if (im.Data == null || im.Data.Length == 0 || im.BitLength != unencLen)
+            if (im.Span.Length == 0 || im.BitLength != unencLen)
                 throw new LidgrenException("Length fail");
 
             var str = im.ReadString();
@@ -80,7 +82,7 @@ namespace UnitTests
 
             Parallel.For(
                 0,
-                xtea.Length, 
+                xtea.Length,
                 new ParallelOptions { MaxDegreeOfParallelism = parallelism },
                 (i) =>
             {

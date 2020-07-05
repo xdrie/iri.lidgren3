@@ -98,6 +98,8 @@ namespace Lidgren.Network
         /// </summary>
         public void RotateDown()
         {
+            // TODO: check if it can be optimized with BitOperations
+
             int lenMinusOne = _data.Length - 1;
 
             uint firstBit = _data[0] & 1;

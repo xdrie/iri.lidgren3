@@ -26,6 +26,8 @@ namespace Lidgren.Network
             }
         }
 
+        // TODO: add api for accessing message _data
+
         /// <summary>
         /// Recycles a message for reuse; taking pressure off the garbage collector
         /// </summary>
@@ -40,8 +42,8 @@ namespace Lidgren.Network
             LidgrenException.Assert(
                 !_incomingMessagePool.Contains(message), "Recyling already recycled message! Thread race?");
 
-            byte[] storage = message.Data;
-            message.Data = Array.Empty<byte>();
+            byte[] storage = message._data;
+            message._data = Array.Empty<byte>();
             Recycle(storage);
             message.Reset();
             _incomingMessagePool.Enqueue(message);
@@ -65,8 +67,8 @@ namespace Lidgren.Network
                 {
                     foreach (var msg in toRecycle)
                     {
-                        var storage = msg.Data;
-                        msg.Data = Array.Empty<byte>();
+                        var storage = msg._data;
+                        msg._data = Array.Empty<byte>();
                         _bytesInPool += storage.Length;
                         for (int i = 0; i < _storagePool.Count; i++)
                         {
@@ -94,8 +96,8 @@ namespace Lidgren.Network
             LidgrenException.Assert(
                 !_outgoingMessagePool.Contains(msg), "Recyling already recycled message! Thread race?");
 
-            byte[] storage = msg.Data;
-            msg.Data = Array.Empty<byte>();
+            byte[] storage = msg._data;
+            msg._data = Array.Empty<byte>();
 
             // message fragments cannot be recycled
             // TODO: find a way to recycle large message after all fragments has been acknowledged;

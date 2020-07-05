@@ -61,8 +61,7 @@ namespace UnitTests
             if (bcnt != 2)
                 throw new LidgrenException("WriteVar* wrote too many bytes!");
            
-            byte[] data = msg.Data;
-            NetIncomingMessage inc = Program.CreateIncomingMessage(data, msg.BitLength);
+            NetIncomingMessage inc = Program.CreateIncomingMessage(msg.Span, msg.BitLength);
 
             var bdr = new StringBuilder();
 
@@ -124,9 +123,7 @@ namespace UnitTests
 
             tmp.WriteAllFields(test, BindingFlags.Public | BindingFlags.Instance);
 
-            data = tmp.Data;
-
-            inc = Program.CreateIncomingMessage(data, tmp.BitLength);
+            inc = Program.CreateIncomingMessage(tmp.Span, tmp.BitLength);
 
             var readTest = new Test();
             inc.ReadAllFields(readTest, BindingFlags.Public | BindingFlags.Instance);
@@ -140,7 +137,7 @@ namespace UnitTests
             var originalData = new byte[] { 5, 6, 7, 8, 9 };
             msg.Write(originalData);
 
-            inc = Program.CreateIncomingMessage(msg.Data, msg.BitLength);
+            inc = Program.CreateIncomingMessage(msg.Span, msg.BitLength);
             var readData = new byte[originalData.Length]; 
             inc.Read(readData);
 

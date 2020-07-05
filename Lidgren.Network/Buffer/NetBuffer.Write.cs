@@ -32,43 +32,6 @@ namespace Lidgren.Network
         // TODO: pool arrays in certain scenarios dictated by config
 
         /// <summary>
-        /// Ensures the buffer can hold this number of bits with overallocating.
-        /// </summary>
-        internal void EnsureCapacity(int bitCount, int extraByteGrowSize)
-        {
-            int byteLength = NetBitWriter.ByteCountForBits(bitCount);
-            if (Data == null || Data.Length < byteLength)
-                ByteCapacity = byteLength + extraByteGrowSize;
-        }
-
-        /// <summary>
-        /// Ensures the buffer can hold this number of bits.
-        /// </summary>
-        public void EnsureCapacity(int bitCount)
-        {
-            EnsureCapacity(bitCount, ExtraGrowAmount);
-        }
-
-        /// <summary>
-        /// Ensures the buffer can hold it's current bits and the given amount.
-        /// </summary>
-        public void EnsureEnoughCapacity(int bitCount)
-        {
-            EnsureCapacity(BitLength + bitCount);
-        }
-
-        public void EnsureEnoughCapacity(int bitCount, int maxBitCount)
-        {
-            if (bitCount < 1)
-                throw new ArgumentOutOfRangeException(nameof(bitCount));
-
-            if (bitCount > maxBitCount)
-                throw new ArgumentOutOfRangeException(nameof(bitCount));
-
-            EnsureEnoughCapacity(bitCount);
-        }
-
-        /// <summary>
         /// Writes a certain amount of bits from a span.
         /// </summary>
         public void Write(ReadOnlySpan<byte> source, int sourceBitOffset, int bitCount)
@@ -76,8 +39,8 @@ namespace Lidgren.Network
             if (source.IsEmpty)
                 return;
 
-            EnsureEnoughCapacity(bitCount);
-            NetBitWriter.CopyBits(source, sourceBitOffset, bitCount, Data, BitPosition);
+            this.EnsureEnoughBitCapacity(bitCount);
+            NetBitWriter.CopyBits(source, sourceBitOffset, bitCount, Span, BitPosition);
             IncrementBitPosition(bitCount);
         }
 
@@ -94,14 +57,14 @@ namespace Lidgren.Network
         /// </summary>
         public void Write(ReadOnlySpan<byte> source)
         {
-            if (!IsByteAligned)
+            if (!this.IsByteAligned())
             {
                 Write(source, source.Length * 8);
                 return;
             }
 
-            EnsureEnoughCapacity(source.Length * 8);
-            source.CopyTo(Data.AsSpan(BytePosition));
+            this.EnsureEnoughBitCapacity(source.Length * 8);
+            source.CopyTo(Span.Slice(BytePosition));
             IncrementBitPosition(source.Length * 8);
         }
 
@@ -112,8 +75,8 @@ namespace Lidgren.Network
         /// </summary>
         public void Write(bool value)
         {
-            EnsureEnoughCapacity(1);
-            NetBitWriter.WriteByteUnchecked(value ? 1 : 0, 1, Data, BitPosition);
+            this.EnsureEnoughBitCapacity(1);
+            NetBitWriter.WriteByteUnchecked(value ? 1 : 0, 1, Span, BitPosition);
             IncrementBitPosition(1);
         }
 
@@ -127,8 +90,8 @@ namespace Lidgren.Network
         [CLSCompliant(false)]
         public void Write(sbyte value)
         {
-            EnsureEnoughCapacity(8);
-            NetBitWriter.WriteByteUnchecked((byte)value, 8, Data, BitPosition);
+            this.EnsureEnoughBitCapacity(8);
+            NetBitWriter.WriteByteUnchecked((byte)value, 8, Span, BitPosition);
             IncrementBitPosition(8);
         }
 
@@ -137,8 +100,8 @@ namespace Lidgren.Network
         /// </summary>
         public void Write(byte value)
         {
-            EnsureEnoughCapacity(8);
-            NetBitWriter.WriteByteUnchecked(value, 8, Data, BitPosition);
+            this.EnsureEnoughBitCapacity(8);
+            NetBitWriter.WriteByteUnchecked(value, 8, Span, BitPosition);
             IncrementBitPosition(8);
         }
 
@@ -147,8 +110,8 @@ namespace Lidgren.Network
         /// </summary>
         public void Write(byte source, int bitCount)
         {
-            EnsureEnoughCapacity(bitCount, 8);
-            NetBitWriter.WriteByteUnchecked(source, bitCount, Data, BitPosition);
+            this.EnsureEnoughBitCapacity(bitCount, maxBitCount: 8);
+            NetBitWriter.WriteByteUnchecked(source, bitCount, Span, BitPosition);
             IncrementBitPosition(bitCount);
         }
 
@@ -237,9 +200,8 @@ namespace Lidgren.Network
         /// </summary>
         public void Write(float value)
         {
-            Span<byte> tmp = stackalloc byte[sizeof(float)];
-            Unsafe.As<byte, float>(ref MemoryMarshal.GetReference(tmp)) = value;
-            Write(tmp);
+            int intValue = BitConverter.SingleToInt32Bits(value);
+            Write(intValue);
         }
 
         /// <summary>
@@ -247,9 +209,8 @@ namespace Lidgren.Network
         /// </summary>
         public void Write(double value)
         {
-            Span<byte> tmp = stackalloc byte[sizeof(double)];
-            Unsafe.As<byte, double>(ref MemoryMarshal.GetReference(tmp)) = value;
-            Write(tmp);
+            long intValue = BitConverter.DoubleToInt64Bits(value);
+            Write(intValue);
         }
 
         #endregion
@@ -558,8 +519,8 @@ namespace Lidgren.Network
             if (buffer == null)
                 throw new ArgumentNullException(nameof(buffer));
 
-            EnsureEnoughCapacity(buffer.BitLength);
-            Write(buffer.Data, 0, buffer.BitLength);
+            this.EnsureEnoughBitCapacity(buffer.BitLength);
+            Write(buffer.Span, 0, buffer.BitLength);
         }
 
         public void Write<TEnum>(TEnum value)
@@ -612,8 +573,8 @@ namespace Lidgren.Network
         public void WritePadBits()
         {
             BitPosition = NetBitWriter.ByteCountForBits(BitPosition) * 8;
-            EnsureCapacity(BitPosition);
-            SetLengthByPosition();
+            EnsureBitCapacity(BitPosition);
+            this.SetLengthByPosition();
         }
 
         /// <summary>
@@ -625,8 +586,8 @@ namespace Lidgren.Network
                 throw new ArgumentOutOfRangeException(nameof(bitCount));
 
             BitPosition += bitCount;
-            EnsureCapacity(BitPosition);
-            SetLengthByPosition();
+            EnsureBitCapacity(BitPosition);
+            this.SetLengthByPosition();
         }
     }
 }

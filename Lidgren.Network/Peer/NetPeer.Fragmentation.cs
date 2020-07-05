@@ -65,7 +65,7 @@ namespace Lidgren.Network
                 NetOutgoingMessage chunk = CreateMessage(0);
 
                 chunk.BitLength = bitsLeft > bitsPerChunk ? bitsPerChunk : bitsLeft;
-                chunk.Data = message.Data;
+                chunk._data = message._data; // TODO: add api for accessing _data
                 chunk._fragmentGroup = group;
                 chunk._fragmentGroupTotalBits = totalBytes * 8;
                 chunk._fragmentChunkByteSize = bytesPerChunk;
@@ -98,7 +98,8 @@ namespace Lidgren.Network
 
             // read fragmentation header and combine fragments
             int headerOffset = NetFragmentationHelper.ReadHeader(
-                message.Data, 0,
+                message.Span,
+                offset: 0,
                 out int group,
                 out int totalBits,
                 out int chunkByteSize,
@@ -139,8 +140,8 @@ namespace Lidgren.Network
 
             // copy to data
             int offset = chunkNumber * chunkByteSize;
-            Buffer.BlockCopy(message.Data, headerOffset, info.Data, offset, message.ByteLength - headerOffset);
-            
+            message.Span[headerOffset..message.ByteLength].CopyTo(info.Data.AsSpan(offset));
+
             int chunkCount = info.ReceivedChunks.PopCount;
             //LogVerbose("Found fragment #" + chunkNumber + " in group " + group + " offset " + 
             //    offset + " of total bits " + totalBits + " (total chunks done " + cnt + ")");
@@ -151,7 +152,7 @@ namespace Lidgren.Network
             if (info.ReceivedChunks.PopCount == totalChunkCount)
             {
                 // Done! Transform this incoming message
-                message.Data = info.Data;
+                message._data = info.Data; // TODO: add api for accessing _data
                 message.BitLength = totalBits;
                 message.IsFragment = false;
 

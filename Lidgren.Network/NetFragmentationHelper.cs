@@ -1,4 +1,6 @@
 ﻿
+using System;
+
 namespace Lidgren.Network
 {
     internal static class NetFragmentationHelper
@@ -50,7 +52,8 @@ namespace Lidgren.Network
         }
 
         internal static int ReadHeader(
-            byte[] buffer, int offset, out int group, out int totalBits, out int chunkByteSize, out int chunkNumber)
+            ReadOnlySpan<byte> buffer, int offset,
+            out int group, out int totalBits, out int chunkByteSize, out int chunkNumber)
         {
             int num1 = 0;
             int num2 = 0;

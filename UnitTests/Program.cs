@@ -96,10 +96,10 @@ namespace UnitTests
         /// <summary>
         /// Helper method
         /// </summary>
-        public static NetIncomingMessage CreateIncomingMessage(ReadOnlyMemory<byte> fromData, int bitLength)
+        public static NetIncomingMessage CreateIncomingMessage(ReadOnlySpan<byte> fromData, int bitLength)
         {
-            var inc = (NetIncomingMessage)Activator.CreateInstance(typeof(NetIncomingMessage), true);
-            inc.Data = fromData.ToArray();
+            var inc = new NetIncomingMessage(
+                fromData.Slice(0, NetBitWriter.ByteCountForBits(bitLength)).ToArray());
             inc.BitLength = bitLength;
             return inc;
         }

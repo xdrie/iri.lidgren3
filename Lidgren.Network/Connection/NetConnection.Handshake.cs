@@ -199,7 +199,7 @@ namespace Lidgren.Network
             if (LocalHailMessage == null)
                 return;
 
-            var hi = LocalHailMessage.Data.AsSpan();
+            var hi = LocalHailMessage.Span;
             if (hi.Length >= LocalHailMessage.ByteLength)
             {
                 if (om.ByteLength + LocalHailMessage.ByteLength > _peerConfiguration._maximumTransmissionUnit - 10)
@@ -297,7 +297,7 @@ namespace Lidgren.Network
                         {
                             if (hail != null)
                             {
-                                RemoteHailMessage = Peer.CreateIncomingMessage(NetIncomingMessageType.Data, hail);
+                                RemoteHailMessage = Peer.CreateIncomingMessage(hail, NetIncomingMessageType.Data);
                                 RemoteHailMessage.ByteLength = hail.Length;
                             }
                             else
@@ -317,7 +317,7 @@ namespace Lidgren.Network
                                 appMsg.SenderEndPoint = RemoteEndPoint;
 
                                 if (RemoteHailMessage != null)
-                                    appMsg.Write(RemoteHailMessage.Data.AsSpan().Slice(0, RemoteHailMessage.ByteLength));
+                                    appMsg.Write(RemoteHailMessage.Span.Slice(0, RemoteHailMessage.ByteLength));
 
                                 SetStatus(NetConnectionStatus.RespondedAwaitingApproval, "Awaiting approval");
                                 Peer.ReleaseMessage(appMsg);
@@ -425,7 +425,7 @@ namespace Lidgren.Network
                     {
                         if (hail != null)
                         {
-                            RemoteHailMessage = Peer.CreateIncomingMessage(NetIncomingMessageType.Data, hail);
+                            RemoteHailMessage = Peer.CreateIncomingMessage(hail, NetIncomingMessageType.Data);
                             RemoteHailMessage.BitLength = hail.Length * 8;
                         }
                         else

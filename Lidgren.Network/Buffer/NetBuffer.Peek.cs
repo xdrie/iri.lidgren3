@@ -38,7 +38,7 @@ namespace Lidgren.Network
             if (!HasEnough(bitCount))
                 return false;
 
-            NetBitWriter.CopyBits(Data, BitPosition, bitCount, destination, 0);
+            NetBitWriter.CopyBits(Span, BitPosition, bitCount, destination, 0);
             return true;
         }
 
@@ -83,13 +83,13 @@ namespace Lidgren.Network
         /// </summary>
         public bool TryPeek(Span<byte> destination)
         {
-            if (!IsByteAligned)
+            if (!this.IsByteAligned())
                 return TryPeek(destination, destination.Length * 8);
 
             if (!HasEnough(destination.Length))
                 return false;
 
-            Data.AsSpan(BytePosition, destination.Length).CopyTo(destination);
+            Span.Slice(BytePosition, destination.Length).CopyTo(destination);
             return true;
         }
 
@@ -109,7 +109,7 @@ namespace Lidgren.Network
         {
             if (!HasEnough(1))
                 throw new EndOfMessageException();
-            return NetBitWriter.ReadByteUnchecked(Data, BitPosition, 1) > 0;
+            return NetBitWriter.ReadByteUnchecked(Span, BitPosition, 1) > 0;
         }
 
         /// <summary>
@@ -120,7 +120,7 @@ namespace Lidgren.Network
         {
             if (!HasEnough(8))
                 throw new EndOfMessageException();
-            return (sbyte)NetBitWriter.ReadByteUnchecked(Data, BitPosition, 8);
+            return (sbyte)NetBitWriter.ReadByteUnchecked(Span, BitPosition, 8);
         }
 
         /// <summary>
@@ -130,7 +130,7 @@ namespace Lidgren.Network
         {
             if (!HasEnough(8))
                 throw new EndOfMessageException();
-            return NetBitWriter.ReadByteUnchecked(Data, BitPosition, 8);
+            return NetBitWriter.ReadByteUnchecked(Span, BitPosition, 8);
         }
 
         /// <summary>
@@ -140,7 +140,7 @@ namespace Lidgren.Network
         {
             if (!HasEnough(bitCount))
                 throw new EndOfMessageException();
-            return NetBitWriter.ReadByteUnchecked(Data, BitPosition, bitCount);
+            return NetBitWriter.ReadByteUnchecked(Span, BitPosition, bitCount);
         }
 
         #region Int16

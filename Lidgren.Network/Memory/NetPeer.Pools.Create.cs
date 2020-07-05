@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System;
+using System.Text;
 
 namespace Lidgren.Network
 {
@@ -20,49 +21,62 @@ namespace Lidgren.Network
             if (content == null)
                 content = string.Empty;
 
-            int strByteCount = NetBuffer.StringEncoding.GetByteCount(content);
-            var om = strByteCount == 0 ? CreateMessage(1) : CreateMessage(2 + strByteCount);
+            int strByteCount = NetBuffer.StringEncoding.GetMaxByteCount(content.Length);
+            int minSize = NetBitWriter.GetVarIntSize(strByteCount);
+
+            var om = CreateMessage(minSize + strByteCount);
             om.Write(content);
             return om;
         }
 
+        // TODO: create api for accessing message _data
+
         /// <summary>
         /// Creates a new message for sending
         /// </summary>
-        /// <param name="initialCapacity">initial capacity in bytes</param>
-        public NetOutgoingMessage CreateMessage(int initialCapacity)
+        /// <param name="minimumByteCapacity">Minimum initial capacity in bytes.</param>
+        public NetOutgoingMessage CreateMessage(int minimumByteCapacity)
         {
-            if (_outgoingMessagePool == null || 
+            if (_outgoingMessagePool == null ||
                 !_outgoingMessagePool.TryDequeue(out NetOutgoingMessage? retval))
-                retval = new NetOutgoingMessage();
+                retval = new NetOutgoingMessage(null);
 
-            if (initialCapacity > 0)
-                retval.Data = GetStorage(initialCapacity);
+            if (minimumByteCapacity > 0)
+                retval._data = GetStorage(minimumByteCapacity);
 
             return retval;
         }
 
-        internal NetIncomingMessage CreateIncomingMessage(NetIncomingMessageType type, byte[] buffer)
+        internal NetIncomingMessage CreateIncomingMessage(byte[] buffer, NetIncomingMessageType type)
         {
             if (_incomingMessagePool == null ||
                 !_incomingMessagePool.TryDequeue(out NetIncomingMessage? retval))
-                retval = new NetIncomingMessage(type);
+            {
+                retval = new NetIncomingMessage(buffer, type);
+            }
             else
+            {
+                retval._data = buffer;
                 retval.MessageType = type;
-
-            retval.Data = buffer;
+            }
             return retval;
         }
 
-        internal NetIncomingMessage CreateIncomingMessage(NetIncomingMessageType type, int minimumByteSize)
+        internal NetIncomingMessage CreateIncomingMessage(NetIncomingMessageType type, int minimumByteCapacity)
         {
-            if (_incomingMessagePool == null || 
+            if (_incomingMessagePool == null ||
                 !_incomingMessagePool.TryDequeue(out NetIncomingMessage? retval))
-                retval = new NetIncomingMessage(type);
+            {
+                retval = new NetIncomingMessage(null, type);
+            }
             else
+            {
                 retval.MessageType = type;
+            }
 
-            retval.Data = GetStorage(minimumByteSize);
+            if (minimumByteCapacity > 0)
+                retval._data = GetStorage(minimumByteCapacity);
+
             return retval;
         }
 

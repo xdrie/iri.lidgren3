@@ -46,11 +46,11 @@ namespace Lidgren.Network
             int numBlocks = (int)Math.Ceiling(numBytes / (double)blockSize);
             int dstSize = numBlocks * blockSize;
 
-            message.EnsureCapacity((dstSize + 4) * 8); // add 4 bytes for payload length
+            message.EnsureBitCapacity((dstSize + 4) * 8); // add 4 bytes for payload length
             message.BitPosition = 0;
 
             var buffer = _buffer.AsSpan();
-            var messageBuffer = message.Data.AsSpan();
+            var messageBuffer = message.Span;
             for (int i = 0; i < numBlocks; i++)
             {
                 var messageSlice = messageBuffer.Slice(i * blockSize);
@@ -83,7 +83,7 @@ namespace Lidgren.Network
                 return false;
 
             var buffer = _buffer.AsSpan();
-            var messageBuffer = message.Data.AsSpan();
+            var messageBuffer = message.Span;
             for (int i = 0; i < numBlocks; i++)
             {
                 var messageSlice = messageBuffer.Slice(i * blockSize);

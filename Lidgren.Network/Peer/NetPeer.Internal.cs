@@ -188,8 +188,7 @@ namespace Lidgren.Network
 
                 _receiveBuffer = new byte[Configuration.ReceiveBufferSize];
                 _sendBuffer = new byte[Configuration.SendBufferSize];
-                _readHelperMessage = new NetIncomingMessage(NetIncomingMessageType.Error);
-                _readHelperMessage.Data = _receiveBuffer;
+                _readHelperMessage = new NetIncomingMessage(_receiveBuffer, NetIncomingMessageType.Error);
 
                 var epBytes = MemoryMarshal.AsBytes(socket.LocalEndPoint.ToString().AsSpan());
                 var macBytes = NetUtility.GetPhysicalAddress()?.GetAddressBytes() ?? Array.Empty<byte>();
@@ -519,7 +518,7 @@ namespace Lidgren.Network
                             msg.SenderEndPoint = senderEndPoint;
                             msg.BitLength = payloadBitLength;
 
-                            Buffer.BlockCopy(_receiveBuffer, offset, msg.Data, 0, payloadByteLength);
+                            _receiveBuffer.AsSpan(offset, payloadByteLength).CopyTo(msg.Span);
 
                             if (sender != null)
                             {
@@ -546,7 +545,7 @@ namespace Lidgren.Network
                     }
                     catch (Exception ex)
                     {
-                        LogError("Packet parsing error: " + ex.Message + " from " + senderEndPoint);
+                        LogError("Packet parsing error: \"" + ex.Message + "\" from " + senderEndPoint);
                     }
                     offset += payloadByteLength;
                 }
@@ -605,14 +604,14 @@ namespace Lidgren.Network
             if (!Configuration.IsMessageTypeEnabled(NetIncomingMessageType.DiscoveryRequest))
                 return;
 
-            var dm = CreateIncomingMessage(NetIncomingMessageType.DiscoveryRequest, payloadByteLength);
+            var dr = CreateIncomingMessage(NetIncomingMessageType.DiscoveryRequest, payloadByteLength);
             if (payloadByteLength > 0)
-                Buffer.BlockCopy(_receiveBuffer, offset, dm.Data, 0, payloadByteLength);
+                _receiveBuffer.AsSpan(offset, payloadByteLength).CopyTo(dr.Span);
 
-            dm.ReceiveTime = now;
-            dm.SenderEndPoint = senderEndPoint;
-            dm.BitLength = payloadByteLength * 8;
-            ReleaseMessage(dm);
+            dr.ReceiveTime = now;
+            dr.SenderEndPoint = senderEndPoint;
+            dr.BitLength = payloadByteLength * 8;
+            ReleaseMessage(dr);
         }
 
         internal void HandleIncomingDiscoveryResponse(
@@ -623,7 +622,7 @@ namespace Lidgren.Network
 
             var dr = CreateIncomingMessage(NetIncomingMessageType.DiscoveryResponse, payloadByteLength);
             if (payloadByteLength > 0)
-                Buffer.BlockCopy(_receiveBuffer, offset, dr.Data, 0, payloadByteLength);
+                _receiveBuffer.AsSpan(offset, payloadByteLength).CopyTo(dr.Span);
 
             dr.ReceiveTime = now;
             dr.SenderEndPoint = senderEndPoint;

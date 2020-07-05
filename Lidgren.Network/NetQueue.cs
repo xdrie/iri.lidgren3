@@ -21,6 +21,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 using System.Threading;
 
 namespace Lidgren.Network
@@ -44,7 +45,7 @@ namespace Lidgren.Network
         // [5] item
         // [6] item 
         // [7] item
-        
+
         private readonly ReaderWriterLockSlim _lock = new ReaderWriterLockSlim();
         private T[] _items;
         private int _head;
@@ -212,7 +213,9 @@ namespace Lidgren.Network
                 }
 
                 item = _items[_head];
-                _items[_head] = default!;
+
+                if (RuntimeHelpers.IsReferenceOrContainsReferences<T>())
+                    _items[_head] = default!;
 
                 _head = (_head + 1) % _items.Length;
                 Count--;
@@ -244,10 +247,10 @@ namespace Lidgren.Network
                 while (Count > 0)
                 {
                     var slice = _items.AsSpan(_head, Math.Min(Count, Count - _head));
-                    for (int i = 0; i < slice.Length; i++)
+                    foreach (var item in slice)
                     {
-                        destination.Add(slice[i]);
-                        onItem?.Invoke(slice[i]);
+                        destination.Add(item);
+                        onItem?.Invoke(item);
                     }
                     slice.Clear();
 
@@ -307,21 +310,22 @@ namespace Lidgren.Network
         /// <summary>
         /// Determines whether an item is in the queue
         /// </summary>
-        public bool Contains(T item)
+        public bool Contains(T item, IEqualityComparer<T>? comparer)
         {
+            if (comparer == null)
+                comparer = EqualityComparer<T>.Default;
+
             _lock.EnterReadLock();
             try
             {
-
                 int left = Count;
                 int offset = _head;
-                var comparer = EqualityComparer<T>.Default;
                 while (left > 0)
                 {
                     var slice = _items.AsSpan(offset, Math.Min(left, Count - _head));
-                    for (int i = 0; i < slice.Length; i++)
+                    foreach (var other in slice)
                     {
-                        if (comparer.Equals(item, slice[i]))
+                        if (comparer.Equals(item, other))
                             return true;
                     }
 
@@ -334,6 +338,14 @@ namespace Lidgren.Network
             {
                 _lock.ExitReadLock();
             }
+        }
+
+        /// <summary>
+        /// Determines whether an item is in the queue
+        /// </summary>
+        public bool Contains(T item)
+        {
+            return Contains(item, null);
         }
 
         /// <summary>
