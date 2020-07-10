@@ -5,6 +5,25 @@ namespace Lidgren.Network
 {
     public static class EnumConverter
     {
+        public static long Convert<TEnum>(TEnum value)
+            where TEnum : Enum
+        {
+            return Helper<TEnum>.ConvertFrom(value);
+        }
+
+        public static TEnum Convert<TEnum>(long value)
+            where TEnum : Enum
+        {
+            return Helper<TEnum>.ConvertTo(value);
+        }
+
+        [CLSCompliant(false)]
+        public static TEnum Convert<TEnum>(ulong value)
+            where TEnum : Enum
+        {
+            return Convert<TEnum>((long)value);
+        }
+
         private static class Helper<TEnum>
         {
             public static Func<TEnum, long> ConvertFrom { get; } = GenerateFromConverter();
@@ -25,25 +44,6 @@ namespace Lidgren.Network
                 var method = Expression.Lambda<Func<long, TEnum>>(conversion, parameter);
                 return method.Compile();
             }
-        }
-
-        public static long Convert<TEnum>(TEnum value)
-            where TEnum : Enum
-        {
-            return Helper<TEnum>.ConvertFrom(value);
-        }
-
-        public static TEnum Convert<TEnum>(long value)
-            where TEnum : Enum
-        {
-            return Helper<TEnum>.ConvertTo(value);
-        }
-
-        [CLSCompliant(false)]
-        public static TEnum Convert<TEnum>(ulong value)
-            where TEnum : Enum
-        {
-            return Convert<TEnum>((long)value);
         }
     }
 }
