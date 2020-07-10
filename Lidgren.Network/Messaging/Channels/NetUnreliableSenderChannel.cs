@@ -22,12 +22,12 @@ namespace Lidgren.Network
             _windowSize = windowSize;
             _windowStart = 0;
             _sendStart = 0;
-            _receivedAcks = new NetBitVector(NetConstants.NumSequenceNumbers);
+            _receivedAcks = new NetBitVector(NetConstants.SequenceNumbers);
         }
 
         public override int GetAllowedSends()
         {
-            int retval = _windowSize - (_sendStart + NetConstants.NumSequenceNumbers - _windowStart) % _windowSize;
+            int retval = _windowSize - (_sendStart + NetConstants.SequenceNumbers - _windowStart) % _windowSize;
             LidgrenException.Assert(retval >= 0 && retval <= _windowSize);
             return retval;
         }
@@ -77,7 +77,7 @@ namespace Lidgren.Network
             _connection.Peer.AssertIsOnLibraryThread();
 
             int seqNr = _sendStart;
-            _sendStart = (_sendStart + 1) % NetConstants.NumSequenceNumbers;
+            _sendStart = (_sendStart + 1) % NetConstants.SequenceNumbers;
 
             _connection.QueueSendMessage(message, seqNr);
 
@@ -109,7 +109,7 @@ namespace Lidgren.Network
                 LidgrenException.Assert(seqNr == _windowStart);
 
                 _receivedAcks[_windowStart] = false;
-                _windowStart = (_windowStart + 1) % NetConstants.NumSequenceNumbers;
+                _windowStart = (_windowStart + 1) % NetConstants.SequenceNumbers;
 
                 return;
             }
@@ -120,7 +120,7 @@ namespace Lidgren.Network
             while (_windowStart != seqNr)
             {
                 _receivedAcks[_windowStart] = false;
-                _windowStart = (_windowStart + 1) % NetConstants.NumSequenceNumbers;
+                _windowStart = (_windowStart + 1) % NetConstants.SequenceNumbers;
             }
         }
     }

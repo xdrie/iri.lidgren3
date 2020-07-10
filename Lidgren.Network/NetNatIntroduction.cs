@@ -52,13 +52,11 @@ namespace Lidgren.Network
 
             LogDebug("NAT introduction received; we are designated " + (isHost ? "host" : "client"));
 
-            NetOutgoingMessage punch;
-
             if (!isHost && !Configuration.IsMessageTypeEnabled(NetIncomingMessageType.NatIntroductionSuccess))
                 return; // no need to punch - we're not listening for nat intros!
 
             // send internal punch
-            punch = CreateMessage(1);
+            var punch = CreateMessage(1);
             punch._messageType = NetMessageType.NatPunchMessage;
             punch.Write(hostByte);
             punch.Write(token);
@@ -91,12 +89,13 @@ namespace Lidgren.Network
             }
             string token = tmp.ReadString();
 
-            LogDebug("NAT punch received from " + senderEndPoint + " we're client, so we've succeeded - token is " + token);
+            LogDebug(
+                "NAT punch received from " + senderEndPoint + " we're client, so we've succeeded - token is " + token);
 
             //
             // Release punch success to client; enabling him to Connect() to msg.SenderIPEndPoint if token is ok
             //
-            NetIncomingMessage punchSuccess = CreateIncomingMessage(NetIncomingMessageType.NatIntroductionSuccess, 10);
+            var punchSuccess = CreateIncomingMessage(NetIncomingMessageType.NatIntroductionSuccess, 10);
             punchSuccess.SenderEndPoint = senderEndPoint;
             punchSuccess.Write(token);
             ReleaseMessage(punchSuccess);

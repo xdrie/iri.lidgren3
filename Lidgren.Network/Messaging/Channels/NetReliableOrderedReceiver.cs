@@ -20,7 +20,7 @@ namespace Lidgren.Network
 		private void AdvanceWindow()
 		{
 			_earlyReceived.Set(_windowStart % _windowSize, false);
-			_windowStart = (_windowStart + 1) % NetConstants.NumSequenceNumbers;
+			_windowStart = (_windowStart + 1) % NetConstants.SequenceNumbers;
 		}
 
 		public override void ReceiveMessage(NetIncomingMessage message)
@@ -43,7 +43,7 @@ namespace Lidgren.Network
 				Peer.ReleaseMessage(message);
 
 				// release withheld messages
-				int nextSeqNr = (message.SequenceNumber + 1) % NetConstants.NumSequenceNumbers;
+				int nextSeqNr = (message.SequenceNumber + 1) % NetConstants.SequenceNumbers;
 
 				while (_earlyReceived[nextSeqNr % _windowSize])
 				{

@@ -8,6 +8,7 @@ namespace Lidgren.Network
     public partial class NetBuffer : IBitBuffer
     {
         // TODO: rethink pooling (ArrayPool is probably the best candidate)
+        //       implementing IDisposable for recycling/returning objects would also be wise
 
         public static Encoding StringEncoding { get; } = new UTF8Encoding(false, false);
 

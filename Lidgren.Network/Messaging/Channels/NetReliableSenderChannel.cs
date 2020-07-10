@@ -25,7 +25,7 @@ namespace Lidgren.Network
             _windowSize = windowSize;
             _windowStart = 0;
             _sendStart = 0;
-            _receivedAcks = new NetBitVector(NetConstants.NumSequenceNumbers);
+            _receivedAcks = new NetBitVector(NetConstants.SequenceNumbers);
             StoredMessages = new NetStoredReliableMessage[_windowSize];
             ResendDelay = connection.ResendDelay;
         }
@@ -34,7 +34,7 @@ namespace Lidgren.Network
         {
             int retval = 
                 _windowSize - 
-                (_sendStart + NetConstants.NumSequenceNumbers - _windowStart) % NetConstants.NumSequenceNumbers;
+                (_sendStart + NetConstants.SequenceNumbers - _windowStart) % NetConstants.SequenceNumbers;
             
             LidgrenException.Assert(retval >= 0 && retval <= _windowSize);
             return retval;
@@ -117,7 +117,7 @@ namespace Lidgren.Network
         private void ExecuteSend(TimeSpan now, NetOutgoingMessage message)
         {
             int seqNr = _sendStart;
-            _sendStart = (_sendStart + 1) % NetConstants.NumSequenceNumbers;
+            _sendStart = (_sendStart + 1) % NetConstants.SequenceNumbers;
 
             _connection.QueueSendMessage(message, seqNr);
 
@@ -171,7 +171,7 @@ namespace Lidgren.Network
 
                 _receivedAcks[_windowStart] = false;
                 DestoreMessage(_windowStart % _windowSize);
-                _windowStart = (_windowStart + 1) % NetConstants.NumSequenceNumbers;
+                _windowStart = (_windowStart + 1) % NetConstants.SequenceNumbers;
 
                 // advance window if we already have early acks
                 while (_receivedAcks.Get(_windowStart))
@@ -184,7 +184,7 @@ namespace Lidgren.Network
                         StoredMessages[_windowStart % _windowSize].Message != null,
                         "Stored message has not been recycled.");
 
-                    _windowStart = (_windowStart + 1) % NetConstants.NumSequenceNumbers;
+                    _windowStart = (_windowStart + 1) % NetConstants.SequenceNumbers;
                     //m_connection.m_peer.LogDebug("Advancing window to #" + m_windowStart);
                 }
 
@@ -227,7 +227,7 @@ namespace Lidgren.Network
             {
                 rnr--;
                 if (rnr < 0)
-                    rnr = NetConstants.NumSequenceNumbers - 1;
+                    rnr = NetConstants.SequenceNumbers - 1;
 
                 if (_receivedAcks[rnr])
                 {

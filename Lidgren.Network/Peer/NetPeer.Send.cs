@@ -51,7 +51,7 @@ namespace Lidgren.Network
         {
             if (message == null) throw new ArgumentNullException(nameof(message));
             if (recipient == null) throw new ArgumentNullException(nameof(recipient));
-            if (sequenceChannel >= NetConstants.NetChannelsPerDeliveryMethod)
+            if (sequenceChannel >= NetConstants.ChannelsPerDeliveryMethod)
                 throw new ArgumentOutOfRangeException(nameof(sequenceChannel));
 
             LidgrenException.Assert(

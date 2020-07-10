@@ -89,8 +89,8 @@ namespace Lidgren.Network
             _internalStatus = NetConnectionStatus.None;
             Status = NetConnectionStatus.None;
             RemoteEndPoint = remoteEndPoint;
-            _sendChannels = new NetSenderChannel[NetConstants.NumTotalChannels];
-            _receiveChannels = new NetReceiverChannel[NetConstants.NumTotalChannels];
+            _sendChannels = new NetSenderChannel[NetConstants.TotalChannels];
+            _receiveChannels = new NetReceiverChannel[NetConstants.TotalChannels];
             _queuedOutgoingAcks = new NetQueue<(NetMessageType, int)>(16);
             _queuedIncomingAcks = new NetQueue<(NetMessageType, int)>(16);
             Statistics = new NetConnectionStatistics(this);

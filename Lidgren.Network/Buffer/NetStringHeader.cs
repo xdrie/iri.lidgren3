@@ -13,10 +13,8 @@ namespace Lidgren.Network
         public int? ByteCount { get; }
 
         public int MaxByteCount => NetBuffer.StringEncoding.GetMaxByteCount(CharCount);
-        public int ByteCountOffset => CharCountVarSize;
-
-        public int CharCountVarSize => NetBitWriter.GetVarIntSize((uint)CharCount);
         public int MaxByteCountVarSize => NetBitWriter.GetVarIntSize((uint)MaxByteCount);
+        public int CharCountVarSize => NetBitWriter.GetVarIntSize((uint)CharCount);
         public int ByteCountVarSize => NetBitWriter.GetVarIntSize((uint)(ByteCount ?? MaxByteCount));
 
         /// <summary>

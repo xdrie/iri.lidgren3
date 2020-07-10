@@ -1,6 +1,4 @@
-﻿//#define UNSAFE
-//#define BIGENDIAN
-/* Copyright (c) 2010 Michael Lidgren
+﻿/* Copyright (c) 2010 Michael Lidgren
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software
 and associated documentation files (the "Software"), to deal in the Software without
@@ -22,8 +20,6 @@ using System;
 using System.Net;
 using System.Buffers.Binary;
 using System.Text.Unicode;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
 
 namespace Lidgren.Network
 {
