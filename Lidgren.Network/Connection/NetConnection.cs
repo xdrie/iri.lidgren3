@@ -18,7 +18,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Number of heartbeats to wait for more incoming messages before sending packet.
         /// </summary>
-        private const int MessageCoalesceFrames = 3;
+        private const int MessageCoalesceFrames = 4;
 
         private bool _isDisposed;
         private int _sendBufferWritePtr;
@@ -182,11 +182,11 @@ namespace Lidgren.Network
             // Note: at this point m_sendBufferWritePtr and m_sendBufferNumMessages may be non-null;
             // resends may already be queued up
 
-            byte[] sendBuffer = Peer._sendBuffer;
-            int mtu = CurrentMTU;
-
             if ((frameCounter % MessageCoalesceFrames) == 0) // coalesce a few frames
             {
+                byte[] sendBuffer = Peer._sendBuffer;
+                int mtu = CurrentMTU;
+
                 //
                 // send ack messages
                 //
@@ -343,65 +343,63 @@ namespace Lidgren.Network
                 message.GetEncodedSize() > CurrentMTU)
                 Peer.ThrowOrLog("Reliable message too large! Fragmentation failure?");
 
-            var retval = chan.Enqueue(message);
-            //if (retval == NetSendResult.Sent && m_peerConfiguration.m_autoFlushSendQueue == false)
-            //	retval = NetSendResult.Queued; // queued since we're not autoflushing
-            return retval;
+            var sendResult = chan.Enqueue(message);
+            //if (sendResult == NetSendResult.Sent && !_peerConfiguration.m_autoFlushSendQueue)
+            //	sendResult = NetSendResult.Queued; // queued since we're not autoflushing
+            return sendResult;
         }
 
         // may be on user thread
-        private NetSenderChannel CreateSenderChannel(NetMessageType tp)
+        private NetSenderChannel CreateSenderChannel(NetMessageType type)
         {
-            NetSenderChannel chan;
             lock (_sendChannels)
             {
-                NetDeliveryMethod method = NetUtility.GetDeliveryMethod(tp);
-                int sequenceChannel = (int)tp - (int)method;
-
+                NetDeliveryMethod method = NetUtility.GetDeliveryMethod(type);
+                int sequenceChannel = (int)type - (int)method;
                 int channelSlot = (int)method - 1 + sequenceChannel;
+
                 if (_sendChannels[channelSlot] != null)
                 {
                     // we were pre-empted by another call to this method
-                    chan = _sendChannels[channelSlot];
+                    return _sendChannels[channelSlot];
                 }
                 else
                 {
-
+                    NetSenderChannel channel;
                     switch (method)
                     {
                         case NetDeliveryMethod.Unreliable:
                         case NetDeliveryMethod.UnreliableSequenced:
-                            chan = new NetUnreliableSenderChannel(this, NetUtility.GetWindowSize(method));
+                            channel = new NetUnreliableSenderChannel(this, NetUtility.GetWindowSize(method));
                             break;
 
-                        case NetDeliveryMethod.ReliableOrdered:
-                            chan = new NetReliableSenderChannel(this, NetUtility.GetWindowSize(method));
-                            break;
-
-                        case NetDeliveryMethod.ReliableSequenced:
                         case NetDeliveryMethod.ReliableUnordered:
-                        default:
-                            chan = new NetReliableSenderChannel(this, NetUtility.GetWindowSize(method));
+                        case NetDeliveryMethod.ReliableSequenced:
+                        case NetDeliveryMethod.ReliableOrdered:
+                        case NetDeliveryMethod.Stream:
+                            channel = new NetReliableSenderChannel(this, NetUtility.GetWindowSize(method));
                             break;
+
+                        default:
+                            throw new ArgumentOutOfRangeException(nameof(type));
                     }
-                    _sendChannels[channelSlot] = chan;
+                    _sendChannels[channelSlot] = channel;
+                    return channel;
                 }
             }
-
-            return chan;
         }
 
         // received a library message while Connected
-        internal void ReceivedLibraryMessage(NetMessageType tp, int offset, int payloadLength)
+        internal void ReceivedLibraryMessage(NetMessageType type, int offset, int payloadLength)
         {
             Peer.AssertIsOnLibraryThread();
 
             var now = NetTime.Now;
 
-            switch (tp)
+            switch (type)
             {
                 case NetMessageType.Connect:
-                    Peer.LogDebug("Received handshake message (" + tp + ") despite connection being in place");
+                    Peer.LogDebug("Received handshake message (" + type + ") despite connection being in place");
                     break;
 
                 case NetMessageType.ConnectResponse:
@@ -430,13 +428,13 @@ namespace Lidgren.Network
                 case NetMessageType.Acknowledge:
                     for (int i = 0; i < payloadLength; i += 3)
                     {
-                        var acktp = (NetMessageType)Peer._receiveBuffer[offset++]; // netmessagetype
+                        var ackType = (NetMessageType)Peer._receiveBuffer[offset++]; // netmessagetype
                         int seqNr = Peer._receiveBuffer[offset++];
                         seqNr |= Peer._receiveBuffer[offset++] << 8;
 
                         // need to enqueue this and handle it in the netconnection heartbeat;
                         // so be able to send resends together with normal sends
-                        _queuedIncomingAcks.Enqueue((acktp, seqNr));
+                        _queuedIncomingAcks.Enqueue((ackType, seqNr));
                     }
                     break;
 
@@ -474,7 +472,7 @@ namespace Lidgren.Network
                     break;
 
                 default:
-                    Peer.LogWarning("Connection received unhandled library message: " + tp);
+                    Peer.LogWarning("Connection received unhandled library message: " + type);
                     break;
             }
         }
@@ -483,46 +481,52 @@ namespace Lidgren.Network
         {
             Peer.AssertIsOnLibraryThread();
 
-            NetMessageType tp = msg._baseMessageType;
+            NetMessageType type = msg._baseMessageType;
 
-            int channelSlot = (int)tp - 1;
-            NetReceiverChannel chan = _receiveChannels[channelSlot];
-            if (chan == null)
-                chan = CreateReceiverChannel(tp);
+            int channelSlot = (int)type - 1;
+            NetReceiverChannel channel = _receiveChannels[channelSlot];
+            if (channel == null)
+                channel = CreateReceiverChannel(type);
 
-            chan.ReceiveMessage(msg);
+            channel.ReceiveMessage(msg);
         }
 
-        private NetReceiverChannel CreateReceiverChannel(NetMessageType tp)
+        private NetReceiverChannel CreateReceiverChannel(NetMessageType type)
         {
-            Peer.AssertIsOnLibraryThread();
-
-            NetDeliveryMethod method = NetUtility.GetDeliveryMethod(tp);
-            NetReceiverChannel chan = method switch
+            NetDeliveryMethod method = NetUtility.GetDeliveryMethod(type);
+            NetReceiverChannel channel;
+            switch (method)
             {
-                NetDeliveryMethod.Unreliable =>
-                new NetUnreliableUnorderedReceiver(this),
+                case NetDeliveryMethod.Unreliable:
+                    channel = new NetUnreliableUnorderedReceiver(this);
+                    break;
 
-                NetDeliveryMethod.ReliableOrdered =>
-                new NetReliableOrderedReceiver(this, NetConstants.ReliableOrderedWindowSize),
+                case NetDeliveryMethod.UnreliableSequenced:
+                    channel = new NetUnreliableSequencedReceiver(this);
+                    break;
 
-                NetDeliveryMethod.UnreliableSequenced =>
-                new NetUnreliableSequencedReceiver(this),
+                case NetDeliveryMethod.ReliableUnordered:
+                    channel = new NetReliableUnorderedReceiver(this, NetConstants.ReliableOrderedWindowSize);
+                    break;
 
-                NetDeliveryMethod.ReliableUnordered =>
-                new NetReliableUnorderedReceiver(this, NetConstants.ReliableOrderedWindowSize),
+                case NetDeliveryMethod.ReliableSequenced:
+                    channel = new NetReliableSequencedReceiver(this, NetConstants.ReliableSequencedWindowSize);
+                    break;
 
-                NetDeliveryMethod.ReliableSequenced =>
-                new NetReliableSequencedReceiver(this, NetConstants.ReliableSequencedWindowSize),
+                case NetDeliveryMethod.ReliableOrdered:
+                case NetDeliveryMethod.Stream:
+                    channel = new NetReliableOrderedReceiver(this, NetConstants.ReliableOrderedWindowSize);
+                    break;
 
-                _ => throw new LidgrenException("Unhandled NetDeliveryMethod!"),
+                default:
+                    throw new ArgumentOutOfRangeException(nameof(type));
             };
 
-            int channelSlot = (int)tp - 1;
+            int channelSlot = (int)type - 1;
             LidgrenException.Assert(_receiveChannels[channelSlot] == null);
-            _receiveChannels[channelSlot] = chan;
+            _receiveChannels[channelSlot] = channel;
 
-            return chan;
+            return channel;
         }
 
         internal void QueueAck(NetMessageType type, int sequenceNumber)

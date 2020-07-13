@@ -1,5 +1,4 @@
-﻿using System;
-
+﻿
 namespace Lidgren.Network
 {
 	/// <summary>
@@ -8,7 +7,7 @@ namespace Lidgren.Network
 	public enum NetSendResult
 	{
 		/// <summary>
-		/// Message failed to enqueue because there is no connection
+		/// Message failed to enqueue because there is no connection.
 		/// </summary>
 		FailedNotConnected = 0,
 
@@ -23,7 +22,7 @@ namespace Lidgren.Network
 		Queued = 2,
 
 		/// <summary>
-		/// Message was dropped immediately since too many message were queued
+		/// Message was dropped immediately since too many message were queued.
 		/// </summary>
 		Dropped = 3
 	}

@@ -496,14 +496,14 @@ namespace Lidgren.Network
         internal static int RelativeSequenceNumber(int number, int expected)
         {
             return
-                (number - expected + NetConstants.SequenceNumbers + NetConstants.SequenceNumbers / 2) %
-                NetConstants.SequenceNumbers - NetConstants.SequenceNumbers / 2;
+                (number - expected + NetConstants.SequenceNumbers + NetConstants.SequenceNumbers / 2)
+                % NetConstants.SequenceNumbers - NetConstants.SequenceNumbers / 2;
 
             // old impl:
-            //int retval = ((nr + NetConstants.NumSequenceNumbers) - expected) % NetConstants.NumSequenceNumbers;
-            //if (retval > (NetConstants.NumSequenceNumbers / 2))
-            //	retval -= NetConstants.NumSequenceNumbers;
-            //return retval;
+            //int value = ((nr + NetConstants.SequenceNumbers) - expected) % NetConstants.SequenceNumbers;
+            //if (value > (NetConstants.SequenceNumbers / 2))
+            //    value -= NetConstants.SequenceNumbers;
+            //return value;
         }
 
         /// <summary>
@@ -571,7 +571,9 @@ namespace Lidgren.Network
 
         internal static NetDeliveryMethod GetDeliveryMethod(NetMessageType mtp)
         {
-            if (mtp >= NetMessageType.UserReliableOrdered1)
+            if (mtp >= NetMessageType.UserNetStream1)
+                return NetDeliveryMethod.Stream;
+            else if (mtp >= NetMessageType.UserReliableOrdered1)
                 return NetDeliveryMethod.ReliableOrdered;
             else if (mtp >= NetMessageType.UserReliableSequenced1)
                 return NetDeliveryMethod.ReliableSequenced;
@@ -583,8 +585,7 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Copies from <paramref name="src"/> to <paramref name="dst"/>. 
-        /// Maps to an IPv6 address.
+        /// Copies from <paramref name="src"/> to <paramref name="dst"/>, mapping to an IPv6 address.
         /// </summary>
         /// <param name="src">Source.</param>
         /// <param name="dst">Destination.</param>

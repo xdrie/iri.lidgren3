@@ -57,14 +57,14 @@ namespace Lidgren.Network
         public int SequenceNumber { get; internal set; }
 
         /// <summary>
-        /// Gets the sequence channel this message was sent with (if user data).
-        /// </summary>
-        public int SequenceChannel => (int)_baseMessageType - (int)NetUtility.GetDeliveryMethod(_baseMessageType);
-
-        /// <summary>
         /// Gets the delivery method this message was sent with (if user data).
         /// </summary>
         public NetDeliveryMethod DeliveryMethod => NetUtility.GetDeliveryMethod(_baseMessageType);
+
+        /// <summary>
+        /// Gets the sequence channel this message was sent with (if user data).
+        /// </summary>
+        public int SequenceChannel => (int)_baseMessageType - (int)DeliveryMethod;
 
         public NetIncomingMessage(byte[]? buffer, NetIncomingMessageType type = default) : base(buffer)
         {

@@ -29,7 +29,7 @@ namespace Lidgren.Network
             if (message == null)
                 throw new ArgumentNullException(nameof(message));
 
-            var all = GetConnections();
+            var all = NetConnectionListPool.GetConnections(this);
             if (all == null)
             {
                 if (!message._isSent)
@@ -37,10 +37,17 @@ namespace Lidgren.Network
                 return;
             }
 
-            if (except != null)
-                all.Remove(except);
+            try
+            {
+                if (except != null)
+                    all.Remove(except);
 
-            SendMessage(message, all, method, sequenceChannel);
+                SendMessage(message, all, method, sequenceChannel);
+            }
+            finally
+            {
+                NetConnectionListPool.Return(all);
+            }
         }
 
         /// <summary>

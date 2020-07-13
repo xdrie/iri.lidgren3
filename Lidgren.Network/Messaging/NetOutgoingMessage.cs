@@ -52,7 +52,7 @@ namespace Lidgren.Network
             BitLength = 0;
         }
 
-        internal int Encode(byte[] destination, int offset, int sequenceNumber)
+        internal int Encode(Span<byte> destination, int offset, int sequenceNumber)
         {
             //  8 bits - NetMessageType
             //  1 bit  - Fragment?
@@ -71,11 +71,8 @@ namespace Lidgren.Network
                 destination[offset++] = (byte)(BitLength >> 8);
 
                 int byteLen = NetBitWriter.ByteCountForBits(BitLength);
-                if (byteLen > 0)
-                {
-                    Span.Slice(0, byteLen).CopyTo(destination.AsSpan(offset));
-                    offset += byteLen;
-                }
+                Span.Slice(0, byteLen).CopyTo(destination.Slice(offset));
+                offset += byteLen;
             }
             else
             {
@@ -97,11 +94,8 @@ namespace Lidgren.Network
                 destination[offsetBase + 1] = (byte)(realBitLength >> 8);
 
                 int byteLen = NetBitWriter.ByteCountForBits(BitLength);
-                if (byteLen > 0)
-                {
-                    Span.Slice(_fragmentChunkNumber * _fragmentChunkByteSize, byteLen).CopyTo(destination.AsSpan(offset));
-                    offset += byteLen;
-                }
+                Span.Slice(_fragmentChunkNumber * _fragmentChunkByteSize, byteLen).CopyTo(destination.Slice(offset));
+                offset += byteLen;
             }
 
             LidgrenException.Assert(offset > 0);

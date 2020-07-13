@@ -283,11 +283,11 @@ namespace Lidgren.Network
                 Peer.Handshakes.Remove(RemoteEndPoint);
         }
 
-        internal void ReceivedHandshake(TimeSpan now, NetMessageType tp, int offset, int payloadLength)
+        internal void ReceivedHandshake(TimeSpan now, NetMessageType type, int offset, int payloadLength)
         {
             Peer.AssertIsOnLibraryThread();
 
-            switch (tp)
+            switch (type)
             {
                 case NetMessageType.Connect:
                     if (_internalStatus == NetConnectionStatus.ReceivedInitiation)
@@ -340,7 +340,7 @@ namespace Lidgren.Network
                         return;
                     }
                     Peer.LogDebug(
-                        "Unhandled Connect: " + tp + ", status is " + _internalStatus + " length: " + payloadLength);
+                        "Unhandled Connect: " + type + ", status is " + _internalStatus + " length: " + payloadLength);
                     break;
 
                 case NetMessageType.ConnectResponse:
@@ -408,7 +408,7 @@ namespace Lidgren.Network
                     return;
 
                 default:
-                    Peer.LogDebug("Unhandled type during handshake: " + tp + " length: " + payloadLength);
+                    Peer.LogDebug("Unhandled type during handshake: " + type + " length: " + payloadLength);
                     break;
             }
         }

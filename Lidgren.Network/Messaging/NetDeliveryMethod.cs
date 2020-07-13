@@ -6,38 +6,42 @@ namespace Lidgren.Network
 	/// </summary>
 	public enum NetDeliveryMethod : byte
 	{
-		//
 		// Publicly visible subset of NetMessageType
-		//
 
 		/// <summary>
-		/// Indicates an error
+		/// Indicates an error.
 		/// </summary>
 		Unknown = 0,
 
 		/// <summary>
-		/// Unreliable, unordered delivery
+		/// Unreliable, unordered delivery.
 		/// </summary>
-		Unreliable = 1,
+		Unreliable = NetMessageType.UserUnreliable,
 
 		/// <summary>
-		/// Unreliable delivery, but automatically dropping late messages
+		/// Unreliable delivery, but automatically dropping late messages.
 		/// </summary>
-		UnreliableSequenced = 2,
+		UnreliableSequenced = NetMessageType.UserSequenced1,
 
 		/// <summary>
-		/// Reliable delivery, but unordered
+		/// Reliable delivery, but unordered.
 		/// </summary>
-		ReliableUnordered = 34,
+		ReliableUnordered = NetMessageType.UserReliableUnordered,
 
 		/// <summary>
-		/// Reliable delivery, except for late messages which are dropped
+		/// Reliable delivery, except for late messages which are dropped.
 		/// </summary>
-		ReliableSequenced = 35,
+		ReliableSequenced = NetMessageType.UserReliableSequenced1,
 
 		/// <summary>
-		/// Reliable, ordered delivery
+		/// Reliable, ordered delivery.
 		/// </summary>
-		ReliableOrdered = 67,
+		ReliableOrdered = NetMessageType.UserReliableOrdered1,
+
+
+		/// <summary>
+		/// Reliable, ordered delivery. Reserved for <see cref="NetStream"/>.
+		/// </summary>
+		Stream = NetMessageType.UserNetStream1,
 	}
 }

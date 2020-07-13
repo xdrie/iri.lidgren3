@@ -17,44 +17,49 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR TH
 USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
+using System;
+
 namespace Lidgren.Network
 {
-	/// <summary>
-	/// All the constants used when compiling the library
-	/// </summary>
-	internal static class NetConstants
-	{
-		internal const int TotalChannels = 99;
+    /// <summary>
+    /// All the constants used when internally by the library.
+    /// </summary>
+    internal static class NetConstants
+    {
+        public const int UnreliableSequencedChannels = 32;
+        public const int ReliableSequencedChannels = 32;
+        public const int ReliableOrderedChannels = 32;
+        public const int StreamChannels = 32;
 
-		internal const int ChannelsPerDeliveryMethod = 32;
+        public const int TotalChannels = 
+            2 + UnreliableSequencedChannels +
+            ReliableSequencedChannels + ReliableOrderedChannels + StreamChannels;
 
-		internal const int SequenceNumbers = 1024;
+        public const int SequenceNumbers = 1024;
 
-		internal const int HeaderByteSize = 5;
+        public const int HeaderByteSize = 5;
 
-		internal const int UnreliableWindowSize = 128;
-		internal const int ReliableOrderedWindowSize = 64;
-		internal const int ReliableSequencedWindowSize = 64;
-		internal const int DefaultWindowSize = 64;
+        public const int UnreliableWindowSize = 128;
+        public const int DefaultWindowSize = 64;
+        public const int ReliableOrderedWindowSize = DefaultWindowSize;
+        public const int ReliableSequencedWindowSize = DefaultWindowSize;
 
-		internal const int MaxFragmentationGroups = ushort.MaxValue - 1;
+        public const int MaxFragmentationGroups = ushort.MaxValue - 1;
+        public const int UnfragmentedMessageHeaderSize = 5;
 
-		internal const int UnfragmentedMessageHeaderSize = 5;
+        public static void AssertValidSequenceChannel(
+            NetDeliveryMethod method, int sequenceChannel, string paramName)
+        {
+            if (sequenceChannel < 0)
+                throw new ArgumentOutOfRangeException(paramName);
 
-		/// <summary>
-		/// Number of channels which needs a sequence number to work
-		/// </summary>
-		internal const int SequencedChannels =
-			(int)NetMessageType.UserReliableOrdered1 + 
-			ChannelsPerDeliveryMethod -
-			(int)NetMessageType.UserSequenced1;
-
-		/// <summary>
-		/// Number of reliable channels
-		/// </summary>
-		internal const int ReliableChannels = 
-			(int)NetMessageType.UserReliableOrdered1 +
-			ChannelsPerDeliveryMethod - 
-			(int)NetMessageType.UserReliableUnordered;
-	}
+            switch (method)
+            {
+                case NetDeliveryMethod.Stream:
+                    if (sequenceChannel > StreamChannels)
+                        throw new ArgumentOutOfRangeException(nameof(sequenceChannel));
+                    break;
+            }
+        }
+    }
 }

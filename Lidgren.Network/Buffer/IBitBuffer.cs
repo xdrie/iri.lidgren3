@@ -3,7 +3,7 @@ using System.Runtime.CompilerServices;
 
 namespace Lidgren.Network
 {
-    public interface IBitBuffer
+    public interface IBitBuffer : IDisposable
     {
         int BitCapacity { get; set; }
 

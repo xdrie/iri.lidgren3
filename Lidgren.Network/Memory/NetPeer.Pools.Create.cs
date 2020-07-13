@@ -65,19 +65,19 @@ namespace Lidgren.Network
         internal NetIncomingMessage CreateIncomingMessage(NetIncomingMessageType type, int minimumByteCapacity)
         {
             if (_incomingMessagePool == null ||
-                !_incomingMessagePool.TryDequeue(out NetIncomingMessage? retval))
+                !_incomingMessagePool.TryDequeue(out NetIncomingMessage? msg))
             {
-                retval = new NetIncomingMessage(null, type);
+                msg = new NetIncomingMessage(null, type);
             }
             else
             {
-                retval.MessageType = type;
+                msg.MessageType = type;
             }
 
             if (minimumByteCapacity > 0)
-                retval._data = GetStorage(minimumByteCapacity);
+                msg._data = GetStorage(minimumByteCapacity);
 
-            return retval;
+            return msg;
         }
 
         /// <summary>

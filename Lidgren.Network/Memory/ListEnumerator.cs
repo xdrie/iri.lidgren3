@@ -5,7 +5,8 @@ using System.Collections.Generic;
 namespace Lidgren.Network.Memory
 {
     /// <summary>
-    /// Used to reduce garbage allocations when creating enumerators from different sources.
+    /// Used to reduce allocations when creating enumerators 
+    /// from enumerables by using list indexing.
     /// </summary>
     /// <typeparam name="T"></typeparam>
     internal struct ListEnumerator<T> : IEnumerator<T>, IEnumerable<T>
@@ -36,15 +37,7 @@ namespace Lidgren.Network.Memory
 
         public bool MoveNext()
         {
-            if (_enumerator != null)
-            {
-                if (_enumerator.MoveNext())
-                {
-                    Current = _enumerator.Current;
-                    return true;
-                }
-            }
-            else if (_list != null)
+            if (_list != null)
             {
                 if ((uint)_index < (uint)_list.Count)
                     Current = _list[_index++];
@@ -53,6 +46,14 @@ namespace Lidgren.Network.Memory
             {
                 if ((uint)_index < (uint)_roList.Count)
                     Current = _roList[_index++];
+            }
+            else if (_enumerator != null)
+            {
+                if (_enumerator.MoveNext())
+                {
+                    Current = _enumerator.Current;
+                    return true;
+                }
             }
             return false;
         }

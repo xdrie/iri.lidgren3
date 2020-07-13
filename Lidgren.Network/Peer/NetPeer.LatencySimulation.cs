@@ -41,7 +41,7 @@ namespace Lidgren.Network
             }
         }
 
-        private readonly List<DelayedPacket> _delayedPackets = new List<DelayedPacket>();
+        private List<DelayedPacket> DelayedPackets { get; } = new List<DelayedPacket>();
 
         //Avoids allocation on mapping to IPv6
         private IPEndPoint _targetCopy = new IPEndPoint(IPAddress.Any, 0);
@@ -91,12 +91,12 @@ namespace Lidgren.Network
                 var delay = Configuration._minimumOneWayLatency +
                     (MWCRandom.Global.NextSingle() * Configuration._randomOneWayLatency);
 
-                var data = new byte[byteCount];
+                var data = new byte[byteCount]; // TODO: ArrayPool
                 Buffer.BlockCopy(_sendBuffer, 0, data, 0, byteCount);
 
                 // Enqueue delayed packet
                 var p = new DelayedPacket(data, now + delay, target);
-                _delayedPackets.Add(p);
+                DelayedPackets.Add(p);
             }
 
             // LogVerbose("Sending packet " + numBytes + " bytes - delayed " + NetTime.ToReadable(delay));
@@ -104,24 +104,26 @@ namespace Lidgren.Network
 
         private void SendDelayedPackets()
         {
-            if (_delayedPackets.Count == 0)
+            if (DelayedPackets.Count == 0)
                 return;
 
             var now = NetTime.Now;
-            for (int i = _delayedPackets.Count; i-- > 0;)
+            
+            // reverse-for so elements can be removed without breaking loop
+            for (int i = DelayedPackets.Count; i-- > 0;)
             {
-                var p = _delayedPackets[i];
+                var p = DelayedPackets[i];
                 if (now > p.DelayedUntil)
                 {
                     ActuallySendPacket(p.Data, p.Data.Length, p.Target, out _);
-                    _delayedPackets.RemoveAt(i);
+                    DelayedPackets.RemoveAt(i);
                 }
             }
         }
 
         private void FlushDelayedPackets()
         {
-            foreach (DelayedPacket p in _delayedPackets)
+            foreach (DelayedPacket p in DelayedPackets)
             {
                 try
                 {
@@ -132,10 +134,10 @@ namespace Lidgren.Network
                     LogWarning("Failed to flush delayed packet: " + ex);
                 }
             }
-            _delayedPackets.Clear();
+            DelayedPackets.Clear();
         }
 
-        // TODO: replace byte[] with Span when net5 hits
+        // TODO: replace byte[] with Span when net5 hits (held back by Socket.SendTo)
         internal bool ActuallySendPacket(byte[] data, int numBytes, IPEndPoint target, out bool connectionReset)
         {
             if (Socket == null)

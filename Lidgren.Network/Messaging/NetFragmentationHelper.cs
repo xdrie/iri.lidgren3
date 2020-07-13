@@ -6,7 +6,7 @@ namespace Lidgren.Network
     internal static class NetFragmentationHelper
     {
         internal static int WriteHeader(
-            byte[] destination,
+            Span<byte> destination,
             int offset,
             int group,
             int totalBits,

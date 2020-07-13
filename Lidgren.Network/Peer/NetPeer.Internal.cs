@@ -29,6 +29,7 @@ namespace Lidgren.Network
         internal NetQueue<(IPEndPoint EndPoint, NetOutgoingMessage Message)> UnsentUnconnectedMessages { get; } =
             new NetQueue<(IPEndPoint, NetOutgoingMessage)>(2);
 
+        // TODO: concurrent dictionary?
         internal Dictionary<IPEndPoint, NetConnection> Handshakes { get; } =
             new Dictionary<IPEndPoint, NetConnection>();
 
@@ -210,57 +211,53 @@ namespace Lidgren.Network
 
             LogDebug("Network thread started");
 
-            //
-            // Network loop
-            //
-            do
+            var connPool = NetConnectionListPool.Rent();
+            try
             {
-                try
+                // Network loop
+                do
                 {
-                    Heartbeat();
-                }
-                catch (Exception ex)
-                {
-                    LogWarning(ex.ToString());
-                }
-            } while (Status == NetPeerStatus.Running);
+                    try
+                    {
+                        Heartbeat(connPool);
+                    }
+                    catch (Exception ex)
+                    {
+                        LogWarning(ex.ToString());
+                    }
+                } while (Status == NetPeerStatus.Running);
 
-            //
-            // perform shutdown
-            //
-            ExecutePeerShutdown();
+                // perform shutdown
+                ExecutePeerShutdown(connPool);
+            }
+            finally
+            {
+                NetConnectionListPool.Return(connPool);
+            }
         }
 
-        private void ExecutePeerShutdown()
+        private void ExecutePeerShutdown(List<NetConnection> connPool)
         {
             AssertIsOnLibraryThread();
 
             LogDebug("Shutting down...");
 
             // disconnect and make one final heartbeat
-            var connections = NetConnectionListPool.Rent();
-            try
-            {
-                lock (Connections)
-                    connections.AddRange(Connections);
+            lock (Connections)
+                connPool.AddRange(Connections);
 
-                lock (Handshakes)
-                    connections.AddRange(Handshakes.Values);
+            lock (Handshakes)
+                connPool.AddRange(Handshakes.Values);
 
-                foreach (NetConnection conn in connections)
-                    conn?.Shutdown(_shutdownReason);
-            }
-            finally
-            {
-                NetConnectionListPool.Return(connections);
-            }
+            foreach (NetConnection conn in connPool)
+                conn?.Shutdown(_shutdownReason);
+
+            connPool.Clear();
 
             FlushDelayedPackets();
 
             // one final heartbeat, will send stuff and do disconnect
-            Heartbeat();
-
-            Thread.Sleep(10);
+            Heartbeat(connPool);
 
             lock (InitMutex)
             {
@@ -306,16 +303,16 @@ namespace Lidgren.Network
             }
         }
 
-        private void Heartbeat()
+        private void Heartbeat(List<NetConnection> connPool)
         {
             AssertIsOnLibraryThread();
 
+            var connections = Connections;
+
+            // TODO: improve CHBpS constants
             TimeSpan now = NetTime.Now;
             TimeSpan delta = now - _lastHeartbeat;
-
-            int maxCHBpS = 1250 - Connections.Count;
-            if (maxCHBpS < 250)
-                maxCHBpS = 250;
+            int maxCHBpS = Math.Min(250, 1250 - connections.Count);
 
             // max connection heartbeats/second max
             if (delta > TimeSpan.FromTicks(TimeSpan.TicksPerSecond / maxCHBpS) ||
@@ -325,53 +322,54 @@ namespace Lidgren.Network
                 _lastHeartbeat = now;
 
                 // do handshake heartbeats
-                if ((_frameCounter % 3) == 0)
+                lock (Handshakes)
                 {
-                    lock (Handshakes)
-                    {
-                        foreach (var kvp in Handshakes)
-                        {
-                            var conn = kvp.Value;
-                            conn.UnconnectedHeartbeat(now);
+                    // copy to pool so elements can be removed without breaking iteration
+                    connPool.AddRange(Handshakes.Values);
 
-                            if (conn._internalStatus == NetConnectionStatus.Connected ||
-                                conn._internalStatus == NetConnectionStatus.Disconnected)
-                            {
+                    // reverse-for so elements can be removed without breaking loop
+                    for (int i = connPool.Count; i-- > 0;)
+                    {
+                        var conn = connPool[i];
+                        conn.UnconnectedHeartbeat(now);
+
 #if DEBUG
-                                // sanity check
-                                if (conn._internalStatus == NetConnectionStatus.Disconnected &&
-                                    Handshakes.ContainsKey(conn.RemoteEndPoint))
-                                {
-                                    LogWarning("Sanity fail! Handshakes list contained disconnected connection!");
-                                    Handshakes.Remove(conn.RemoteEndPoint);
-                                }
-#endif
-                                break; // collection has been modified
+                        // sanity check
+                        if (conn._internalStatus == NetConnectionStatus.Connected ||
+                            conn._internalStatus == NetConnectionStatus.Disconnected)
+                        {
+                            if (conn._internalStatus == NetConnectionStatus.Disconnected &&
+                                Handshakes.ContainsKey(conn.RemoteEndPoint))
+                            {
+                                LogWarning("Sanity fail! Handshakes list contained disconnected connection!");
+                                Handshakes.Remove(conn.RemoteEndPoint);
                             }
                         }
+#endif
                     }
+
+                    connPool.Clear();
                 }
 
                 SendDelayedPackets();
 
-                // update m_executeFlushSendQueue
+                // update _executeFlushSendQueue
                 if (Configuration._autoFlushSendQueue)
                     _executeFlushSendQueue = true;
 
                 // do connection heartbeats
-                lock (Connections)
+                lock (connections)
                 {
-                    foreach (NetConnection conn in Connections)
+                    // reverse-for so elements can be removed without breaking loop
+                    for (int i = connections.Count; i-- > 0;)
                     {
+                        var conn = connections[i];
                         conn.Heartbeat(now, _frameCounter);
+
                         if (conn._internalStatus == NetConnectionStatus.Disconnected)
                         {
-                            //
-                            // remove connection
-                            //
-                            Connections.Remove(conn);
+                            connections.RemoveAt(i);
                             ConnectionLookup.Remove(conn.RemoteEndPoint);
-                            break; // can't continue iteration here
                         }
                     }
                 }
@@ -381,9 +379,8 @@ namespace Lidgren.Network
                 while (UnsentUnconnectedMessages.TryDequeue(out var unsent))
                 {
                     NetOutgoingMessage om = unsent.Message;
-
-                    int len = om.Encode(_sendBuffer, 0, 0);
-                    SendPacket(len, unsent.EndPoint, 1, out bool connReset);
+                    int length = om.Encode(_sendBuffer, 0, 0);
+                    SendPacket(length, unsent.EndPoint, 1, out bool connReset);
 
                     Interlocked.Decrement(ref om._recyclingCount);
                     if (om._recyclingCount <= 0)
@@ -443,12 +440,11 @@ namespace Lidgren.Network
 
                 //LogVerbose("Received " + bytesReceived + " bytes");
 
-                var senderEndPoint = (IPEndPoint)_senderRemote;
-
                 if (UPnP != null && UPnP.Status == UPnPStatus.Discovering)
                     if (SetupUpnp(UPnP, now, _receiveBuffer.AsSpan(0, bytesReceived)))
                         return;
 
+                var senderEndPoint = (IPEndPoint)_senderRemote;
                 ConnectionLookup.TryGetValue(senderEndPoint, out NetConnection? sender);
 
                 //
@@ -485,12 +481,6 @@ namespace Lidgren.Network
                         LogWarning(
                             "Malformed packet; stated payload length " + payloadByteLength +
                             ", remaining bytes " + (bytesReceived - offset));
-                        return;
-                    }
-
-                    if (type >= NetMessageType.Unused1 && type <= NetMessageType.Unused29)
-                    {
-                        ThrowOrLog("Unexpected NetMessageType: " + type);
                         return;
                     }
 
@@ -563,7 +553,7 @@ namespace Lidgren.Network
                 return false;
 
             // is this an UPnP response?
-            string resp = System.Text.Encoding.ASCII.GetString(data); // TODO: optimize with stackalloc
+            string resp = System.Text.Encoding.ASCII.GetString(data);
             if (resp.Contains("upnp:rootdevice", StringComparison.OrdinalIgnoreCase) ||
                 resp.Contains("UPnP/1.0", StringComparison.OrdinalIgnoreCase))
             {
@@ -631,18 +621,18 @@ namespace Lidgren.Network
         }
 
         private void ReceivedUnconnectedLibraryMessage(
-            TimeSpan now, IPEndPoint senderEndPoint, NetMessageType tp, int offset, int payloadByteLength)
+            TimeSpan now, IPEndPoint senderEndPoint, NetMessageType type, int offset, int payloadByteLength)
         {
             if (Handshakes.TryGetValue(senderEndPoint, out NetConnection? shake))
             {
-                shake.ReceivedHandshake(now, tp, offset, payloadByteLength);
+                shake.ReceivedHandshake(now, type, offset, payloadByteLength);
                 return;
             }
 
             //
             // Library message from a completely unknown sender; lets just accept Connect
             //
-            switch (tp)
+            switch (type)
             {
                 case NetMessageType.Discovery:
                     HandleIncomingDiscoveryRequest(now, senderEndPoint, offset, payloadByteLength);
@@ -686,12 +676,12 @@ namespace Lidgren.Network
                             ConnectionLookup.Add(senderEndPoint, hsconn);
                             Handshakes.Add(senderEndPoint, hsconn);
 
-                            hsconn.ReceivedHandshake(now, tp, offset, payloadByteLength);
+                            hsconn.ReceivedHandshake(now, type, offset, payloadByteLength);
                             return;
                         }
                     }
 
-                    LogWarning("Received unhandled library message " + tp + " from " + senderEndPoint);
+                    LogWarning("Received unhandled library message " + type + " from " + senderEndPoint);
                     return;
 
                 case NetMessageType.Connect:
@@ -706,6 +696,7 @@ namespace Lidgren.Network
                     int reservedSlots = Handshakes.Count + Connections.Count;
                     if (reservedSlots >= Configuration._maximumConnections)
                     {
+                        // TODO: add event handler for this
                         // server full
                         NetOutgoingMessage full = CreateMessage("Server full");
                         full._messageType = NetMessageType.Disconnect;
@@ -717,7 +708,7 @@ namespace Lidgren.Network
                     NetConnection conn = new NetConnection(this, senderEndPoint);
                     conn._internalStatus = NetConnectionStatus.ReceivedInitiation;
                     Handshakes.Add(senderEndPoint, conn);
-                    conn.ReceivedHandshake(now, tp, offset, payloadByteLength);
+                    conn.ReceivedHandshake(now, type, offset, payloadByteLength);
                     return;
 
                 case NetMessageType.Disconnect:
@@ -726,7 +717,7 @@ namespace Lidgren.Network
                     return;
 
                 default:
-                    LogWarning("Received unhandled library message " + tp + " from " + senderEndPoint);
+                    LogWarning("Received unhandled library message " + type + " from " + senderEndPoint);
                     return;
             }
         }
@@ -737,15 +728,17 @@ namespace Lidgren.Network
             connection.InitExpandMTU(NetTime.Now);
 
             if (!Handshakes.Remove(connection.RemoteEndPoint))
-                LogWarning("AcceptConnection called but m_handshakes did not contain it!");
+                LogWarning("AcceptConnection called but Handshakes did not contain it!");
 
             lock (Connections)
             {
+#if DEBUG
                 if (Connections.Contains(connection))
                 {
-                    LogWarning("AcceptConnection called but m_connection already contains it!");
+                    LogWarning("AcceptConnection called but Connections already contains it!");
                 }
                 else
+#endif
                 {
                     Connections.Add(connection);
                     ConnectionLookup.Add(connection.RemoteEndPoint, connection);

@@ -25,6 +25,7 @@ namespace Lidgren.Network
         private int _bitPosition;
         private int _bitLength;
         internal byte[] _data; // TODO: hide this
+        private bool _isDisposed;
 
         public Span<byte> Span => _data.AsSpan();
 
@@ -129,6 +130,23 @@ namespace Lidgren.Network
 
             _bitPosition += bitCount;
             this.SetLengthByPosition();
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!_isDisposed)
+            {
+                if (disposing)
+                {
+                }
+                _isDisposed = true;
+            }
+        }
+
+        public void Dispose()
+        {
+            Dispose(disposing: true);
+            GC.SuppressFinalize(this);
         }
     }
 }

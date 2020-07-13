@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Threading;
 using System.Collections.Generic;
-using System.Collections;
 
 namespace Lidgren.Network
 {
@@ -37,7 +36,7 @@ namespace Lidgren.Network
             int group = Interlocked.Increment(ref _lastUsedFragmentGroup);
             if (group >= NetConstants.MaxFragmentationGroups)
             {
-                // @TODO: not thread safe; but in practice probably not an issue
+                // TODO: not thread safe; but in practice probably not an issue
                 _lastUsedFragmentGroup = 1;
                 group = 1;
             }
@@ -78,9 +77,9 @@ namespace Lidgren.Network
 
                 foreach (var recipient in recipients.AsListEnumerator())
                 {
-                    var res = recipient.EnqueueMessage(chunk, method, sequenceChannel);
-                    if ((int)res > (int)retval)
-                        retval = res; // return "worst" result
+                    var result = recipient.EnqueueMessage(chunk, method, sequenceChannel);
+                    if ((int)result > (int)retval)
+                        retval = result; // return "worst" result
                 }
 
                 bitsLeft -= bitsPerChunk;

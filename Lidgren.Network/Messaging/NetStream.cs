@@ -6,6 +6,8 @@ namespace Lidgren.Network
     public class NetStream : Stream
     {
         public NetConnection Connection { get; }
+        public int SequenceChannel { get; }
+
         public NetPeer Peer => Connection.Peer;
 
         public override bool CanRead => throw new NotImplementedException();
@@ -16,11 +18,19 @@ namespace Lidgren.Network
 
         public override long Length => throw new NotImplementedException();
 
-        public override long Position { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
-
-        public NetStream(NetConnection connection)
+        public override long Position
         {
+            get => throw new NotImplementedException();
+            set => throw new NotImplementedException();
+        }
+
+        public NetStream(NetConnection connection, int sequenceChannel)
+        {
+            NetConstants.AssertValidSequenceChannel(
+                NetDeliveryMethod.Stream, sequenceChannel, nameof(sequenceChannel));
+
             Connection = connection ?? throw new ArgumentNullException(nameof(connection));
+            SequenceChannel = sequenceChannel;
         }
 
         public override void Flush()

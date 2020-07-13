@@ -112,30 +112,9 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Gets a list of the current connections if there are any and returns <see langword="null"/> otherwise.
+        /// Appends the current connections to a collection.
         /// </summary>
-        /// <remarks>
-        /// The <see cref="List{T}"/> is rented from 
-        /// <see cref="NetConnectionListPool"/> and recycling it is advised.
-        /// </remarks>
-        /// <returns>A list with collections or <see langword="null"/> if there are none.</returns>
-        public List<NetConnection>? GetConnections()
-        {
-            lock (Connections)
-            {
-                if (Connections.Count > 0)
-                {
-                    var list = NetConnectionListPool.Rent();
-                    list.AddRange(Connections);
-                    return list;
-                }
-            }
-            return null;
-        }
-
-        /// <summary>
-        /// Gets a list of the current connections.
-        /// </summary>
+        /// <param name="destination">The collection to which append connections.</param>
         /// <returns>The amount of connections appended.</returns>
         public int GetConnections(ICollection<NetConnection> destination)
         {
@@ -165,10 +144,10 @@ namespace Lidgren.Network
             Status = NetPeerStatus.Starting;
 
             // fix network thread name
-            if (Configuration.NetworkThreadName == "Lidgren network thread")
+            if (Configuration.NetworkThreadName == "Lidgren.Network Thread")
             {
                 int pc = Interlocked.Increment(ref _initializedPeersCount);
-                Configuration.NetworkThreadName = "Lidgren network thread " + pc.ToString(CultureInfo.InvariantCulture);
+                Configuration.NetworkThreadName = "Lidgren.Network Thread " + pc.ToString(CultureInfo.InvariantCulture);
             }
 
             InitializeNetwork();
@@ -236,8 +215,9 @@ namespace Lidgren.Network
             if (TryReadMessage(out message))
                 return true;
 
-            WaitForMessage:
             var resetEvent = MessageReceivedEvent;
+
+            TryWait:
             while (timeout > TimeSpan.Zero)
             {
                 var toWait = timeout < MaxMessageReadWaitSlice ? timeout : MaxMessageReadWaitSlice;
@@ -247,16 +227,16 @@ namespace Lidgren.Network
             }
 
             // Can happen when multiple threads read the same peer.
-            // It's probably best to go back and wait again.
+            // It's probably best to go back and wait again if we have leftover time.
             if (ReleasedIncomingMessages.Count == 0 &&
                 timeout > TimeSpan.Zero)
-                goto WaitForMessage;
+                goto TryWait;
 
             return TryReadMessage(out message);
         }
 
         /// <summary>
-        /// Tries to read a message from any connection, blocking if needed.
+        /// Tries to read a message from any connection.
         /// </summary>
         /// <returns>Whether a message was successfully read.</returns>
         public bool TryReadMessage(
@@ -269,6 +249,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Tries to read pending messages from any connection.
         /// </summary>
+        /// <param name="destination">The collection to which append messages.</param>
         /// <returns>The amount of messages read.</returns>
         public int TryReadMessages(ICollection<NetIncomingMessage> destination)
         {
@@ -292,11 +273,11 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Send raw bytes; only used for debugging.
+        /// Send raw bytes; only used for debugging. 
         /// </summary>
         public void RawSend(byte[] buffer, int offset, int length, IPEndPoint destination)
         {
-            // wrong thread - this miiiight crash with network thread... but what's a boy to do.
+            // wrong thread might crash with network thread
             Array.Copy(buffer, offset, _sendBuffer, 0, length);
             SendPacket(length, destination, 1, out _);
         }

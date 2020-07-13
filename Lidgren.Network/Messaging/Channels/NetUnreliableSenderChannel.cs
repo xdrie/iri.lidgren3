@@ -27,15 +27,15 @@ namespace Lidgren.Network
 
         public override int GetAllowedSends()
         {
-            int retval = _windowSize - (_sendStart + NetConstants.SequenceNumbers - _windowStart) % _windowSize;
-            LidgrenException.Assert(retval >= 0 && retval <= _windowSize);
-            return retval;
+            int value = _windowSize - (_sendStart + NetConstants.SequenceNumbers - _windowStart) % _windowSize;
+            LidgrenException.Assert(value >= 0 && value <= _windowSize);
+            return value;
         }
 
         public override void Reset()
         {
-            _receivedAcks.Clear();
             QueuedSends.Clear();
+            _receivedAcks.Clear();
             _windowStart = 0;
             _sendStart = 0;
         }

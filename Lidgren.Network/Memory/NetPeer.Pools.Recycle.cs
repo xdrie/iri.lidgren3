@@ -5,6 +5,8 @@ namespace Lidgren.Network
 {
     public partial class NetPeer
     {
+        // TODO: use ArrayPool instead
+
         internal void Recycle(byte[] storage)
         {
             if (_storagePool == null || storage == null)
@@ -13,8 +15,8 @@ namespace Lidgren.Network
             lock (_storagePool)
             {
                 _bytesInPool += storage.Length;
-                int cnt = _storagePool.Count;
-                for (int i = 0; i < cnt; i++)
+                int count = _storagePool.Count;
+                for (int i = 0; i < count; i++)
                 {
                     if (_storagePool[i] == null)
                     {
@@ -52,10 +54,10 @@ namespace Lidgren.Network
         /// <summary>
         /// Recycles a list of messages for reuse.
         /// </summary>
-        public void Recycle(IEnumerable<NetIncomingMessage> toRecycle)
+        public void Recycle(IEnumerable<NetIncomingMessage> messages)
         {
-            if (toRecycle == null)
-                throw new ArgumentNullException(nameof(toRecycle));
+            if (messages == null)
+                throw new ArgumentNullException(nameof(messages));
 
             if (_incomingMessagePool == null)
                 return;
@@ -65,10 +67,10 @@ namespace Lidgren.Network
             {
                 lock (_storagePool)
                 {
-                    foreach (var msg in toRecycle)
+                    foreach (var message in messages)
                     {
-                        var storage = msg._data;
-                        msg._data = Array.Empty<byte>();
+                        var storage = message._data;
+                        message._data = Array.Empty<byte>();
                         _bytesInPool += storage.Length;
                         for (int i = 0; i < _storagePool.Count; i++)
                         {
@@ -78,35 +80,35 @@ namespace Lidgren.Network
                                 return;
                             }
                         }
-                        msg.Reset();
+                        message.Reset();
                         _storagePool.Add(storage);
                     }
                 }
             }
 
             // then recycle the message objects
-            _incomingMessagePool.Enqueue(toRecycle);
+            _incomingMessagePool.Enqueue(messages);
         }
 
-        internal void Recycle(NetOutgoingMessage msg)
+        internal void Recycle(NetOutgoingMessage message)
         {
             if (_outgoingMessagePool == null)
                 return;
 
             LidgrenException.Assert(
-                !_outgoingMessagePool.Contains(msg), "Recyling already recycled message! Thread race?");
+                !_outgoingMessagePool.Contains(message), "Recyling already recycled message! Thread race?");
 
-            byte[] storage = msg._data;
-            msg._data = Array.Empty<byte>();
+            byte[] storage = message._data;
+            message._data = Array.Empty<byte>();
 
             // message fragments cannot be recycled
             // TODO: find a way to recycle large message after all fragments has been acknowledged;
             //       or? possibly better just to garbage collect them
-            if (msg._fragmentGroup == 0)
+            if (message._fragmentGroup == 0)
                 Recycle(storage);
 
-            msg.Reset();
-            _outgoingMessagePool.Enqueue(msg);
+            message.Reset();
+            _outgoingMessagePool.Enqueue(message);
         }
     }
 }

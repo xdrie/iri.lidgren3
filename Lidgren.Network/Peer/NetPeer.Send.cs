@@ -51,15 +51,15 @@ namespace Lidgren.Network
         {
             if (message == null) throw new ArgumentNullException(nameof(message));
             if (recipient == null) throw new ArgumentNullException(nameof(recipient));
-            if (sequenceChannel >= NetConstants.ChannelsPerDeliveryMethod)
-                throw new ArgumentOutOfRangeException(nameof(sequenceChannel));
+            NetConstants.AssertValidSequenceChannel(method, sequenceChannel, nameof(sequenceChannel));
 
             LidgrenException.Assert(
                 (method != NetDeliveryMethod.Unreliable && method != NetDeliveryMethod.ReliableUnordered) ||
                 ((method == NetDeliveryMethod.Unreliable || method == NetDeliveryMethod.ReliableUnordered) && sequenceChannel == 0),
-                "Delivery method " + method + " cannot use sequence channels other than 0!");
+                "Delivery method " + method + " cannot use sequence channels other than 0.");
 
-            LidgrenException.Assert(method != NetDeliveryMethod.Unknown, "Bad delivery method!");
+            if (method == NetDeliveryMethod.Unknown)
+                throw new ArgumentOutOfRangeException(nameof(method));
 
             message.AssertNotSent(nameof(message));
             message._isSent = true;
@@ -67,10 +67,10 @@ namespace Lidgren.Network
             bool suppressFragmentation =
                 (method == NetDeliveryMethod.Unreliable || method == NetDeliveryMethod.UnreliableSequenced) &&
                 Configuration.UnreliableSizeBehaviour != NetUnreliableSizeBehaviour.NormalFragmentation;
-
+            
             // headers + length, faster than calling message.GetEncodedSize
-            int len = NetConstants.UnfragmentedMessageHeaderSize + message.ByteLength;
-            if (len <= recipient.CurrentMTU || suppressFragmentation)
+            int length = NetConstants.UnfragmentedMessageHeaderSize + message.ByteLength;
+            if (length <= recipient.CurrentMTU || suppressFragmentation)
             {
                 Interlocked.Increment(ref message._recyclingCount);
                 return recipient.EnqueueMessage(message, method, sequenceChannel);
@@ -81,15 +81,15 @@ namespace Lidgren.Network
                 if (recipient._internalStatus != NetConnectionStatus.Connected)
                     return NetSendResult.FailedNotConnected;
 
-                var tmp = NetConnectionListPool.Rent();
+                var list = NetConnectionListPool.Rent();
                 try
                 {
-                    tmp.Add(recipient);
-                    return SendFragmentedMessage(message, tmp, method, sequenceChannel);
+                    list.Add(recipient);
+                    return SendFragmentedMessage(message, list, method, sequenceChannel);
                 }
                 finally
                 {
-                    NetConnectionListPool.Return(tmp);
+                    NetConnectionListPool.Return(list);
                 }
             }
         }
@@ -107,7 +107,7 @@ namespace Lidgren.Network
 #endif
             }
 
-            foreach (var conn in recipients)
+            foreach (var conn in recipients.AsListEnumerator())
             {
                 if (conn != null && conn.CurrentMTU < mtu)
                     mtu = conn.CurrentMTU;
@@ -123,21 +123,25 @@ namespace Lidgren.Network
         /// <param name="method">How to deliver the message</param>
         /// <param name="sequenceChannel">Sequence channel within the delivery method</param>
         public void SendMessage(
-            NetOutgoingMessage message, IReadOnlyCollection<NetConnection> recipients, NetDeliveryMethod method, int sequenceChannel)
+            NetOutgoingMessage message, 
+            IReadOnlyCollection<NetConnection> recipients,
+            NetDeliveryMethod method,
+            int sequenceChannel)
         {
             if (message == null)
                 throw new ArgumentNullException(nameof(message));
             AssertValidRecipients(recipients, nameof(recipients));
 
             if (method == NetDeliveryMethod.Unreliable || method == NetDeliveryMethod.ReliableUnordered)
-                LidgrenException.Assert(sequenceChannel == 0, "Delivery method " + method + " cannot use sequence channels other than 0!");
+                LidgrenException.Assert(
+                    sequenceChannel == 0, "Delivery method " + method + " cannot use sequence channels other than 0!");
 
             message.AssertNotSent(nameof(message));
             message._isSent = true;
 
-            int len = message.GetEncodedSize();
+            int length = message.GetEncodedSize();
             int mtu = GetMTU(recipients);
-            if (len <= mtu)
+            if (length <= mtu)
             {
                 Interlocked.Add(ref message._recyclingCount, recipients.Count);
                 foreach (var conn in recipients)
