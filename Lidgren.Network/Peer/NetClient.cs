@@ -46,16 +46,7 @@ namespace Lidgren.Network
         /// Gets the connection status of the server connection 
         /// (or <see cref="NetConnectionStatus.Disconnected"/> if no connection).
         /// </summary>
-        public NetConnectionStatus ConnectionStatus
-        {
-            get
-            {
-                var conn = ServerConnection;
-                if (conn == null)
-                    return NetConnectionStatus.Disconnected;
-                return conn.Status;
-            }
-        }
+        public NetConnectionStatus ConnectionStatuss => ServerConnection?.Status ?? NetConnectionStatus.Disconnected;
 
         /// <summary>
         /// Constructs the client with a given configuration.
@@ -82,13 +73,10 @@ namespace Lidgren.Network
                 }
             }
 
-            lock (Handshakes)
+            if (Handshakes.Count > 0)
             {
-                if (Handshakes.Count > 0)
-                {
-                    LogWarning("Connect attempt failed; Handshake already in progress");
-                    return null;
-                }
+                LogWarning("Connect attempt failed; Handshake already in progress");
+                return null;
             }
 
             return base.Connect(remoteEndPoint, hailMessage);
@@ -107,15 +95,12 @@ namespace Lidgren.Network
             }
             else
             {
-                lock (Handshakes)
+                if (Handshakes.Count > 0)
                 {
-                    if (Handshakes.Count > 0)
-                    {
-                        LogVerbose("Aborting connection attempt");
-                        foreach (var hs in Handshakes)
-                            hs.Value.Disconnect(byeMessage);
-                        return;
-                    }
+                    LogVerbose("Aborting connection attempt");
+                    foreach (var hs in Handshakes)
+                        hs.Value.Disconnect(byeMessage);
+                    return;
                 }
                 LogWarning("Disconnect requested when not connected!");
             }

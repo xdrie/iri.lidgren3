@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using Lidgren.Network.Memory;
 
 namespace Lidgren.Network
 {

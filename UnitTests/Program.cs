@@ -99,7 +99,7 @@ namespace UnitTests
         public static NetIncomingMessage CreateIncomingMessage(ReadOnlySpan<byte> fromData, int bitLength)
         {
             var inc = new NetIncomingMessage(
-                fromData.Slice(0, NetBitWriter.ByteCountForBits(bitLength)).ToArray());
+                fromData.Slice(0, NetBitWriter.BytesForBits(bitLength)).ToArray());
             inc.BitLength = bitLength;
             return inc;
         }

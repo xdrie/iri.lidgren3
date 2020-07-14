@@ -62,7 +62,7 @@ namespace Lidgren.Network
             int i;
             if (sourceBitOffset > 0)
             {
-                var byteSrc = src.Slice(0, ByteCountForBits(bitCount));
+                var byteSrc = src.Slice(0, BytesForBits(bitCount));
                 if (destinationBitOffset > 0)
                 {
                     for (i = 0; i < byteSrc.Length - 1; i++)
@@ -82,7 +82,7 @@ namespace Lidgren.Network
             }
             else if (destinationBitOffset > 0)
             {
-                var byteSrc = src.Slice(0, ByteCountForBits(bitCount));
+                var byteSrc = src.Slice(0, BytesForBits(bitCount));
                 for (i = 0; i < byteSrc.Length - 1; i++)
                 {
                     int value = byteSrc[i];
@@ -515,7 +515,7 @@ namespace Lidgren.Network
         /// Returns how many bits are necessary to hold a certain number
         /// </summary>
         [CLSCompliant(false)]
-        public static int BitCountForValue(uint value)
+        public static int BitsForValue(uint value)
         {
             int bits = 1;
             while ((value >>= 1) != 0)
@@ -527,7 +527,7 @@ namespace Lidgren.Network
         /// Returns how many bits are necessary to hold a certain number.
         /// </summary>
         [CLSCompliant(false)]
-        public static int BitCountForValue(ulong value)
+        public static int BitsForValue(ulong value)
         {
             int bits = 1;
             while ((value >>= 1) != 0)
@@ -539,7 +539,7 @@ namespace Lidgren.Network
         /// Returns how many bytes are required to hold a certain number of bits.
         /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static int ByteCountForBits(int bitCount)
+        public static int BytesForBits(int bitCount)
         {
             return (bitCount + 7) / 8;
         }
@@ -548,7 +548,7 @@ namespace Lidgren.Network
         /// Tries to read a variable sized <see cref="uint"/>.
         /// </summary>
         [CLSCompliant(false)]
-        public static OperationStatus ReadVarUInt32(NetBuffer buffer, bool peek, out uint result)
+        public static OperationStatus ReadVarUInt32(IBitBuffer buffer, bool peek, out uint result)
         {
             const int MaxBytesWithoutOverflow = MaxVarInt32Size - 1;
 
@@ -602,7 +602,7 @@ namespace Lidgren.Network
         /// Tries to read a variable sized <see cref="ulong"/>.
         /// </summary>
         [CLSCompliant(false)]
-        public static OperationStatus ReadVarUInt64(NetBuffer buffer, bool peek, out ulong result)
+        public static OperationStatus ReadVarUInt64(IBitBuffer buffer, bool peek, out ulong result)
         {
             const int MaxBytesWithoutOverflow = MaxVarInt64Size - 1;
 

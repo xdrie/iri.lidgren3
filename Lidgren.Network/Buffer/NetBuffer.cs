@@ -1,6 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Reflection;
 using System.Text;
 
 namespace Lidgren.Network
@@ -10,17 +8,12 @@ namespace Lidgren.Network
         // TODO: rethink pooling (ArrayPool is probably the best candidate)
         //       implementing IDisposable for recycling/returning objects would also be wise
 
-        public static Encoding StringEncoding { get; } = new UTF8Encoding(false, false);
-
         /// <summary>
         /// Number of extra bytes to overallocate for message buffers to avoid resizing.
         /// </summary>
         protected const int ExtraGrowAmount = 32; // TODO: move to config
 
-        // TODO: optimize reflection
-
-        private static Dictionary<Type, MethodInfo> ReadMethods { get; } = new Dictionary<Type, MethodInfo>();
-        private static Dictionary<Type, MethodInfo> WriteMethods { get; } = new Dictionary<Type, MethodInfo>();
+        public static Encoding StringEncoding { get; } = new UTF8Encoding(false, false);
 
         private int _bitPosition;
         private int _bitLength;
@@ -61,14 +54,14 @@ namespace Lidgren.Network
 
         public int ByteLength
         {
-            get => NetBitWriter.ByteCountForBits(_bitLength);
+            get => NetBitWriter.BytesForBits(_bitLength);
             set => BitLength = value * 8;
         }
 
         public int BitCapacity
         {
             get => _data.Length * 8;
-            set => ByteCapacity = NetBitWriter.ByteCountForBits(value);
+            set => ByteCapacity = NetBitWriter.BytesForBits(value);
         }
 
         public int ByteCapacity
@@ -88,29 +81,6 @@ namespace Lidgren.Network
             }
         }
 
-        static NetBuffer()
-        {
-            var inMethods = typeof(NetIncomingMessage).GetMethods(BindingFlags.Instance | BindingFlags.Public);
-            foreach (MethodInfo method in inMethods)
-            {
-                if (method.GetParameters().Length == 0 &&
-                    method.Name.StartsWith("Read", StringComparison.InvariantCulture) &&
-                    method.Name.Substring(4) == method.ReturnType.Name)
-                    ReadMethods[method.ReturnType] = method;
-            }
-
-            var outMethods = typeof(NetOutgoingMessage).GetMethods(BindingFlags.Instance | BindingFlags.Public);
-            foreach (MethodInfo method in outMethods)
-            {
-                if (method.Name.Equals("Write", StringComparison.InvariantCulture))
-                {
-                    ParameterInfo[] pis = method.GetParameters();
-                    if (pis.Length == 1)
-                        WriteMethods[pis[0].ParameterType] = method;
-                }
-            }
-        }
-
         public NetBuffer(byte[]? buffer)
         {
             _data = buffer ?? Array.Empty<byte>();
@@ -118,7 +88,7 @@ namespace Lidgren.Network
 
         public void EnsureBitCapacity(int bitCount)
         {
-            int byteLength = NetBitWriter.ByteCountForBits(bitCount);
+            int byteLength = NetBitWriter.BytesForBits(bitCount);
             if (ByteCapacity < byteLength)
                 ByteCapacity = byteLength + ExtraGrowAmount;
         }

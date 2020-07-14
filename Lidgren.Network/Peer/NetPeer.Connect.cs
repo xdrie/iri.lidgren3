@@ -16,50 +16,47 @@ namespace Lidgren.Network
             if (Configuration.DualStack)
                 remoteEndPoint = NetUtility.MapToIPv6(remoteEndPoint);
 
-            lock (Connections)
+            if (Status == NetPeerStatus.NotRunning)
+                throw new LidgrenException("Must call Start() first.");
+
+            if (ConnectionLookup.ContainsKey(remoteEndPoint))
+                throw new LidgrenException("Already connected to that endpoint!");
+
+            if (Handshakes.TryGetValue(remoteEndPoint, out NetConnection? hs))
             {
-                if (Status == NetPeerStatus.NotRunning)
-                    throw new LidgrenException("Must call Start() first.");
-
-                if (ConnectionLookup.ContainsKey(remoteEndPoint))
-                    throw new LidgrenException("Already connected to that endpoint!");
-
-                if (Handshakes.TryGetValue(remoteEndPoint, out NetConnection? hs))
+                // already trying to connect to that endpoint; make another try
+                switch (hs._internalStatus)
                 {
-                    // already trying to connect to that endpoint; make another try
-                    switch (hs._internalStatus)
-                    {
-                        case NetConnectionStatus.InitiatedConnect:
-                            // send another connect
-                            hs._connectRequested = true;
-                            break;
+                    case NetConnectionStatus.InitiatedConnect:
+                        // send another connect
+                        hs._connectRequested = true;
+                        break;
 
-                        case NetConnectionStatus.RespondedConnect:
-                            // send another response
-                            hs.SendConnectResponse(NetTime.Now, false);
-                            break;
+                    case NetConnectionStatus.RespondedConnect:
+                        // send another response
+                        hs.SendConnectResponse(NetTime.Now, false);
+                        break;
 
-                        default:
-                            // weird
-                            LogWarning(
-                                "Weird situation; Connect() already in progress to remote endpoint; but hs status is " + hs._internalStatus);
-                            break;
-                    }
-                    return hs;
+                    default:
+                        // weird
+                        LogWarning(
+                            "Weird situation; Connect() already in progress to remote endpoint; but hs status is " + hs._internalStatus);
+                        break;
                 }
-
-                var conn = new NetConnection(this, remoteEndPoint);
-                conn._internalStatus = NetConnectionStatus.InitiatedConnect;
-                conn.LocalHailMessage = hailMessage;
-
-                // handle on network thread
-                conn._connectRequested = true;
-                conn._connectionInitiator = true;
-
-                Handshakes.Add(remoteEndPoint, conn);
-
-                return conn;
+                return hs;
             }
+
+            var conn = new NetConnection(this, remoteEndPoint);
+            conn._internalStatus = NetConnectionStatus.InitiatedConnect;
+            conn.LocalHailMessage = hailMessage;
+
+            // handle on network thread
+            conn._connectRequested = true;
+            conn._connectionInitiator = true;
+
+            Handshakes.TryAdd(remoteEndPoint, conn);
+
+            return conn;
         }
 
         /// <summary>

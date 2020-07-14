@@ -70,7 +70,7 @@ namespace Lidgren.Network
                 destination[offset++] = (byte)BitLength;
                 destination[offset++] = (byte)(BitLength >> 8);
 
-                int byteLen = NetBitWriter.ByteCountForBits(BitLength);
+                int byteLen = NetBitWriter.BytesForBits(BitLength);
                 Span.Slice(0, byteLen).CopyTo(destination.Slice(offset));
                 offset += byteLen;
             }
@@ -93,7 +93,7 @@ namespace Lidgren.Network
                 destination[offsetBase] = (byte)realBitLength;
                 destination[offsetBase + 1] = (byte)(realBitLength >> 8);
 
-                int byteLen = NetBitWriter.ByteCountForBits(BitLength);
+                int byteLen = NetBitWriter.BytesForBits(BitLength);
                 Span.Slice(_fragmentChunkNumber * _fragmentChunkByteSize, byteLen).CopyTo(destination.Slice(offset));
                 offset += byteLen;
             }

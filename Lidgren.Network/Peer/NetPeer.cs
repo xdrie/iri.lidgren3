@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
+using System.Collections.Concurrent;
 
 namespace Lidgren.Network
 {
@@ -22,8 +23,8 @@ namespace Lidgren.Network
 
         private object MessageReceivedEventInitMutex { get; } = new object();
 
-        private Dictionary<IPEndPoint, NetConnection> ConnectionLookup { get; }
-            = new Dictionary<IPEndPoint, NetConnection>();
+        private ConcurrentDictionary<IPEndPoint, NetConnection> ConnectionLookup { get; }
+            = new ConcurrentDictionary<IPEndPoint, NetConnection>();
 
         internal List<NetConnection> Connections { get; }
             = new List<NetConnection>();
@@ -163,18 +164,24 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Gets the connection for a certain remote endpoint.
+        /// Tries to get the connection for a certain remote endpoint.
         /// </summary>
-        public NetConnection? GetConnection(IPEndPoint endPoint)
+        public bool TryGetConnection(
+            IPEndPoint endPoint, [MaybeNullWhen(false)] out NetConnection? connection)
         {
             if (endPoint == null)
                 throw new ArgumentNullException(nameof(endPoint));
 
-            // this should not pose a threading problem, _connectionLookup is never added to concurrently
-            // and TryGetValue will not throw an exception on fail, only yield null, which is acceptable
-            ConnectionLookup.TryGetValue(endPoint, out NetConnection? retval);
+            return ConnectionLookup.TryGetValue(endPoint, out connection);
+        }
 
-            return retval;
+        /// <summary>
+        /// Gets the connection for a certain remote endpoint.
+        /// </summary>
+        public NetConnection? GetConnection(IPEndPoint endPoint)
+        {
+            TryGetConnection(endPoint, out var connection);
+            return connection;
         }
 
         private static void TryApplyConnectionStatus(NetIncomingMessage message)
@@ -228,8 +235,8 @@ namespace Lidgren.Network
 
             // Can happen when multiple threads read the same peer.
             // It's probably best to go back and wait again if we have leftover time.
-            if (ReleasedIncomingMessages.Count == 0 &&
-                timeout > TimeSpan.Zero)
+            if (timeout > TimeSpan.Zero &&
+                ReleasedIncomingMessages.Count == 0)
                 goto TryWait;
 
             return TryReadMessage(out message);

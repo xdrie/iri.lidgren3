@@ -2,7 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 
-namespace Lidgren.Network.Memory
+namespace Lidgren.Network
 {
     /// <summary>
     /// Used to reduce allocations when creating enumerators 

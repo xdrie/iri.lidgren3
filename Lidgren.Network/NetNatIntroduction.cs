@@ -76,9 +76,9 @@ namespace Lidgren.Network
         /// <summary>
         /// Called when receiving a NatPunchMessage from a remote endpoint
         /// </summary>
-        private void HandleNatPunch(int ptr, IPEndPoint senderEndPoint)
+        private void HandleNatPunch(int offset, IPEndPoint senderEndPoint)
         {
-            NetIncomingMessage tmp = SetupReadHelperMessage(ptr, 1000); // never mind length
+            NetIncomingMessage tmp = SetupReadHelperMessage(offset, 1000); // never mind length
 
             byte fromHostByte = tmp.ReadByte();
             if (fromHostByte == 0)

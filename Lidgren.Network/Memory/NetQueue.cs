@@ -46,7 +46,7 @@ namespace Lidgren.Network
         // [6] item 
         // [7] item
 
-        private readonly ReaderWriterLockSlim _lock = new ReaderWriterLockSlim();
+        private ReaderWriterLockSlim Lock { get; } = new ReaderWriterLockSlim();
         private T[] _items;
         private int _head;
 
@@ -88,7 +88,7 @@ namespace Lidgren.Network
         /// </summary>
         public void Enqueue(T item)
         {
-            _lock.EnterWriteLock();
+            Lock.EnterWriteLock();
             try
             {
                 if (Count == _items.Length)
@@ -100,7 +100,7 @@ namespace Lidgren.Network
             }
             finally
             {
-                _lock.ExitWriteLock();
+                Lock.ExitWriteLock();
             }
         }
 
@@ -113,7 +113,7 @@ namespace Lidgren.Network
             if (items == null)
                 throw new ArgumentNullException(nameof(items));
 
-            _lock.EnterWriteLock();
+            Lock.EnterWriteLock();
             try
             {
                 int expectedCount = Count;
@@ -139,7 +139,7 @@ namespace Lidgren.Network
             }
             finally
             {
-                _lock.ExitWriteLock();
+                Lock.ExitWriteLock();
             }
         }
 
@@ -148,7 +148,7 @@ namespace Lidgren.Network
         /// </summary>
         public void EnqueueFirst(T item)
         {
-            _lock.EnterWriteLock();
+            Lock.EnterWriteLock();
             try
             {
                 if (Count >= _items.Length)
@@ -162,7 +162,7 @@ namespace Lidgren.Network
             }
             finally
             {
-                _lock.ExitWriteLock();
+                Lock.ExitWriteLock();
             }
         }
 
@@ -203,7 +203,7 @@ namespace Lidgren.Network
                 return false;
             }
 
-            _lock.EnterWriteLock();
+            Lock.EnterWriteLock();
             try
             {
                 if (Count == 0)
@@ -224,7 +224,7 @@ namespace Lidgren.Network
             }
             finally
             {
-                _lock.ExitWriteLock();
+                Lock.ExitWriteLock();
             }
         }
 
@@ -240,7 +240,7 @@ namespace Lidgren.Network
             if (Count == 0)
                 return 0;
 
-            _lock.EnterWriteLock();
+            Lock.EnterWriteLock();
             try
             {
                 int count = Count;
@@ -261,7 +261,7 @@ namespace Lidgren.Network
             }
             finally
             {
-                _lock.ExitWriteLock();
+                Lock.ExitWriteLock();
             }
         }
 
@@ -279,7 +279,7 @@ namespace Lidgren.Network
                 return false;
             }
 
-            _lock.EnterReadLock();
+            Lock.EnterReadLock();
             try
             {
                 if (Count == 0)
@@ -293,7 +293,7 @@ namespace Lidgren.Network
             }
             finally
             {
-                _lock.ExitReadLock();
+                Lock.ExitReadLock();
             }
         }
 
@@ -315,7 +315,7 @@ namespace Lidgren.Network
             if (comparer == null)
                 comparer = EqualityComparer<T>.Default;
 
-            _lock.EnterReadLock();
+            Lock.EnterReadLock();
             try
             {
                 int left = Count;
@@ -336,7 +336,7 @@ namespace Lidgren.Network
             }
             finally
             {
-                _lock.ExitReadLock();
+                Lock.ExitReadLock();
             }
         }
 
@@ -353,7 +353,7 @@ namespace Lidgren.Network
         /// </summary>
         public void CopyTo(Span<T> destination)
         {
-            _lock.EnterReadLock();
+            Lock.EnterReadLock();
             try
             {
                 int left = Count;
@@ -370,7 +370,7 @@ namespace Lidgren.Network
             }
             finally
             {
-                _lock.ExitReadLock();
+                Lock.ExitReadLock();
             }
         }
 
@@ -379,7 +379,7 @@ namespace Lidgren.Network
         /// </summary>
         public void Clear()
         {
-            _lock.EnterWriteLock();
+            Lock.EnterWriteLock();
             try
             {
                 Array.Clear(_items, 0, _items.Length);
@@ -388,13 +388,13 @@ namespace Lidgren.Network
             }
             finally
             {
-                _lock.ExitWriteLock();
+                Lock.ExitWriteLock();
             }
         }
 
         public void Dispose()
         {
-            _lock.Dispose();
+            Lock.Dispose();
         }
     }
 }

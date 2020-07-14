@@ -75,12 +75,12 @@ namespace Lidgren.Network
             Peer.Recycle(om);
         }
 
-        internal void SendPong(byte pingNumber)
+        internal void SendPong(byte pongNumber)
         {
             Peer.AssertIsOnLibraryThread();
 
             NetOutgoingMessage om = Peer.CreateMessage(5);
-            om.Write(pingNumber);
+            om.Write(pongNumber);
 
             // we should update this value to reflect the exact point in time the packet is SENT
             om.Write(NetTime.Now);

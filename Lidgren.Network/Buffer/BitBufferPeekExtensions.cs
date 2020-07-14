@@ -1,44 +1,24 @@
-﻿/* Copyright (c) 2010 Michael Lidgren
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software
-and associated documentation files (the "Software"), to deal in the Software without
-restriction, including without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom
-the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or
-substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-*/
-using System;
+﻿using System;
 using System.Buffers;
 using System.Buffers.Binary;
-using System.Runtime.CompilerServices;
-using System.Runtime.InteropServices;
+using System.Diagnostics.CodeAnalysis;
 
 namespace Lidgren.Network
 {
     // TODO: check NetBuffer.Read
-    // TODO: add PeekTimeSpan()
-
-    public partial class NetBuffer
+    
+    public static class BitBufferPeekExtensions
     {
         /// <summary>
         /// Tries to read the specified number of bits without advancing the read position.
         /// </summary>
-        public bool TryPeek(Span<byte> destination, int bitCount)
+        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
+        public static bool TryPeek(this IBitBuffer buffer, Span<byte> destination, int bitCount)
         {
-            if (!HasEnough(bitCount))
+            if (!buffer.HasEnough(bitCount))
                 return false;
 
-            NetBitWriter.CopyBits(Span, BitPosition, bitCount, destination, 0);
+            NetBitWriter.CopyBits(buffer.Span, buffer.BitPosition, bitCount, destination, 0);
             return true;
         }
 
@@ -47,7 +27,7 @@ namespace Lidgren.Network
         /// between one and <paramref name="maxBitCount"/>, 
         /// without advancing the read position.
         /// </summary>
-        public bool TryPeek(Span<byte> destination, int bitCount, int maxBitCount)
+        public static bool TryPeek(this IBitBuffer buffer, Span<byte> destination, int bitCount, int maxBitCount)
         {
             if (bitCount < 1)
                 throw new ArgumentOutOfRangeException(nameof(bitCount));
@@ -55,15 +35,15 @@ namespace Lidgren.Network
             if (bitCount > maxBitCount)
                 throw new ArgumentOutOfRangeException(nameof(bitCount));
 
-            return TryPeek(destination, bitCount);
+            return buffer.TryPeek(destination, bitCount);
         }
 
         /// <summary>
         /// Reads the specified number of bits without advancing the read position.
         /// </summary>
-        public void Peek(Span<byte> destination, int bitCount)
+        public static void Peek(this IBitBuffer buffer, Span<byte> destination, int bitCount)
         {
-            if (!TryPeek(destination, bitCount))
+            if (!buffer.TryPeek(destination, bitCount))
                 throw new EndOfMessageException();
         }
 
@@ -72,75 +52,80 @@ namespace Lidgren.Network
         /// between one and <paramref name="maxBitCount"/>, 
         /// without advancing the read position.
         /// </summary>
-        public void Peek(Span<byte> destination, int bitCount, int maxBitCount)
+        public static void Peek(this IBitBuffer buffer, Span<byte> destination, int bitCount, int maxBitCount)
         {
-            if (!TryPeek(destination, bitCount, maxBitCount))
+            if (!buffer.TryPeek(destination, bitCount, maxBitCount))
                 throw new EndOfMessageException();
         }
 
         /// <summary>
         /// Tries to read the specified number of bytes without advancing the read position.
         /// </summary>
-        public bool TryPeek(Span<byte> destination)
+        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
+        public static bool TryPeek(this IBitBuffer buffer, Span<byte> destination)
         {
-            if (!this.IsByteAligned())
-                return TryPeek(destination, destination.Length * 8);
+            if (!buffer.IsByteAligned())
+                return buffer.TryPeek(destination, 0, destination.Length * 8);
 
-            if (!HasEnough(destination.Length))
+            if (!buffer.HasEnough(destination.Length))
                 return false;
 
-            Span.Slice(BytePosition, destination.Length).CopyTo(destination);
+            buffer.Span.Slice(buffer.BytePosition, destination.Length).CopyTo(destination);
             return true;
         }
 
         /// <summary>
         /// Reads the specified number of bytes without advancing the read position.
         /// </summary>
-        public void Peek(Span<byte> destination)
+        public static void Peek(this IBitBuffer buffer, Span<byte> destination)
         {
-            if (!TryPeek(destination))
+            if (!buffer.TryPeek(destination))
                 throw new EndOfMessageException();
         }
 
         /// <summary>
         /// Reads a 1-bit <see cref="bool"/> without advancing the read position.
         /// </summary>
-        public bool PeekBool()
+        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
+        public static bool PeekBool(this IBitBuffer buffer)
         {
-            if (!HasEnough(1))
+            if (!buffer.HasEnough(1))
                 throw new EndOfMessageException();
-            return NetBitWriter.ReadByteUnchecked(Span, BitPosition, 1) > 0;
+            return NetBitWriter.ReadByteUnchecked(buffer.Span, buffer.BitPosition, 1) > 0;
         }
 
         /// <summary>
         /// Reads an <see cref="sbyte"/> without advancing the read position.
         /// </summary>
+        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         [CLSCompliant(false)]
-        public sbyte PeekSByte()
+        public static sbyte PeekSByte(this IBitBuffer buffer)
         {
-            if (!HasEnough(8))
+            if (!buffer.HasEnough(8))
                 throw new EndOfMessageException();
-            return (sbyte)NetBitWriter.ReadByteUnchecked(Span, BitPosition, 8);
+            return (sbyte)NetBitWriter.ReadByteUnchecked(buffer.Span, buffer.BitPosition, 8);
         }
 
         /// <summary>
         /// Reads a <see cref="byte"/> without advancing the read position.
         /// </summary>
-        public byte PeekByte()
+        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
+        public static byte PeekByte(this IBitBuffer buffer)
         {
-            if (!HasEnough(8))
+            if (!buffer.HasEnough(8))
                 throw new EndOfMessageException();
-            return NetBitWriter.ReadByteUnchecked(Span, BitPosition, 8);
+            return NetBitWriter.ReadByteUnchecked(buffer.Span, buffer.BitPosition, 8);
         }
 
         /// <summary>
         /// Reads the specified number of bits into a <see cref="byte"/> without advancing the read position.
         /// </summary>
-        public byte PeekByte(int bitCount)
+        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
+        public static byte PeekByte(this IBitBuffer buffer, int bitCount)
         {
-            if (!HasEnough(bitCount))
+            if (!buffer.HasEnough(bitCount))
                 throw new EndOfMessageException();
-            return NetBitWriter.ReadByteUnchecked(Span, BitPosition, bitCount);
+            return NetBitWriter.ReadByteUnchecked(buffer.Span, buffer.BitPosition, bitCount);
         }
 
         #region Int16
@@ -148,10 +133,10 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads an <see cref="short"/> without advancing the read position.
         /// </summary>
-        public short PeekInt16()
+        public static short PeekInt16(this IBitBuffer buffer)
         {
             Span<byte> tmp = stackalloc byte[sizeof(short)];
-            Peek(tmp);
+            buffer.Peek(tmp);
             return BinaryPrimitives.ReadInt16LittleEndian(tmp);
         }
 
@@ -159,20 +144,20 @@ namespace Lidgren.Network
         /// Reads a <see cref="ushort"/> without advancing the read position.
         /// </summary>
         [CLSCompliant(false)]
-        public ushort PeekUInt16()
+        public static ushort PeekUInt16(this IBitBuffer buffer)
         {
             Span<byte> tmp = stackalloc byte[sizeof(ushort)];
-            Peek(tmp);
+            buffer.Peek(tmp);
             return BinaryPrimitives.ReadUInt16LittleEndian(tmp);
         }
 
         /// <summary>
         /// Reads the specified number of bits into an <see cref="short"/> without advancing the read position.
         /// </summary>
-        public short PeekInt16(int bitCount)
+        public static short PeekInt16(this IBitBuffer buffer, int bitCount)
         {
             Span<byte> tmp = stackalloc byte[sizeof(short)];
-            Peek(tmp, bitCount, tmp.Length * 8);
+            buffer.Peek(tmp, bitCount, tmp.Length * 8);
             return BinaryPrimitives.ReadInt16LittleEndian(tmp);
         }
 
@@ -180,10 +165,10 @@ namespace Lidgren.Network
         /// Reads the specified number of bits into an <see cref="ushort"/> without advancing the read position.
         /// </summary>
         [CLSCompliant(false)]
-        public ushort PeekUInt16(int bitCount)
+        public static ushort PeekUInt16(this IBitBuffer buffer, int bitCount)
         {
             Span<byte> tmp = stackalloc byte[sizeof(ushort)];
-            Peek(tmp, bitCount, tmp.Length * 8);
+            buffer.Peek(tmp, bitCount, tmp.Length * 8);
             return BinaryPrimitives.ReadUInt16LittleEndian(tmp);
         }
 
@@ -194,10 +179,10 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads an <see cref="int"/> without advancing the read position.
         /// </summary>
-        public int PeekInt32()
+        public static int PeekInt32(this IBitBuffer buffer)
         {
             Span<byte> tmp = stackalloc byte[sizeof(int)];
-            Peek(tmp);
+            buffer.Peek(tmp);
             return BinaryPrimitives.ReadInt32LittleEndian(tmp);
         }
 
@@ -205,20 +190,20 @@ namespace Lidgren.Network
         /// Reads a <see cref="uint"/> without advancing the read position.
         /// </summary>
         [CLSCompliant(false)]
-        public uint PeekUInt32()
+        public static uint PeekUInt32(this IBitBuffer buffer)
         {
             Span<byte> tmp = stackalloc byte[sizeof(uint)];
-            Peek(tmp);
+            buffer.Peek(tmp);
             return BinaryPrimitives.ReadUInt32LittleEndian(tmp);
         }
 
         /// <summary>
         /// Reads the specified number of bits into an <see cref="int"/> without advancing the read position.
         /// </summary>
-        public int PeekInt32(int bitCount)
+        public static int PeekInt32(this IBitBuffer buffer, int bitCount)
         {
             Span<byte> tmp = stackalloc byte[sizeof(int)];
-            Peek(tmp, bitCount, tmp.Length * 8);
+            buffer.Peek(tmp, bitCount, tmp.Length * 8);
             return BinaryPrimitives.ReadInt32LittleEndian(tmp);
         }
 
@@ -226,10 +211,10 @@ namespace Lidgren.Network
         /// Reads the specified number of bits into an <see cref="uint"/> without advancing the read position.
         /// </summary>
         [CLSCompliant(false)]
-        public uint PeekUInt32(int bitCount)
+        public static uint PeekUInt32(this IBitBuffer buffer, int bitCount)
         {
             Span<byte> tmp = stackalloc byte[sizeof(uint)];
-            Peek(tmp, bitCount, tmp.Length * 8);
+            buffer.Peek(tmp, bitCount, tmp.Length * 8);
             return BinaryPrimitives.ReadUInt32LittleEndian(tmp);
         }
 
@@ -240,10 +225,10 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads an <see cref="long"/> without advancing the read position.
         /// </summary>
-        public long PeekInt64()
+        public static long PeekInt64(this IBitBuffer buffer)
         {
             Span<byte> tmp = stackalloc byte[sizeof(long)];
-            Peek(tmp);
+            buffer.Peek(tmp);
             return BinaryPrimitives.ReadInt64LittleEndian(tmp);
         }
 
@@ -251,20 +236,20 @@ namespace Lidgren.Network
         /// Reads a <see cref="ulong"/> without advancing the read position.
         /// </summary>
         [CLSCompliant(false)]
-        public ulong PeekUInt64()
+        public static ulong PeekUInt64(this IBitBuffer buffer)
         {
             Span<byte> tmp = stackalloc byte[sizeof(ulong)];
-            Peek(tmp);
+            buffer.Peek(tmp);
             return BinaryPrimitives.ReadUInt64LittleEndian(tmp);
         }
 
         /// <summary>
         /// Reads the specified number of bits into an <see cref="long"/> without advancing the read position.
         /// </summary>
-        public long PeekInt64(int bitCount)
+        public static long PeekInt64(this IBitBuffer buffer, int bitCount)
         {
             Span<byte> tmp = stackalloc byte[sizeof(long)];
-            Peek(tmp, bitCount, tmp.Length * 8);
+            buffer.Peek(tmp, bitCount, tmp.Length * 8);
             return BinaryPrimitives.ReadInt64LittleEndian(tmp);
         }
 
@@ -272,10 +257,10 @@ namespace Lidgren.Network
         /// Reads the specified number of bits into an <see cref="ulong"/> without advancing the read position.
         /// </summary>
         [CLSCompliant(false)]
-        public ulong PeekUInt64(int bitCount)
+        public static ulong PeekUInt64(this IBitBuffer buffer, int bitCount)
         {
             Span<byte> tmp = stackalloc byte[sizeof(ulong)];
-            Peek(tmp, bitCount, tmp.Length * 8);
+            buffer.Peek(tmp, bitCount, tmp.Length * 8);
             return BinaryPrimitives.ReadUInt64LittleEndian(tmp);
         }
 
@@ -287,24 +272,24 @@ namespace Lidgren.Network
         /// Tries to read a variable sized <see cref="uint"/> without advancing the read position.
         /// </summary>
         [CLSCompliant(false)]
-        public OperationStatus PeekVarUInt32(out uint result)
+        public static OperationStatus PeekVarUInt32(this IBitBuffer buffer, out uint result)
         {
-            return NetBitWriter.ReadVarUInt32(this, peek: true, out result);
+            return NetBitWriter.ReadVarUInt32(buffer, peek: true, out result);
         }
 
         /// <summary>
         /// Tries to read a variable sized <see cref="ulong"/> without advancing the read position.
         /// </summary>
         [CLSCompliant(false)]
-        public OperationStatus PeekVarUInt64(out ulong result)
+        public static OperationStatus PeekVarUInt64(this IBitBuffer buffer, out ulong result)
         {
-            return NetBitWriter.ReadVarUInt64(this, peek: true, out result);
+            return NetBitWriter.ReadVarUInt64(buffer, peek: true, out result);
         }
 
         [CLSCompliant(false)]
-        public uint PeekVarUInt32()
+        public static uint PeekVarUInt32(this IBitBuffer buffer)
         {
-            var status = PeekVarUInt32(out uint value);
+            var status = buffer.PeekVarUInt32(out uint value);
             if (status == OperationStatus.Done)
                 return value;
 
@@ -315,9 +300,9 @@ namespace Lidgren.Network
         }
 
         [CLSCompliant(false)]
-        public ulong PeekVarUInt64()
+        public static ulong PeekVarUInt64(this IBitBuffer buffer)
         {
-            var status = PeekVarUInt64(out ulong value);
+            var status = buffer.PeekVarUInt64(out ulong value);
             if (status == OperationStatus.Done)
                 return value;
 
@@ -330,18 +315,18 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads a variable sized <see cref="int"/> written by <see cref="WriteVar(int)"/>.
         /// </summary>
-        public int PeekVarInt32()
+        public static int PeekVarInt32(this IBitBuffer buffer)
         {
-            uint n = PeekVarUInt32();
+            uint n = buffer.PeekVarUInt32();
             return (int)(n >> 1) ^ -(int)(n & 1); // decode zigzag
         }
 
         /// <summary>
         /// Reads a variable sized <see cref="long"/> written by <see cref="WriteVar(long)"/>.
         /// </summary>
-        public long PeekVarInt64()
+        public static long PeekVarInt64(this IBitBuffer buffer)
         {
-            ulong n = PeekVarUInt64();
+            ulong n = buffer.PeekVarUInt64();
             return (long)(n >> 1) ^ -(long)(n & 1); // decode zigzag
         }
 
@@ -352,61 +337,60 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads a 32-bit <see cref="float"/> without advancing the read position.
         /// </summary>
-        public float PeekSingle()
+        public static float PeekSingle(this IBitBuffer buffer)
         {
-            Span<byte> tmp = stackalloc byte[sizeof(float)];
-            Peek(tmp);
-            return Unsafe.ReadUnaligned<float>(ref MemoryMarshal.GetReference(tmp));
+            int intValue = buffer.PeekInt32();
+            return BitConverter.Int32BitsToSingle(intValue);
         }
 
         /// <summary>
         /// Reads a 64-bit <see cref="double"/> without advancing the read position.
         /// </summary>
-        public double PeekDouble()
+        public static double PeekDouble(this IBitBuffer buffer)
         {
-            Span<byte> tmp = stackalloc byte[sizeof(double)];
-            Peek(tmp);
-            return Unsafe.ReadUnaligned<double>(ref MemoryMarshal.GetReference(tmp));
+            long intValue = buffer.PeekInt64();
+            return BitConverter.Int64BitsToDouble(intValue);
         }
 
         #endregion
 
-        public bool PeekStringHeader(out NetStringHeader header)
+        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
+        public static bool PeekStringHeader(this IBitBuffer buffer, out NetStringHeader header)
         {
-            int startPosition = BitPosition;
-            bool read = ReadStringHeader(out header);
-            BitPosition = startPosition;
+            int startPosition = buffer.BitPosition;
+            bool read = buffer.ReadStringHeader(out header);
+            buffer.BitPosition = startPosition;
             return read;
         }
 
         /// <summary>
         /// Reads a <see cref="string"/> without advancing the read position.
         /// </summary>
-        public string PeekString()
+        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
+        public static string PeekString(this IBitBuffer buffer)
         {
-            int startPosition = BitPosition;
-            string str = ReadString();
-            BitPosition = startPosition;
+            int startPosition = buffer.BitPosition;
+            string str = buffer.ReadString();
+            buffer.BitPosition = startPosition;
             return str;
         }
 
         /// <summary>
         /// Reads a <see cref="TimeSpan"/> without advancing the read position.
         /// </summary>
-        public TimeSpan PeekTimeSpan()
+        public static TimeSpan PeekTimeSpan(this IBitBuffer buffer)
         {
-            return new TimeSpan(PeekVarInt64());
+            return new TimeSpan(buffer.PeekVarInt64());
         }
 
         /// <summary>
         /// Reads an enum of type <typeparamref name="TEnum"/> without advancing the read position.
         /// </summary>
-        public TEnum PeekEnum<TEnum>()
+        public static TEnum PeekEnum<TEnum>(this IBitBuffer buffer)
             where TEnum : Enum
         {
-            long value = PeekVarInt64();
+            long value = buffer.PeekVarInt64();
             return EnumConverter.Convert<TEnum>(value);
         }
     }
 }
-

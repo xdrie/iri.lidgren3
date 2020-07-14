@@ -87,7 +87,7 @@ namespace Lidgren.Network
             else
             {
                 // we HAVE encountered failure; so try in between
-                tryMTU = (int)((_smallestFailedMTU + (float)_largestSuccessfulMTU) / 2.0f);
+                tryMTU = (int)((_smallestFailedMTU + _largestSuccessfulMTU) / 2.0f);
                 //m_peer.LogDebug("Trying MTU " + m_smallestFailedMTU + " <-> " + m_largestSuccessfulMTU + " = " + tryMTU);
             }
 
@@ -107,8 +107,7 @@ namespace Lidgren.Network
         private void SendExpandMTU(TimeSpan now, int size)
         {
             NetOutgoingMessage om = Peer.CreateMessage(size);
-            Span<byte> tmp = stackalloc byte[size];
-            om.Write(tmp);
+            om.WritePadBytes(size);
             om._messageType = NetMessageType.ExpandMTURequest;
             int len = om.Encode(Peer._sendBuffer, 0, 0);
 
@@ -143,6 +142,7 @@ namespace Lidgren.Network
         {
             if (_expandMTUStatus == ExpandMTUStatus.Finished)
                 return;
+
             _expandMTUStatus = ExpandMTUStatus.Finished;
             CurrentMTU = size;
             if (CurrentMTU != _peerConfiguration._maximumTransmissionUnit)
@@ -154,13 +154,13 @@ namespace Lidgren.Network
             NetOutgoingMessage om = Peer.CreateMessage(4);
             om.Write(size);
             om._messageType = NetMessageType.ExpandMTUSuccess;
-            int len = om.Encode(Peer._sendBuffer, 0, 0);
-            Peer.SendPacket(len, RemoteEndPoint, 1, out _);
+            int length = om.Encode(Peer._sendBuffer, 0, 0);
+            Peer.SendPacket(length, RemoteEndPoint, 1, out _);
             Peer.Recycle(om);
 
             //m_peer.LogDebug("Received MTU expand request for " + size + " bytes");
 
-            Statistics.PacketSent(len, 1);
+            Statistics.PacketSent(length, 1);
         }
 
         private void HandleExpandMTUSuccess(TimeSpan now, int size)

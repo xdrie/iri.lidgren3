@@ -61,7 +61,7 @@ namespace Lidgren.Network
                 throw new ArgumentNullException(nameof(message));
 
             int unEncLenBits = (int)message.ReadUInt32();
-            int byteLen = NetBitWriter.ByteCountForBits(unEncLenBits);
+            int byteLen = NetBitWriter.BytesForBits(unEncLenBits);
             var result = Peer.GetStorage(byteLen);
 
             fixed (byte* msgPtr = message.Span)

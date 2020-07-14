@@ -109,7 +109,7 @@ namespace Lidgren.Network
             LidgrenException.Assert(totalBits > 0);
             LidgrenException.Assert(chunkByteSize > 0);
 
-            int totalBytes = NetBitWriter.ByteCountForBits(totalBits);
+            int totalBytes = NetBitWriter.BytesForBits(totalBits);
             int totalChunkCount = totalBytes / chunkByteSize;
             if (totalChunkCount * chunkByteSize < totalBytes)
                 totalChunkCount++;

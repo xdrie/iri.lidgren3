@@ -76,7 +76,7 @@ namespace Lidgren.Network
             byte[] tmp = Encoding.UTF8.GetBytes(username + ":" + password);
 
             using var algorithm = GetHashAlgorithm();
-            Span<byte> innerHash = stackalloc byte[NetBitWriter.ByteCountForBits(algorithm.HashSize)];
+            Span<byte> innerHash = stackalloc byte[NetBitWriter.BytesForBits(algorithm.HashSize)];
             if (!algorithm.TryComputeHash(tmp, innerHash, out _))
                 throw new Exception();
 
@@ -86,7 +86,7 @@ namespace Lidgren.Network
             salt.CopyTo(total);
             innerHash.CopyTo(total.Slice(salt.Length));
 
-            Span<byte> totalHash = stackalloc byte[NetBitWriter.ByteCountForBits(algorithm.HashSize)];
+            Span<byte> totalHash = stackalloc byte[NetBitWriter.BytesForBits(algorithm.HashSize)];
             if (!algorithm.TryComputeHash(total, totalHash, out _))
                 throw new Exception();
 
@@ -148,7 +148,7 @@ namespace Lidgren.Network
                 throw new Exception();
 
             using var algorithm = GetHashAlgorithm();
-            Span<byte> hash = stackalloc byte[NetBitWriter.ByteCountForBits(algorithm.HashSize)];
+            Span<byte> hash = stackalloc byte[NetBitWriter.BytesForBits(algorithm.HashSize)];
             if (!algorithm.TryComputeHash(buffer, hash, out _))
                 throw new Exception();
             
@@ -199,7 +199,7 @@ namespace Lidgren.Network
         public static NetXteaEncryption CreateEncryption(NetPeer peer, ReadOnlySpan<byte> sessionValue)
         {
             using var algorithm = GetHashAlgorithm();
-            Span<byte> hash = stackalloc byte[NetBitWriter.ByteCountForBits(algorithm.HashSize)];
+            Span<byte> hash = stackalloc byte[NetBitWriter.BytesForBits(algorithm.HashSize)];
             if (!algorithm.TryComputeHash(sessionValue, hash, out _))
                 throw new Exception();
 

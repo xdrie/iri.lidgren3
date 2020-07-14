@@ -41,6 +41,21 @@ namespace Lidgren.Network
 
         [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool HasEnough(this IBitBuffer buffer, int bitCount)
+        {
+            return buffer.BitLength - buffer.BitPosition >= bitCount;
+        }
+
+        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void IncrementBitPosition(this IBitBuffer buffer, int bitCount)
+        {
+            buffer.BitPosition += bitCount;
+            buffer.SetLengthByPosition();
+        }
+
+        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void SetLengthByPosition(this IBitBuffer buffer)
         {
             if (buffer.BitLength < buffer.BitPosition)

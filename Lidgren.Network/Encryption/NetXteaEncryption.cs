@@ -57,7 +57,7 @@ namespace Lidgren.Network
 
         public override void SetKey(ReadOnlySpan<byte> data)
         {
-            Span<byte> hash = stackalloc byte[NetBitWriter.ByteCountForBits(NetUtility.Sha256.HashSize)];
+            Span<byte> hash = stackalloc byte[NetBitWriter.BytesForBits(NetUtility.Sha256.HashSize)];
             var key = data.Length > KeySize ? hash : data;
 
             if (data.Length > KeySize)

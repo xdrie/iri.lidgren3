@@ -117,8 +117,7 @@ namespace Lidgren.Network
             }
 
             // in case we're still in handshake
-            lock (Peer.Handshakes)
-                Peer.Handshakes.Remove(RemoteEndPoint);
+            Peer.Handshakes.TryRemove(RemoteEndPoint, out _);
 
             _disconnectRequested = false;
             _connectRequested = false;
@@ -279,8 +278,7 @@ namespace Lidgren.Network
             SendDisconnect(reason, false);
 
             // remove from handshakes
-            lock (Peer.Handshakes)
-                Peer.Handshakes.Remove(RemoteEndPoint);
+            Peer.Handshakes.TryRemove(RemoteEndPoint, out _);
         }
 
         internal void ReceivedHandshake(TimeSpan now, NetMessageType type, int offset, int payloadLength)

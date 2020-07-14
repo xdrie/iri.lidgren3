@@ -18,12 +18,12 @@ namespace UnitTests
             if (config.IsMessageTypeEnabled(NetIncomingMessageType.UnconnectedData) == true)
                 throw new LidgrenException("setting enabled message types failed");
 
-            Console.WriteLine("Misc tests OK");
-
             Console.WriteLine("Hex test: " + NetUtility.ToHexString(new byte[] { 0xDE, 0xAD, 0xBE, 0xEF }));
 
-            if (NetBitWriter.BitCountForValue(uint.MaxValue + 1ul) != 33)
-                throw new LidgrenException("BitsToHoldUInt64 failed");
+            if (NetBitWriter.BitsForValue(uint.MaxValue + 1ul) != 33)
+                throw new LidgrenException("BitCountForValue failed");
+
+            Console.WriteLine("Misc tests OK");
         }
     }
 }
