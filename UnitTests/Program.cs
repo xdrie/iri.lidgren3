@@ -7,6 +7,9 @@ using System.Buffers.Binary;
 using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
+using System.Threading.Tasks;
+using System.Collections.Generic;
+using System.Threading;
 
 namespace UnitTests
 {
@@ -19,7 +22,7 @@ namespace UnitTests
             //NetBitWriter.CopyBits(src, 1, 17, dst, 1);
 
             // TODO: check use of GetAddressBytes and optimize with span
-            
+
             //Span<byte> src = new byte[] { 255, 255 }; // 0b00110010, 0b00111100 };
             //Span<byte> dst = new byte[3] { 0, 0, 0 };
             //NetBitWriter.CopyBits(src, 0, 16, dst, 9);
@@ -48,6 +51,47 @@ namespace UnitTests
 
             //EncryptionTests.Run(peer);
 
+            Console.WriteLine();
+
+            // create threads that read all messages to test concurrency
+            int readTimeout = 5000;
+            var readThreads = new List<Thread>();
+            for (int i = 0; i < 100; i++)
+            {
+                var thread = new Thread(() =>
+                {
+                    while (peer.TryReadMessage(readTimeout, out var message))
+                    {
+                        switch (message.MessageType)
+                        {
+                            case NetIncomingMessageType.DebugMessage:
+                            case NetIncomingMessageType.VerboseDebugMessage:
+                            case NetIncomingMessageType.WarningMessage:
+                            case NetIncomingMessageType.ErrorMessage:
+                                Console.WriteLine("Peer message: " + message.ReadString());
+                                break;
+
+                            case NetIncomingMessageType.Error:
+                                throw new Exception("Received error message!");
+
+                            case NetIncomingMessageType.Data:
+                                Console.WriteLine("Data: " + message.ReadString());
+                                break;
+
+                            case NetIncomingMessageType.UnconnectedData:
+                                Console.WriteLine("UnconnectedData: " + message.ReadString());
+                                break;
+
+                            default:
+                                Console.WriteLine(message.MessageType);
+                                break;
+                        }
+                    }
+                });
+                thread.Start();
+                readThreads.Add(thread);
+            }
+
             var om = peer.CreateMessage("henlo from myself");
             peer.SendUnconnectedMessage(om, new IPEndPoint(IPAddress.Loopback, peer.Port));
             try
@@ -61,38 +105,14 @@ namespace UnitTests
                 Console.WriteLine(nameof(CannotResendException) + " check OK");
             }
 
-            // read all message
-            while (peer.TryReadMessage(5000, out var message))
-            {
-                switch (message.MessageType)
-                {
-                    case NetIncomingMessageType.DebugMessage:
-                    case NetIncomingMessageType.VerboseDebugMessage:
-                    case NetIncomingMessageType.WarningMessage:
-                    case NetIncomingMessageType.ErrorMessage:
-                        Console.WriteLine("Peer message: " + message.ReadString());
-                        break;
+            Console.WriteLine($"Waiting for messages with {readTimeout}ms timeout...");
 
-                    case NetIncomingMessageType.Error:
-                        throw new Exception("Received error message!");
-
-                    case NetIncomingMessageType.Data:
-                        Console.WriteLine("Data: " + message.ReadString());
-                        break;
-
-                    case NetIncomingMessageType.UnconnectedData:
-                        Console.WriteLine("UnconnectedData: " + message.ReadString());
-                        break;
-
-                    default:
-                        Console.WriteLine(message.MessageType);
-                        break;
-                }
-            }
-
+            Console.WriteLine("Awaiting read threads...");
+            foreach (var thread in readThreads)
+                thread.Join();
+            
             Console.WriteLine();
             Console.WriteLine("Tests finished");
-            Console.ReadKey();
         }
 
         /// <summary>
