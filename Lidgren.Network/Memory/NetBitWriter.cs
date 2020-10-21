@@ -19,6 +19,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 using System;
 using System.Buffers;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
@@ -460,16 +461,10 @@ namespace Lidgren.Network
         /// </summary>
         /// <returns>Amount of bytes written.</returns>
         [CLSCompliant(false)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetVarIntSize(ulong value)
         {
-            int offset = 0;
-            ulong bits = value;
-            while (bits > 0x7Fu)
-            {
-                offset++;
-                bits >>= 7;
-            }
-            return offset + 1;
+            return BitsForValue(value) / 7 + 1;
         }
 
         /// <summary>
@@ -487,16 +482,10 @@ namespace Lidgren.Network
         /// </summary>
         /// <returns>Amount of bytes written.</returns>
         [CLSCompliant(false)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int GetVarIntSize(uint value)
         {
-            int offset = 0;
-            uint bits = value;
-            while (bits > 0x7Fu)
-            {
-                offset++;
-                bits >>= 7;
-            }
-            return offset + 1;
+            return BitsForValue(value) / 7 + 1;
         }
 
         /// <summary>
@@ -515,24 +504,20 @@ namespace Lidgren.Network
         /// Returns how many bits are necessary to hold a certain number
         /// </summary>
         [CLSCompliant(false)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int BitsForValue(uint value)
         {
-            int bits = 1;
-            while ((value >>= 1) != 0)
-                bits++;
-            return bits;
+            return 32 - BitOperations.LeadingZeroCount(value);
         }
 
         /// <summary>
         /// Returns how many bits are necessary to hold a certain number.
         /// </summary>
         [CLSCompliant(false)]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static int BitsForValue(ulong value)
         {
-            int bits = 1;
-            while ((value >>= 1) != 0)
-                bits++;
-            return bits;
+            return 64 - BitOperations.LeadingZeroCount(value);
         }
 
         /// <summary>

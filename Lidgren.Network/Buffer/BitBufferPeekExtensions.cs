@@ -12,8 +12,10 @@ namespace Lidgren.Network
         /// <summary>
         /// Tries to read the specified number of bits without advancing the read position.
         /// </summary>
+        /// <param name="destination">The destination span.</param>
+        /// <param name="bitCount">The number of bits to read.</param>
         [SuppressMessage("Design", "CA1062", Justification = "Performance")]
-        public static bool TryPeek(this IBitBuffer buffer, Span<byte> destination, int bitCount)
+        public static bool TryPeekBits(this IBitBuffer buffer, Span<byte> destination, int bitCount)
         {
             if (!buffer.HasEnough(bitCount))
                 return false;
@@ -23,27 +25,13 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Tries to read the specified number of bits, 
-        /// between one and <paramref name="maxBitCount"/>, 
-        /// without advancing the read position.
-        /// </summary>
-        public static bool TryPeek(this IBitBuffer buffer, Span<byte> destination, int bitCount, int maxBitCount)
-        {
-            if (bitCount < 1)
-                throw new ArgumentOutOfRangeException(nameof(bitCount));
-
-            if (bitCount > maxBitCount)
-                throw new ArgumentOutOfRangeException(nameof(bitCount));
-
-            return buffer.TryPeek(destination, bitCount);
-        }
-
-        /// <summary>
         /// Reads the specified number of bits without advancing the read position.
         /// </summary>
+        /// <param name="destination">The destination span.</param>
+        /// <param name="bitCount">The number of bits to read.</param>
         public static void Peek(this IBitBuffer buffer, Span<byte> destination, int bitCount)
         {
-            if (!buffer.TryPeek(destination, bitCount))
+            if (!buffer.TryPeekBits(destination, bitCount))
                 throw new EndOfMessageException();
         }
 
@@ -52,20 +40,32 @@ namespace Lidgren.Network
         /// between one and <paramref name="maxBitCount"/>, 
         /// without advancing the read position.
         /// </summary>
-        public static void Peek(this IBitBuffer buffer, Span<byte> destination, int bitCount, int maxBitCount)
+        /// <param name="destination">The destination span.</param>
+        /// <param name="bitCount">The number of bits to read.</param>
+        /// <param name="maxBitCount">The maximum amount of bits to read.</param>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Bit count is less than one or greater than <paramref name="maxBitCount"/>.
+        /// </exception>
+        public static void PeekBits(this IBitBuffer buffer, Span<byte> destination, int bitCount, int maxBitCount)
         {
-            if (!buffer.TryPeek(destination, bitCount, maxBitCount))
-                throw new EndOfMessageException();
+            if (bitCount < 1)
+                throw new ArgumentOutOfRangeException(nameof(bitCount));
+
+            if (bitCount > maxBitCount)
+                throw new ArgumentOutOfRangeException(nameof(bitCount));
+
+            buffer.TryPeekBits(destination, bitCount);
         }
 
         /// <summary>
         /// Tries to read the specified number of bytes without advancing the read position.
         /// </summary>
+        /// <param name="destination">The destination span.</param>
         [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         public static bool TryPeek(this IBitBuffer buffer, Span<byte> destination)
         {
             if (!buffer.IsByteAligned())
-                return buffer.TryPeek(destination, 0, destination.Length * 8);
+                return buffer.TryPeekBits(destination, destination.Length * 8);
 
             if (!buffer.HasEnough(destination.Length))
                 return false;
@@ -125,7 +125,7 @@ namespace Lidgren.Network
         {
             if (!buffer.HasEnough(bitCount))
                 throw new EndOfMessageException();
-            return NetBitWriter.ReadByteUnchecked(buffer.Span, buffer.BitPosition, bitCount);
+            return NetBitWriter.ReadByte(buffer.Span, buffer.BitPosition, bitCount);
         }
 
         #region Int16
@@ -157,7 +157,7 @@ namespace Lidgren.Network
         public static short PeekInt16(this IBitBuffer buffer, int bitCount)
         {
             Span<byte> tmp = stackalloc byte[sizeof(short)];
-            buffer.Peek(tmp, bitCount, tmp.Length * 8);
+            buffer.PeekBits(tmp, bitCount, tmp.Length * 8);
             return BinaryPrimitives.ReadInt16LittleEndian(tmp);
         }
 
@@ -168,7 +168,7 @@ namespace Lidgren.Network
         public static ushort PeekUInt16(this IBitBuffer buffer, int bitCount)
         {
             Span<byte> tmp = stackalloc byte[sizeof(ushort)];
-            buffer.Peek(tmp, bitCount, tmp.Length * 8);
+            buffer.PeekBits(tmp, bitCount, tmp.Length * 8);
             return BinaryPrimitives.ReadUInt16LittleEndian(tmp);
         }
 
@@ -203,7 +203,7 @@ namespace Lidgren.Network
         public static int PeekInt32(this IBitBuffer buffer, int bitCount)
         {
             Span<byte> tmp = stackalloc byte[sizeof(int)];
-            buffer.Peek(tmp, bitCount, tmp.Length * 8);
+            buffer.PeekBits(tmp, bitCount, tmp.Length * 8);
             return BinaryPrimitives.ReadInt32LittleEndian(tmp);
         }
 
@@ -214,7 +214,7 @@ namespace Lidgren.Network
         public static uint PeekUInt32(this IBitBuffer buffer, int bitCount)
         {
             Span<byte> tmp = stackalloc byte[sizeof(uint)];
-            buffer.Peek(tmp, bitCount, tmp.Length * 8);
+            buffer.PeekBits(tmp, bitCount, tmp.Length * 8);
             return BinaryPrimitives.ReadUInt32LittleEndian(tmp);
         }
 
@@ -249,7 +249,7 @@ namespace Lidgren.Network
         public static long PeekInt64(this IBitBuffer buffer, int bitCount)
         {
             Span<byte> tmp = stackalloc byte[sizeof(long)];
-            buffer.Peek(tmp, bitCount, tmp.Length * 8);
+            buffer.PeekBits(tmp, bitCount, tmp.Length * 8);
             return BinaryPrimitives.ReadInt64LittleEndian(tmp);
         }
 
@@ -260,7 +260,7 @@ namespace Lidgren.Network
         public static ulong PeekUInt64(this IBitBuffer buffer, int bitCount)
         {
             Span<byte> tmp = stackalloc byte[sizeof(ulong)];
-            buffer.Peek(tmp, bitCount, tmp.Length * 8);
+            buffer.PeekBits(tmp, bitCount, tmp.Length * 8);
             return BinaryPrimitives.ReadUInt64LittleEndian(tmp);
         }
 

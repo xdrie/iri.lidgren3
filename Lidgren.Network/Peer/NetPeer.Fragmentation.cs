@@ -6,9 +6,9 @@ namespace Lidgren.Network
 {
     internal readonly struct ReceivedFragmentGroup
     {
-        //public float LastReceived;
         public byte[] Data { get; }
         public NetBitVector ReceivedChunks { get; }
+        //public TimeSpan LastReceived { get; set; }
 
         public ReceivedFragmentGroup(byte[] data, NetBitVector receivedChunks)
         {
@@ -96,13 +96,18 @@ namespace Lidgren.Network
             AssertIsOnLibraryThread();
 
             // read fragmentation header and combine fragments
-            int headerOffset = NetFragmentationHelper.ReadHeader(
+            int headerOffset = 0;
+            if(!NetFragmentationHelper.ReadHeader(
                 message.Span,
-                offset: 0,
+                ref headerOffset,
                 out int group,
                 out int totalBits,
                 out int chunkByteSize,
-                out int chunkNumber);
+                out int chunkNumber))
+            {
+                LogWarning("Failed to read fragmentation header.");
+                return;
+            }
 
             LidgrenException.Assert(message.ByteLength > headerOffset);
             LidgrenException.Assert(group > 0);
@@ -135,7 +140,7 @@ namespace Lidgren.Network
             }
 
             info.ReceivedChunks[chunkNumber] = true;
-            //info.LastReceived = (float)NetTime.Now;
+            //info.LastReceived = NetTime.Now;
 
             // copy to data
             int offset = chunkNumber * chunkByteSize;

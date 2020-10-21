@@ -275,8 +275,9 @@ namespace Lidgren.Network
             AssertIsOnLibraryThread();
             LidgrenException.Assert(!message._isSent);
 
-            int len = message.Encode(_sendBuffer, 0, 0);
-            SendPacket(len, recipient, 1, out _);
+            int length = 0;
+            message.Encode(_sendBuffer, ref length, 0);
+            SendPacket(length, recipient, 1, out _);
         }
 
         /// <summary>

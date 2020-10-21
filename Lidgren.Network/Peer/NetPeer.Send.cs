@@ -9,7 +9,7 @@ namespace Lidgren.Network
     public partial class NetPeer
     {
         [DebuggerHidden]
-        private static void AssertValidRecipients<T>(IReadOnlyCollection<T> recipients, string paramName)
+        private static void AssertValidRecipients<T>(IReadOnlyCollection<T> recipients, string? paramName)
         {
             if (recipients == null)
                 throw new ArgumentNullException(paramName);
@@ -51,15 +51,9 @@ namespace Lidgren.Network
         {
             if (message == null) throw new ArgumentNullException(nameof(message));
             if (recipient == null) throw new ArgumentNullException(nameof(recipient));
-            NetConstants.AssertValidSequenceChannel(method, sequenceChannel, nameof(sequenceChannel));
 
-            LidgrenException.Assert(
-                (method != NetDeliveryMethod.Unreliable && method != NetDeliveryMethod.ReliableUnordered) ||
-                ((method == NetDeliveryMethod.Unreliable || method == NetDeliveryMethod.ReliableUnordered) && sequenceChannel == 0),
-                "Delivery method " + method + " cannot use sequence channels other than 0.");
-
-            if (method == NetDeliveryMethod.Unknown)
-                throw new ArgumentOutOfRangeException(nameof(method));
+            NetConstants.AssertValidDeliveryChannel(
+                method, sequenceChannel, nameof(method), nameof(sequenceChannel));
 
             message.AssertNotSent(nameof(message));
             message._isSent = true;
@@ -67,10 +61,8 @@ namespace Lidgren.Network
             bool suppressFragmentation =
                 (method == NetDeliveryMethod.Unreliable || method == NetDeliveryMethod.UnreliableSequenced) &&
                 Configuration.UnreliableSizeBehaviour != NetUnreliableSizeBehaviour.NormalFragmentation;
-            
-            // headers + length, faster than calling message.GetEncodedSize
-            int length = NetConstants.UnfragmentedMessageHeaderSize + message.ByteLength;
-            if (length <= recipient.CurrentMTU || suppressFragmentation)
+
+            if (suppressFragmentation || message.GetEncodedSize() <= recipient.CurrentMTU)
             {
                 Interlocked.Increment(ref message._recyclingCount);
                 return recipient.EnqueueMessage(message, method, sequenceChannel);
@@ -81,15 +73,15 @@ namespace Lidgren.Network
                 if (recipient._internalStatus != NetConnectionStatus.Connected)
                     return NetSendResult.FailedNotConnected;
 
-                var list = NetConnectionListPool.Rent();
+                var recipients = NetConnectionListPool.Rent(1);
                 try
                 {
-                    list.Add(recipient);
-                    return SendFragmentedMessage(message, list, method, sequenceChannel);
+                    recipients.Add(recipient);
+                    return SendFragmentedMessage(message, recipients, method, sequenceChannel);
                 }
                 finally
                 {
-                    NetConnectionListPool.Return(list);
+                    NetConnectionListPool.Return(recipients);
                 }
             }
         }
@@ -123,18 +115,18 @@ namespace Lidgren.Network
         /// <param name="method">How to deliver the message</param>
         /// <param name="sequenceChannel">Sequence channel within the delivery method</param>
         public void SendMessage(
-            NetOutgoingMessage message, 
+            NetOutgoingMessage message,
             IReadOnlyCollection<NetConnection> recipients,
             NetDeliveryMethod method,
             int sequenceChannel)
         {
             if (message == null)
                 throw new ArgumentNullException(nameof(message));
-            AssertValidRecipients(recipients, nameof(recipients));
 
-            if (method == NetDeliveryMethod.Unreliable || method == NetDeliveryMethod.ReliableUnordered)
-                LidgrenException.Assert(
-                    sequenceChannel == 0, "Delivery method " + method + " cannot use sequence channels other than 0!");
+            NetConstants.AssertValidDeliveryChannel(
+                method, sequenceChannel, nameof(method), nameof(sequenceChannel));
+
+            AssertValidRecipients(recipients, nameof(recipients));
 
             message.AssertNotSent(nameof(message));
             message._isSent = true;
@@ -180,7 +172,7 @@ namespace Lidgren.Network
         {
             if (message == null)
                 throw new ArgumentNullException(nameof(message));
-            
+
             message.AssertNotSent(nameof(message));
             AssertValidUnconnectedLength(message);
 
@@ -197,13 +189,13 @@ namespace Lidgren.Network
         /// </summary>
         public void SendUnconnectedMessage(NetOutgoingMessage message, IPEndPoint recipient)
         {
-            if (message == null) 
+            if (message == null)
                 throw new ArgumentNullException(nameof(message));
             if (recipient == null)
                 throw new ArgumentNullException(nameof(recipient));
-            
-            AssertValidUnconnectedLength(message);
+
             message.AssertNotSent(nameof(message));
+            AssertValidUnconnectedLength(message);
 
             SendUnconnectedMessageCore(message, recipient);
         }

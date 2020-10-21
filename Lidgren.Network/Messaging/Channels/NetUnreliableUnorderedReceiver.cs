@@ -8,12 +8,12 @@ namespace Lidgren.Network
 		{
 		}
 
-		public override void ReceiveMessage(NetIncomingMessage msg)
+		public override void ReceiveMessage(NetIncomingMessage message)
 		{
 			// ack no matter what
-			Connection.QueueAck(msg._baseMessageType, msg.SequenceNumber);
+			Connection.QueueAck(message._baseMessageType, message.SequenceNumber);
 
-			Peer.ReleaseMessage(msg);
+			Peer.ReleaseMessage(message);
 		}
 	}
 }

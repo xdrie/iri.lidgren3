@@ -1,6 +1,4 @@
-﻿using System;
-using System.Text;
-
+﻿
 namespace Lidgren.Network
 {
     public partial class NetPeer

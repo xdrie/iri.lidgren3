@@ -3,7 +3,6 @@ using System.Xml;
 using System.Net;
 using System.Net.Sockets;
 using System.Globalization;
-using System.Diagnostics.CodeAnalysis;
 
 namespace Lidgren.Network
 {

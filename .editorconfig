@@ -5,3 +5,6 @@ dotnet_diagnostic.CA1303.severity = suggestion
 
 # CA1028: Enum Storage should be Int32
 dotnet_diagnostic.CA1028.severity = silent
+
+# CA2000: Dispose objects before losing scope
+dotnet_diagnostic.CA2000.severity = none

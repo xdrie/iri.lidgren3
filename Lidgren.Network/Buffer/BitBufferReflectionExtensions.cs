@@ -1,5 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Globalization;
+using System.Linq;
 using System.Reflection;
 
 namespace Lidgren.Network
@@ -7,32 +10,56 @@ namespace Lidgren.Network
     public static class BitBufferReflectionExtensions
     {
         // TODO: optimize reflection (generic compiled expressions?)
+        // TODO: create serializer (look at LiteNetLib)
 
         public const BindingFlags DefaultBindingFlags =
-            BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public;
+            BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Public;
+
+        private static MethodInfo EnumReadMethod { get; }
+        private static MethodInfo EnumWriteMethod { get; }
 
         private static Dictionary<Type, MethodInfo> ReadMethods { get; } = new Dictionary<Type, MethodInfo>();
         private static Dictionary<Type, MethodInfo> WriteMethods { get; } = new Dictionary<Type, MethodInfo>();
 
         static BitBufferReflectionExtensions()
         {
-            var inMethods = typeof(NetIncomingMessage).GetMethods(BindingFlags.Instance | BindingFlags.Public);
+            var inMethods = typeof(BitBufferReadExtensions).GetMethods(BindingFlags.Static | BindingFlags.Public);
             foreach (MethodInfo method in inMethods)
             {
-                if (method.GetParameters().Length == 0 &&
-                    method.Name.StartsWith("Read", StringComparison.InvariantCulture) &&
-                    method.Name.Substring(4) == method.ReturnType.Name)
-                    ReadMethods[method.ReturnType] = method;
+                var parameters = method.GetParameters();
+                var readType = method.ReturnType;
+
+                if (parameters.Length == 1 &&
+                    parameters[0].ParameterType == typeof(IBitBuffer) &&
+                    method.Name.StartsWith("Read", StringComparison.InvariantCulture))
+                {
+                    if (readType.IsEnum && readType.IsGenericMethodParameter)
+                    {
+                        EnumReadMethod = method;
+                    }
+                    else if (method.Name.AsSpan(4).SequenceEqual(readType.Name))
+                    {
+                        ReadMethods[readType] = method;
+                    }
+                }
             }
 
-            var outMethods = typeof(NetOutgoingMessage).GetMethods(BindingFlags.Instance | BindingFlags.Public);
+            var outMethods = typeof(BitBufferWriteExtensions).GetMethods(BindingFlags.Static | BindingFlags.Public);
             foreach (MethodInfo method in outMethods)
             {
                 if (method.Name.Equals("Write", StringComparison.InvariantCulture))
                 {
-                    ParameterInfo[] pis = method.GetParameters();
-                    if (pis.Length == 1)
-                        WriteMethods[pis[0].ParameterType] = method;
+                    var parameters = method.GetParameters();
+
+                    if (parameters.Length == 2 &&
+                        parameters[0].ParameterType == typeof(IBitBuffer))
+                    {
+                        var writeType = parameters[1].ParameterType;
+                        if (writeType.IsEnum && writeType.IsGenericMethodParameter)
+                            EnumWriteMethod = method;
+                        else
+                            WriteMethods[writeType] = method;
+                    }
                 }
             }
         }
@@ -48,22 +75,27 @@ namespace Lidgren.Network
 
             Type type = target.GetType();
             FieldInfo[] fields = type.GetFields(flags);
-            NetUtility.SortMembersList(fields);
+            SortMembers(fields);
 
+            var readParams = new[] { buffer };
             foreach (FieldInfo fi in fields)
             {
                 // find read method
-                if (!ReadMethods.TryGetValue(fi.FieldType, out var readMethod))
+                MethodInfo? readMethod;
+
+                if (fi.FieldType.IsEnum)
+                    readMethod = EnumReadMethod;
+                else if (!ReadMethods.TryGetValue(fi.FieldType, out readMethod))
                     throw new LidgrenException("Failed to find read method for type " + fi.FieldType);
 
                 // read and set value
-                var value = readMethod.Invoke(buffer, null);
+                var value = readMethod.Invoke(null, readParams);
                 fi.SetValue(target, value);
             }
         }
 
         /// <summary>
-        /// Reads all fields with the specified binding of the object in alphabetical order using reflection.
+        /// Reads all properties with the specified binding of the object in alphabetical order using reflection.
         /// </summary>
         public static void ReadAllProperties(
             this IBitBuffer buffer, object target, BindingFlags flags = DefaultBindingFlags)
@@ -72,16 +104,22 @@ namespace Lidgren.Network
                 throw new ArgumentNullException(nameof(target));
 
             Type type = target.GetType();
-            PropertyInfo[] fields = type.GetProperties(flags);
-            NetUtility.SortMembersList(fields);
-            foreach (PropertyInfo fi in fields)
+            PropertyInfo[] properties = type.GetProperties(flags);
+            SortMembers(properties);
+
+            var readParams = new[] { buffer };
+            foreach (PropertyInfo fi in properties)
             {
                 // find read method
-                if (!ReadMethods.TryGetValue(fi.PropertyType, out var readMethod))
+                MethodInfo? readMethod;
+
+                if (fi.PropertyType.IsEnum)
+                    readMethod = EnumReadMethod;
+                else if (!ReadMethods.TryGetValue(fi.PropertyType, out readMethod))
                     throw new LidgrenException("Failed to find read method for type " + fi.PropertyType);
 
                 // read and set value
-                var value = readMethod.Invoke(buffer, null);
+                var value = readMethod.Invoke(null, readParams);
                 fi.SetMethod?.Invoke(target, new[] { value });
             }
         }
@@ -95,20 +133,23 @@ namespace Lidgren.Network
             if (source == null)
                 return;
 
-            Type tp = source.GetType();
-            FieldInfo[] fields = tp.GetFields(flags);
-            NetUtility.SortMembersList(fields);
+            Type type = source.GetType();
+            FieldInfo[] fields = type.GetFields(flags);
+            SortMembers(fields);
 
-            foreach (FieldInfo fi in fields)
+            foreach (FieldInfo field in fields)
             {
-
                 // find the appropriate Write method
-                if (!WriteMethods.TryGetValue(fi.FieldType, out var writeMethod))
-                    throw new LidgrenException("Failed to find write method for type " + fi.FieldType);
+
+                MethodInfo? writeMethod;
+                if (field.FieldType.IsEnum)
+                    writeMethod = EnumWriteMethod;
+                else if (!WriteMethods.TryGetValue(field.FieldType, out writeMethod))
+                    throw new LidgrenException("Failed to find write method for type " + field.FieldType);
 
                 // get and write value
-                var value = fi.GetValue(source);
-                writeMethod.Invoke(buffer, new[] { value });
+                var value = field.GetValue(source);
+                writeMethod.Invoke(null, new[] { buffer, value });
             }
         }
 
@@ -122,23 +163,32 @@ namespace Lidgren.Network
                 return;
 
             Type type = source.GetType();
-            PropertyInfo[] fields = type.GetProperties(flags);
-            NetUtility.SortMembersList(fields);
+            PropertyInfo[] properties = type.GetProperties(flags);
+            SortMembers(properties);
 
-            foreach (PropertyInfo fi in fields)
+            foreach (PropertyInfo prop in properties)
             {
-                var getMethod = fi.GetMethod;
+                var getMethod = prop.GetMethod;
                 if (getMethod == null)
                     continue;
 
                 // find the appropriate Write method
-                if (!WriteMethods.TryGetValue(fi.PropertyType, out var writeMethod))
-                    throw new LidgrenException("Failed to find write method for type " + fi.PropertyType);
+                MethodInfo? writeMethod;
+                if (prop.PropertyType.IsEnum)
+                    writeMethod = EnumWriteMethod;
+                else if (!WriteMethods.TryGetValue(prop.PropertyType, out writeMethod))
+                    throw new LidgrenException("Failed to find write method for type " + prop.PropertyType);
 
                 // get and write value
                 var value = getMethod.Invoke(source, null);
-                writeMethod.Invoke(buffer, new[] { value });
+                writeMethod.Invoke(null, new[] { buffer, value });
             }
+        }
+
+        public static void SortMembers(
+            MemberInfo[] members, StringComparison comparisonType = StringComparison.InvariantCulture)
+        {
+            Array.Sort(members, (x, y) => string.Compare(x.Name, y.Name, comparisonType));
         }
     }
 }

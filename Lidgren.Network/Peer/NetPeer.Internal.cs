@@ -355,7 +355,8 @@ namespace Lidgren.Network
                 while (UnsentUnconnectedMessages.TryDequeue(out var unsent))
                 {
                     NetOutgoingMessage om = unsent.Message;
-                    int length = om.Encode(_sendBuffer, 0, 0);
+                    int length = 0;
+                    om.Encode(_sendBuffer, ref length, 0);
                     SendPacket(length, unsent.EndPoint, 1, out bool connReset);
 
                     Interlocked.Decrement(ref om._recyclingCount);

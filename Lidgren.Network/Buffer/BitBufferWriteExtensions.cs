@@ -291,7 +291,6 @@ namespace Lidgren.Network
                 tmp[offset++] = (byte)(bits | ~0x7Fu);
                 bits >>= 7;
             }
-
             tmp[offset++] = (byte)bits;
 
             buffer.Write(tmp.Slice(0, offset));
@@ -324,7 +323,6 @@ namespace Lidgren.Network
                 tmp[offset++] = (byte)(bits | ~0x7Fu);
                 bits >>= 7;
             }
-
             tmp[offset++] = (byte)bits;
 
             buffer.Write(tmp.Slice(0, offset));
@@ -493,7 +491,7 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Writes the current local time to a message as a <see cref="TimeSpan"/>.
+        /// Writes the current local time (<see cref="NetTime.Now"/>).
         /// </summary>
         public static void WriteLocalTime(this IBitBuffer buffer)
         {

@@ -109,9 +109,10 @@ namespace Lidgren.Network
             NetOutgoingMessage om = Peer.CreateMessage(size);
             om.WritePadBytes(size);
             om._messageType = NetMessageType.ExpandMTURequest;
-            int len = om.Encode(Peer._sendBuffer, 0, 0);
+            int length = 0;
+            om.Encode(Peer._sendBuffer, ref length, 0);
 
-            bool ok = Peer.SendMTUPacket(len, RemoteEndPoint);
+            bool ok = Peer.SendMTUPacket(length, RemoteEndPoint);
             if (ok == false)
             {
                 //m_peer.LogDebug("Send MTU failed for size " + size);
@@ -134,7 +135,7 @@ namespace Lidgren.Network
             _lastSentMTUAttemptSize = size;
             _lastSentMTUAttemptTime = now;
 
-            Statistics.PacketSent(len, 1);
+            Statistics.PacketSent(length, 1);
             Peer.Recycle(om);
         }
 
@@ -154,7 +155,8 @@ namespace Lidgren.Network
             NetOutgoingMessage om = Peer.CreateMessage(4);
             om.Write(size);
             om._messageType = NetMessageType.ExpandMTUSuccess;
-            int length = om.Encode(Peer._sendBuffer, 0, 0);
+            int length = 0;
+            om.Encode(Peer._sendBuffer, ref length, 0);
             Peer.SendPacket(length, RemoteEndPoint, 1, out _);
             Peer.Recycle(om);
 

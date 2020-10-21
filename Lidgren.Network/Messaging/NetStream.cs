@@ -5,6 +5,8 @@ namespace Lidgren.Network
 {
     public class NetStream : Stream
     {
+        public const int MaxSequenceChannel = NetConstants.StreamChannels - 1;
+
         private bool _readable;
         private bool _writable;
 
@@ -27,22 +29,47 @@ namespace Lidgren.Network
 
         public NetStream(NetConnection connection, int sequenceChannel)
         {
-            NetConstants.AssertValidSequenceChannel(
-                NetDeliveryMethod.Stream, sequenceChannel, nameof(sequenceChannel));
+            NetConstants.AssertValidDeliveryChannel(
+                NetDeliveryMethod.Stream, sequenceChannel,
+                null, nameof(sequenceChannel));
 
             Connection = connection ?? throw new ArgumentNullException(nameof(connection));
             SequenceChannel = sequenceChannel;
 
+
+        }
+
+        public override int Read(Span<byte> buffer)
+        {
+            throw new NotImplementedException();
+        }
+
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            throw new NotImplementedException();
         }
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            throw new NotImplementedException();
+            return Read(buffer.AsSpan(offset, count));
         }
 
         public override void Write(byte[] buffer, int offset, int count)
         {
-            throw new NotImplementedException();
+            Write(buffer.AsSpan(offset, count));
+        }
+
+        public override int ReadByte()
+        {
+            Span<byte> tmp = stackalloc byte[1];
+            if (Read(tmp) != tmp.Length)
+                return -1;
+            return tmp[0];
+        }
+
+        public override void WriteByte(byte value)
+        {
+            Write(stackalloc byte[] { value });
         }
 
         public override void Flush()

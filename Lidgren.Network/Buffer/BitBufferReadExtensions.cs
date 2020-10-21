@@ -16,7 +16,7 @@ namespace Lidgren.Network
         /// Tries to read a specified number of bits into the given buffer.
         /// </summary>
         /// <param name="destination">The destination span.</param>
-        /// <param name="bitCount">The number of bits to read</param>
+        /// <param name="bitCount">The number of bits to read.</param>
         [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         public static bool TryReadBits(this IBitBuffer buffer, Span<byte> destination, int bitCount)
         {
@@ -26,6 +26,36 @@ namespace Lidgren.Network
             NetBitWriter.CopyBits(buffer.Span, buffer.BitPosition, bitCount, destination, 0);
             buffer.BitPosition += bitCount;
             return true;
+        }
+
+        /// <summary>
+        /// Reads the specified number of bits into the given buffer.
+        /// </summary>
+        /// <param name="destination">The destination span.</param>
+        /// <param name="bitCount">The number of bits to read.</param>
+        public static void ReadBits(this IBitBuffer buffer, Span<byte> destination, int bitCount)
+        {
+            if (!buffer.TryReadBits(destination, bitCount))
+                throw new EndOfMessageException();
+        }
+
+        /// <summary>
+        /// Reads the specified number of bits, between one and <paramref name="maxBitCount"/>, into the given buffer.
+        /// </summary>
+        /// <param name="destination">The destination span.</param>
+        /// <param name="bitCount">The number of bits to read.</param>
+        /// <param name="maxBitCount">The maximum amount of bits to read.</param>
+        /// <exception cref="ArgumentOutOfRangeException">
+        /// Bit count is less than one or greater than <paramref name="maxBitCount"/>.
+        /// </exception>
+        public static void ReadBits(this IBitBuffer buffer, Span<byte> destination, int bitCount, int maxBitCount)
+        {
+            if (bitCount < 1)
+                throw new ArgumentOutOfRangeException(nameof(bitCount));
+            if (bitCount > maxBitCount)
+                throw new ArgumentOutOfRangeException(nameof(bitCount));
+
+            buffer.ReadBits(destination, bitCount);
         }
 
         /// <summary>
@@ -54,36 +84,6 @@ namespace Lidgren.Network
         {
             if (!buffer.TryRead(destination))
                 throw new EndOfMessageException();
-        }
-
-        /// <summary>
-        /// Reads the specified number of bits into the given buffer.
-        /// </summary>
-        /// <param name="destination">The destination span.</param>
-        /// <param name="bitCount">The number of bits to read</param>
-        public static void ReadBits(this IBitBuffer buffer, Span<byte> destination, int bitCount)
-        {
-            if (!buffer.TryReadBits(destination, bitCount))
-                throw new EndOfMessageException();
-        }
-
-        /// <summary>
-        /// Reads the specified number of bits, between one and <paramref name="maxBitCount"/>, into the given buffer.
-        /// </summary>
-        /// <param name="destination">The destination span.</param>
-        /// <param name="bitCount">The number of bits to read</param>
-        /// <param name="maxBitCount">The maximum amount of bits to read.</param>
-        /// <exception cref="ArgumentOutOfRangeException">
-        /// Bit count is less than one or greater than <paramref name="maxBitCount"/>.
-        /// </exception>
-        public static void ReadBitsChecked(this IBitBuffer buffer, Span<byte> destination, int bitCount, int maxBitCount)
-        {
-            if (bitCount < 1)
-                throw new ArgumentOutOfRangeException(nameof(bitCount));
-            if (bitCount > maxBitCount)
-                throw new ArgumentOutOfRangeException(nameof(bitCount));
-
-            buffer.ReadBits(destination, bitCount);
         }
 
         #region Bool
@@ -140,7 +140,10 @@ namespace Lidgren.Network
         [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         public static byte ReadByte(this IBitBuffer buffer, int bitCount)
         {
-            byte value = buffer.PeekByte(bitCount);
+            if (!buffer.HasEnough(bitCount))
+                throw new EndOfMessageException();
+            
+            byte value = NetBitWriter.ReadByte(buffer.Span, buffer.BitPosition, bitCount);
             buffer.BitPosition += bitCount;
             return value;
         }
@@ -152,9 +155,9 @@ namespace Lidgren.Network
         [CLSCompliant(false)]
         public static sbyte ReadSByte(this IBitBuffer buffer)
         {
-            sbyte value = buffer.PeekSByte();
-            buffer.BitPosition += 8;
-            return value;
+            if (!buffer.ReadByte(out byte value))
+                throw new EndOfMessageException();
+            return (sbyte)value;
         }
 
         #endregion
@@ -224,7 +227,7 @@ namespace Lidgren.Network
                 return BinaryPrimitives.ReadInt32LittleEndian(tmp);
             }
 
-            buffer.ReadBitsChecked(tmp, bitCount, tmp.Length * 8);
+            buffer.ReadBits(tmp, bitCount, tmp.Length * 8);
             int value = BinaryPrimitives.ReadInt32LittleEndian(tmp);
 
             int signBit = 1 << (bitCount - 1);
@@ -274,7 +277,7 @@ namespace Lidgren.Network
         public static uint ReadUInt32(this IBitBuffer buffer, int bitCount)
         {
             Span<byte> tmp = stackalloc byte[sizeof(uint)];
-            buffer.ReadBitsChecked(tmp, bitCount, tmp.Length * 8);
+            buffer.ReadBits(tmp, bitCount, tmp.Length * 8);
             return BinaryPrimitives.ReadUInt32LittleEndian(tmp);
         }
 
@@ -329,7 +332,7 @@ namespace Lidgren.Network
                 return BinaryPrimitives.ReadInt64LittleEndian(tmp);
             }
 
-            buffer.ReadBitsChecked(tmp, bitCount, tmp.Length * 8);
+            buffer.ReadBits(tmp, bitCount, tmp.Length * 8);
             long value = BinaryPrimitives.ReadInt64LittleEndian(tmp);
 
             long signBit = 1 << (bitCount - 1);
@@ -352,7 +355,7 @@ namespace Lidgren.Network
         public static ulong ReadUInt64(this IBitBuffer buffer, int bitCount)
         {
             Span<byte> tmp = stackalloc byte[sizeof(ulong)];
-            buffer.ReadBitsChecked(tmp, bitCount, tmp.Length * 8);
+            buffer.ReadBits(tmp, bitCount, tmp.Length * 8);
             return BinaryPrimitives.ReadUInt64LittleEndian(tmp);
         }
 

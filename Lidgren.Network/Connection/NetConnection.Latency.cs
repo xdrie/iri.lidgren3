@@ -65,13 +65,14 @@ namespace Lidgren.Network
 
             _sentPingTime = NetTime.Now;
             NetOutgoingMessage om = Peer.CreateMessage(1);
-            om.Write((byte)_sentPingNumber); // truncating to 0-255
+            om.Write(_sentPingNumber); // truncating to 0-255
             om._messageType = NetMessageType.Ping;
 
-            int len = om.Encode(Peer._sendBuffer, 0, 0);
-            Peer.SendPacket(len, RemoteEndPoint, 1, out _);
+            int length = 0;
+            om.Encode(Peer._sendBuffer, ref length, 0);
+            Peer.SendPacket(length, RemoteEndPoint, 1, out _);
 
-            Statistics.PacketSent(len, 1);
+            Statistics.PacketSent(length, 1);
             Peer.Recycle(om);
         }
 
@@ -87,10 +88,11 @@ namespace Lidgren.Network
             
             om._messageType = NetMessageType.Pong;
 
-            int len = om.Encode(Peer._sendBuffer, 0, 0);
-            Peer.SendPacket(len, RemoteEndPoint, 1, out _);
+            int length = 0;
+            om.Encode(Peer._sendBuffer, ref length, 0);
+            Peer.SendPacket(length, RemoteEndPoint, 1, out _);
 
-            Statistics.PacketSent(len, 1);
+            Statistics.PacketSent(length, 1);
             Peer.Recycle(om);
         }
 

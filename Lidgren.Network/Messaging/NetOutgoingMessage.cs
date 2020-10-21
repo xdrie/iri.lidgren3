@@ -1,23 +1,4 @@
-﻿/* Copyright (c) 2010 Michael Lidgren
-
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software
-and associated documentation files (the "Software"), to deal in the Software without
-restriction, including without limitation the rights to use, copy, modify, merge, publish,
-distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom
-the Software is furnished to do so, subject to the following conditions:
-
-The above copyright notice and this permission notice shall be included in all copies or
-substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED,
-INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
-PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE
-LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT,
-TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
-USE OR OTHER DEALINGS IN THE SOFTWARE.
-
-*/
-using System;
+﻿using System;
 using System.Diagnostics;
 
 namespace Lidgren.Network
@@ -52,7 +33,7 @@ namespace Lidgren.Network
             BitLength = 0;
         }
 
-        internal int Encode(Span<byte> destination, int offset, int sequenceNumber)
+        internal void Encode(Span<byte> destination, ref int offset, int sequenceNumber)
         {
             //  8 bits - NetMessageType
             //  1 bit  - Fragment?
@@ -60,9 +41,7 @@ namespace Lidgren.Network
             // 16 bits - Payload length in bits
 
             destination[offset++] = (byte)_messageType;
-
-            int low = (sequenceNumber << 1) | (_fragmentGroup == 0 ? 0 : 1);
-            destination[offset++] = (byte)low;
+            destination[offset++] = (byte)((_fragmentGroup == 0 ? 0 : 1) | (sequenceNumber << 1));
             destination[offset++] = (byte)(sequenceNumber >> 7);
 
             if (_fragmentGroup == 0)
@@ -76,30 +55,26 @@ namespace Lidgren.Network
             }
             else
             {
-                int offsetBase = offset;
-                destination[offset++] = (byte)BitLength;
-                destination[offset++] = (byte)(BitLength >> 8);
+                int baseOffset = offset;
+                offset += 2; // reserve space for length
 
                 //
                 // write fragmentation header
                 //
-                offset = NetFragmentationHelper.WriteHeader(
-                    destination, offset,
+                NetFragmentationHelper.WriteHeader(
+                    destination, ref offset,
                     _fragmentGroup, _fragmentGroupTotalBits, _fragmentChunkByteSize, _fragmentChunkNumber);
-                int hdrLen = offset - offsetBase - 2;
+                int hdrLen = offset - baseOffset - 2;
 
-                // update length
-                int realBitLength = BitLength + (hdrLen * 8);
-                destination[offsetBase] = (byte)realBitLength;
-                destination[offsetBase + 1] = (byte)(realBitLength >> 8);
+                // write length
+                int actualBitLength = BitLength + (hdrLen * 8);
+                destination[baseOffset] = (byte)actualBitLength;
+                destination[baseOffset + 1] = (byte)(actualBitLength >> 8);
 
                 int byteLen = NetBitWriter.BytesForBits(BitLength);
                 Span.Slice(_fragmentChunkNumber * _fragmentChunkByteSize, byteLen).CopyTo(destination.Slice(offset));
                 offset += byteLen;
             }
-
-            LidgrenException.Assert(offset > 0);
-            return offset;
         }
 
         internal void AssertNotSent(string? paramName = null)
@@ -110,11 +85,11 @@ namespace Lidgren.Network
 
         internal int GetEncodedSize()
         {
-            int size = NetConstants.UnfragmentedMessageHeaderSize; // regular headers
+            int size = NetConstants.UnfragmentedMessageHeaderSize; // base headers
             if (_fragmentGroup != 0)
             {
                 size += NetFragmentationHelper.GetFragmentationHeaderSize(
-                    _fragmentGroup, _fragmentGroupTotalBits / 8, _fragmentChunkByteSize, _fragmentChunkNumber);
+                    _fragmentGroup, _fragmentGroupTotalBits, _fragmentChunkByteSize, _fragmentChunkNumber);
             }
             size += ByteLength;
             return size;

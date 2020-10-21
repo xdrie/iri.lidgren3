@@ -69,7 +69,6 @@ namespace Lidgren.Network
             for (int i = 0; i < StoredMessages.Length; i++)
             {
                 ref NetStoredReliableMessage storedMessage = ref StoredMessages[i];
-
                 if (storedMessage.Message == null)
                     continue;
 
@@ -109,6 +108,7 @@ namespace Lidgren.Network
             {
                 if (QueuedSends.TryDequeue(out NetOutgoingMessage? om))
                     ExecuteSend(now, om);
+
                 num--;
                 LidgrenException.Assert(num == GetAllowedSends());
             }

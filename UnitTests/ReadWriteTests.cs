@@ -7,29 +7,7 @@ namespace UnitTests
 {
     public static class ReadWriteTests
     {
-        public static string ToBinaryString(ulong value, int bits, bool includeSpaces)
-        {
-            int numSpaces = Math.Max(0, (bits / 8) - 1);
-            if (includeSpaces == false)
-                numSpaces = 0;
-
-            StringBuilder bdr = new StringBuilder(bits + numSpaces);
-            for (int i = 0; i < bits + numSpaces; i++)
-                bdr.Append(' ');
-
-            for (int i = 0; i < bits; i++)
-            {
-                ulong shifted = value >> i;
-                bool isSet = (shifted & 1) != 0;
-
-                int pos = bits - 1 - i;
-                if (includeSpaces)
-                    pos += Math.Max(0, pos / 8);
-
-                bdr[pos] = isSet ? '1' : '0';
-            }
-            return bdr.ToString();
-        }
+        // TODO: better tests
 
         public static void Run(NetPeer peer)
         {

@@ -282,10 +282,10 @@ namespace Lidgren.Network
         {
             Peer.AssertIsOnLibraryThread();
 
-            int sz = om.GetEncodedSize();
+            int size = om.GetEncodedSize();
 
             // can fit this message together with previously written to buffer?
-            if (_sendBufferWritePtr + sz > CurrentMTU)
+            if (_sendBufferWritePtr + size > CurrentMTU)
             {
                 if (_sendBufferWritePtr > 0 && _sendBufferNumMessages > 0)
                 {
@@ -298,7 +298,7 @@ namespace Lidgren.Network
             }
 
             // encode it into buffer regardless if it (now) fits within MTU or not
-            _sendBufferWritePtr = om.Encode(Peer._sendBuffer, _sendBufferWritePtr, seqNr);
+            om.Encode(Peer._sendBuffer, ref _sendBufferWritePtr, seqNr);
             _sendBufferNumMessages++;
 
             if (_sendBufferWritePtr > CurrentMTU)

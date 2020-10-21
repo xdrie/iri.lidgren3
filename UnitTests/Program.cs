@@ -5,6 +5,8 @@ using System.Net;
 using System.Runtime.Intrinsics.X86;
 using System.Buffers.Binary;
 using System.Numerics;
+using System.Runtime.InteropServices;
+using System.Diagnostics;
 
 namespace UnitTests
 {
@@ -17,7 +19,7 @@ namespace UnitTests
             //NetBitWriter.CopyBits(src, 1, 17, dst, 1);
 
             // TODO: check use of GetAddressBytes and optimize with span
-
+            
             //Span<byte> src = new byte[] { 255, 255 }; // 0b00110010, 0b00111100 };
             //Span<byte> dst = new byte[3] { 0, 0, 0 };
             //NetBitWriter.CopyBits(src, 0, 16, dst, 9);

@@ -97,8 +97,7 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Reads local time comparable to <see cref="NetTime.Now"/>,
-        /// written by <see cref="NetBuffer.WriteLocalTime"/>.
+        /// Reads local time comparable to <see cref="NetTime.Now"/>.
         /// </summary>
         /// <exception cref="InvalidOperationException"><see cref="SenderConnection"/> is null.</exception>
         public TimeSpan ReadLocalTime()
@@ -107,7 +106,7 @@ namespace Lidgren.Network
                 throw new InvalidOperationException(
                     "This message is not associated with a sender connection.");
 
-            return ReadLocalTime(SenderConnection);
+            return this.ReadLocalTime(SenderConnection);
         }
 
         /// <summary>
