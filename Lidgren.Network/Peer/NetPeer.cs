@@ -6,6 +6,7 @@ using System.Net.Sockets;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Collections.Concurrent;
+using System.Diagnostics;
 
 namespace Lidgren.Network
 {
@@ -15,8 +16,6 @@ namespace Lidgren.Network
     public partial class NetPeer : IDisposable
     {
         private static int _initializedPeersCount;
-
-        private static TimeSpan MaxMessageReadWaitSlice { get; } = TimeSpan.FromMilliseconds(100);
 
         private bool _isDisposed;
         private string? _shutdownReason;
@@ -197,7 +196,7 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Tries to read a pending message from any connection.
+        /// Tries to read a pending incoming message from any connection.
         /// </summary>
         /// <returns>Whether a message was successfully read.</returns>
         public bool TryReadMessage([MaybeNullWhen(false)] out NetIncomingMessage message)
@@ -211,13 +210,16 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Tries to read a message from any connection, blocking if needed.
+        /// Tries to read an incoming message from any connection, blocking if needed.
         /// </summary>
         /// <returns>Whether a message was successfully read.</returns>
         public bool TryReadMessage(
             TimeSpan timeout,
             [MaybeNullWhen(false)] out NetIncomingMessage message)
         {
+            if (timeout.Ticks < 0)
+                throw new ArgumentOutOfRangeException(nameof(timeout));
+
             // check if we already have a message to return
             if (TryReadMessage(out message))
                 return true;
@@ -225,25 +227,29 @@ namespace Lidgren.Network
             var resetEvent = MessageReceivedEvent;
 
             TryWait:
-            while (timeout > TimeSpan.Zero)
+            long startTicks = Stopwatch.GetTimestamp();
+            if (!resetEvent.WaitOne(timeout))
             {
-                var toWait = timeout < MaxMessageReadWaitSlice ? timeout : MaxMessageReadWaitSlice;
-                if (ReleasedIncomingMessages.Count > 0 || resetEvent.WaitOne(toWait))
-                    break;
-                timeout -= toWait;
+                // When the time runs out, try to read one last time.
+                return TryReadMessage(out message);
             }
 
-            // Can happen when multiple threads read the same peer.
-            // It's probably best to go back and wait again if we have leftover time.
-            if (timeout > TimeSpan.Zero &&
-                ReleasedIncomingMessages.Count == 0)
+            // Missing a message can happen when multiple threads read the same peer.
+            if (TryReadMessage(out message))
+                return true;
+
+            long elapsedTicks = Stopwatch.GetTimestamp() - startTicks;
+            timeout -= TimeSpan.FromTicks(elapsedTicks);
+
+            // Go back and wait again if we have leftover time.
+            if (timeout.Ticks > 0)
                 goto TryWait;
 
-            return TryReadMessage(out message);
+            return false;
         }
 
         /// <summary>
-        /// Tries to read a message from any connection.
+        /// Tries to read an incoming message from any connection.
         /// </summary>
         /// <returns>Whether a message was successfully read.</returns>
         public bool TryReadMessage(
@@ -254,7 +260,7 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Tries to read pending messages from any connection.
+        /// Tries to read pending incoming messages from any connection.
         /// </summary>
         /// <param name="destination">The collection to which append messages.</param>
         /// <returns>The amount of messages read.</returns>
