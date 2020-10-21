@@ -13,7 +13,7 @@ namespace Lidgren.Network
         private int _windowSize;
         private int _sendStart;
         private NetBitVector _receivedAcks;
-        
+
         internal NetStoredReliableMessage[] StoredMessages { get; }
 
         public TimeSpan ResendDelay { get; set; }
@@ -32,10 +32,10 @@ namespace Lidgren.Network
 
         public override int GetAllowedSends()
         {
-            int retval = 
-                _windowSize - 
+            int retval =
+                _windowSize -
                 (_sendStart + NetConstants.SequenceNumbers - _windowStart) % NetConstants.SequenceNumbers;
-            
+
             LidgrenException.Assert(retval >= 0 && retval <= _windowSize);
             return retval;
         }
@@ -187,7 +187,6 @@ namespace Lidgren.Network
                     _windowStart = (_windowStart + 1) % NetConstants.SequenceNumbers;
                     //m_connection.m_peer.LogDebug("Advancing window to #" + m_windowStart);
                 }
-
                 return;
             }
 
@@ -257,7 +256,8 @@ namespace Lidgren.Network
                     }
                 }
 
-            } while (rnr != _windowStart);
+            }
+            while (rnr != _windowStart);
         }
     }
 }

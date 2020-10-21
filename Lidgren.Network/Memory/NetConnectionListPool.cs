@@ -77,7 +77,7 @@ namespace Lidgren.Network
         /// returning <see langword="null"/> otherwise.
         /// </summary>
         /// <remarks>
-        /// The list is rented from <see cref="NetConnectionListPool"/> and returning it is advised.
+        /// The list is rented from <see cref="NetConnectionListPool"/> and returning it to the pool is advised.
         /// </remarks>
         /// <returns>A list with connections or <see langword="null"/> if there are none.</returns>
         public static List<NetConnection>? GetConnections(NetPeer peer)

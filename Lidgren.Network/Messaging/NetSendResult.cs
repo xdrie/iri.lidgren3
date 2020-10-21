@@ -12,18 +12,23 @@ namespace Lidgren.Network
 		FailedNotConnected = 0,
 
 		/// <summary>
-		/// Message was immediately sent
+		/// No recipients were specified.
 		/// </summary>
-		Sent = 1,
+		NoRecipients = 1,
 
 		/// <summary>
-		/// Message was queued for delivery
+		/// Message was immediately sent.
 		/// </summary>
-		Queued = 2,
+		Sent = 2,
+
+		/// <summary>
+		/// Message was queued for delivery.
+		/// </summary>
+		Queued = 3,
 
 		/// <summary>
 		/// Message was dropped immediately since too many message were queued.
 		/// </summary>
-		Dropped = 3
+		Dropped = 4
 	}
 }

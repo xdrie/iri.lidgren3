@@ -8,7 +8,7 @@ namespace Lidgren.Network
     {
         public byte[] Data { get; }
         public NetBitVector ReceivedChunks { get; }
-        //public TimeSpan LastReceived { get; set; }
+        //public TimeSpan LastReceived { get; set; } // TODO: discard after certain age
 
         public ReceivedFragmentGroup(byte[] data, NetBitVector receivedChunks)
         {
@@ -25,12 +25,21 @@ namespace Lidgren.Network
             new Dictionary<NetConnection, Dictionary<int, ReceivedFragmentGroup>>();
 
         // on user thread
+        // the message must not be sent already
         private NetSendResult SendFragmentedMessage(
             NetOutgoingMessage message,
-            IReadOnlyCollection<NetConnection> recipients,
+            IEnumerable<NetConnection?> recipients,
             NetDeliveryMethod method,
             int sequenceChannel)
         {
+            // determine minimum mtu for all recipients
+            int mtu = GetMTU(recipients, out int recipientCount);
+            if (recipientCount == 0)
+            {
+                Recycle(message);
+                return NetSendResult.NoRecipients;
+            }
+
             // Note: this group id is PER SENDING/NetPeer; ie. same id is sent to all recipients;
             // this should be ok however; as long as recipients differentiate between same id but different sender
             int group = Interlocked.Increment(ref _lastUsedFragmentGroup);
@@ -47,8 +56,6 @@ namespace Lidgren.Network
             // create fragmentation specifics
             int totalBytes = message.ByteLength;
 
-            // determine minimum mtu for all recipients
-            int mtu = GetMTU(recipients);
             int bytesPerChunk = NetFragmentationHelper.GetBestChunkSize(group, totalBytes, mtu);
 
             int numChunks = totalBytes / bytesPerChunk;
@@ -73,10 +80,13 @@ namespace Lidgren.Network
                 LidgrenException.Assert(chunk.BitLength != 0);
                 LidgrenException.Assert(chunk.GetEncodedSize() < mtu);
 
-                Interlocked.Add(ref chunk._recyclingCount, recipients.Count);
+                Interlocked.Add(ref chunk._recyclingCount, recipientCount);
 
                 foreach (var recipient in recipients.AsListEnumerator())
                 {
+                    if (recipient == null)
+                        continue;
+
                     var result = recipient.EnqueueMessage(chunk, method, sequenceChannel);
                     if ((int)result > (int)retval)
                         retval = result; // return "worst" result
@@ -84,7 +94,6 @@ namespace Lidgren.Network
 
                 bitsLeft -= bitsPerChunk;
             }
-
             return retval;
         }
 

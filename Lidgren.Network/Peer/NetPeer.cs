@@ -20,13 +20,16 @@ namespace Lidgren.Network
         private bool _isDisposed;
         private string? _shutdownReason;
 
+        private static Action<NetIncomingMessage> TryApplyConnectionStatusAction { get; } =
+            TryApplyConnectionStatus;
+
         private object MessageReceivedEventInitMutex { get; } = new object();
 
-        private ConcurrentDictionary<IPEndPoint, NetConnection> ConnectionLookup { get; }
-            = new ConcurrentDictionary<IPEndPoint, NetConnection>();
+        private ConcurrentDictionary<IPEndPoint, NetConnection> ConnectionLookup { get; } = 
+            new ConcurrentDictionary<IPEndPoint, NetConnection>();
 
-        internal List<NetConnection> Connections { get; }
-            = new List<NetConnection>();
+        internal List<NetConnection> Connections { get; } = 
+            new List<NetConnection>();
 
         /// <summary>
         /// Gets the <see cref="NetPeerStatus"/> of the <see cref="NetPeer"/>.
@@ -196,7 +199,7 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Tries to read a pending incoming message from any connection.
+        /// Tries to read a pending incoming message from any connection without blocking.
         /// </summary>
         /// <returns>Whether a message was successfully read.</returns>
         public bool TryReadMessage([MaybeNullWhen(false)] out NetIncomingMessage message)
@@ -210,7 +213,8 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Tries to read an incoming message from any connection, blocking if needed.
+        /// Tries to read an incoming message from any connection, 
+        /// blocking up to the specified timeout.
         /// </summary>
         /// <returns>Whether a message was successfully read.</returns>
         public bool TryReadMessage(
@@ -230,13 +234,15 @@ namespace Lidgren.Network
             long startTicks = Stopwatch.GetTimestamp();
             if (!resetEvent.WaitOne(timeout))
             {
-                // When the time runs out, try to read one last time.
+                // When the timeout hits, try to read one last time.
                 return TryReadMessage(out message);
             }
 
-            // Missing a message can happen when multiple threads read the same peer.
             if (TryReadMessage(out message))
                 return true;
+
+            // Missing a message should rarely happen as we use AutoResetEvent.
+            // The user is most likely reading messages without checking the reset event.
 
             long elapsedTicks = Stopwatch.GetTimestamp() - startTicks;
             timeout -= TimeSpan.FromTicks(elapsedTicks);
@@ -249,7 +255,8 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Tries to read an incoming message from any connection.
+        /// Tries to read an incoming message from any connection,
+        /// blocking up to the specified timeout.
         /// </summary>
         /// <returns>Whether a message was successfully read.</returns>
         public bool TryReadMessage(
@@ -272,7 +279,7 @@ namespace Lidgren.Network
             if (destination.IsReadOnly)
                 throw new ArgumentException("The collection is read-only.");
 
-            return ReleasedIncomingMessages.TryDrain(destination, onItem: TryApplyConnectionStatus);
+            return ReleasedIncomingMessages.TryDrain(destination, onItem: TryApplyConnectionStatusAction);
         }
 
         // send message immediately

@@ -127,8 +127,7 @@ namespace Lidgren.Network
 
                 foreach (var item in items.AsListEnumerator())
                 {
-                    // we leave this here even if we may have an expected count
-                    // just to be safe
+                    // check capacity as we cannot be sure about the resulting count
                     if (Count == _items.Length)
                         AddCapacity();
 

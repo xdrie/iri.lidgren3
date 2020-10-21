@@ -9,16 +9,6 @@ namespace Lidgren.Network
     public partial class NetPeer
     {
         [DebuggerHidden]
-        private static void AssertValidRecipients<T>(IReadOnlyCollection<T> recipients, string? paramName)
-        {
-            if (recipients == null)
-                throw new ArgumentNullException(paramName);
-
-            if (recipients.Count < 1)
-                throw new ArgumentException("The must be at least one recipient.", paramName);
-        }
-
-        [DebuggerHidden]
         private void AssertValidUnconnectedLength(NetOutgoingMessage message)
         {
             if (message.ByteLength > Configuration.MaximumTransmissionUnit)
@@ -49,8 +39,10 @@ namespace Lidgren.Network
         public NetSendResult SendMessage(
             NetOutgoingMessage message, NetConnection recipient, NetDeliveryMethod method, int sequenceChannel)
         {
-            if (message == null) throw new ArgumentNullException(nameof(message));
-            if (recipient == null) throw new ArgumentNullException(nameof(recipient));
+            if (message == null)
+                throw new ArgumentNullException(nameof(message));
+            if (recipient == null)
+                throw new ArgumentNullException(nameof(recipient));
 
             NetConstants.AssertValidDeliveryChannel(
                 method, sequenceChannel, nameof(method), nameof(sequenceChannel));
@@ -86,23 +78,23 @@ namespace Lidgren.Network
             }
         }
 
-        internal static int GetMTU(IReadOnlyCollection<NetConnection> recipients)
+        public static int GetMTU(IEnumerable<NetConnection?> recipients, out int recipientCount)
         {
+            if (recipients == null)
+                throw new ArgumentNullException(nameof(recipients));
+
             int mtu = NetPeerConfiguration.DefaultMTU;
-            if (recipients.Count < 1)
-            {
-#if DEBUG
-                throw new LidgrenException("GetMTU called with no recipients.");
-#else
-                // we don't have access to the particular peer, so just use default MTU
-                return mtu;
-#endif
-            }
+            recipientCount = 0;
 
             foreach (var conn in recipients.AsListEnumerator())
             {
-                if (conn != null && conn.CurrentMTU < mtu)
-                    mtu = conn.CurrentMTU;
+                if (conn != null)
+                {
+                    if (conn.CurrentMTU < mtu)
+                        mtu = conn.CurrentMTU;
+
+                    recipientCount++;
+                }
             }
             return mtu;
         }
@@ -114,45 +106,51 @@ namespace Lidgren.Network
         /// <param name="recipients">The list of recipients to send to</param>
         /// <param name="method">How to deliver the message</param>
         /// <param name="sequenceChannel">Sequence channel within the delivery method</param>
-        public void SendMessage(
+        public NetSendResult SendMessage(
             NetOutgoingMessage message,
-            IReadOnlyCollection<NetConnection> recipients,
+            IReadOnlyCollection<NetConnection?> recipients,
             NetDeliveryMethod method,
             int sequenceChannel)
         {
             if (message == null)
                 throw new ArgumentNullException(nameof(message));
+            if (recipients == null)
+                throw new ArgumentNullException(nameof(recipients));
 
             NetConstants.AssertValidDeliveryChannel(
                 method, sequenceChannel, nameof(method), nameof(sequenceChannel));
 
-            AssertValidRecipients(recipients, nameof(recipients));
-
             message.AssertNotSent(nameof(message));
             message._isSent = true;
 
+            int mtu = GetMTU(recipients, out int recipientCount);
+            if (recipientCount == 0)
+            {
+                Recycle(message);
+                return NetSendResult.NoRecipients;
+            }
+
             int length = message.GetEncodedSize();
-            int mtu = GetMTU(recipients);
             if (length <= mtu)
             {
-                Interlocked.Add(ref message._recyclingCount, recipients.Count);
+                Interlocked.Add(ref message._recyclingCount, recipientCount);
+
+                var retval = NetSendResult.Sent;
                 foreach (var conn in recipients)
                 {
                     if (conn == null)
-                    {
-                        Interlocked.Decrement(ref message._recyclingCount);
                         continue;
-                    }
 
-                    NetSendResult res = conn.EnqueueMessage(message, method, sequenceChannel);
-                    if (res != NetSendResult.Queued && res != NetSendResult.Sent)
-                        Interlocked.Decrement(ref message._recyclingCount);
+                    var result = conn.EnqueueMessage(message, method, sequenceChannel);
+                    if ((int)result > (int)retval)
+                        retval = result; // return "worst" result
                 }
+                return retval;
             }
             else
             {
                 // message must be fragmented!
-                SendFragmentedMessage(message, recipients, method, sequenceChannel);
+                return SendFragmentedMessage(message, recipients, method, sequenceChannel);
             }
         }
 
@@ -203,23 +201,32 @@ namespace Lidgren.Network
         /// <summary>
         /// Send a message to an unconnected host.
         /// </summary>
-        public void SendUnconnectedMessage(NetOutgoingMessage message, IReadOnlyCollection<IPEndPoint> recipients)
+        public void SendUnconnectedMessage(NetOutgoingMessage message, IReadOnlyCollection<IPEndPoint?> recipients)
         {
             if (message == null)
                 throw new ArgumentNullException(nameof(message));
+            if (recipients == null)
+                throw new ArgumentNullException(nameof(recipients));
 
-            AssertValidRecipients(recipients, nameof(recipients));
             AssertValidUnconnectedLength(message);
             message.AssertNotSent(nameof(message));
 
             message._messageType = NetMessageType.Unconnected;
             message._isSent = true;
 
-            Interlocked.Add(ref message._recyclingCount, recipients.Count);
-            foreach (IPEndPoint endPoint in recipients.AsListEnumerator())
+            int recipientCount = 0;
+            foreach (var recipient in recipients.AsListEnumerator())
+            {
+                if (recipient != null)
+                    recipientCount++;
+            }
+            Interlocked.Add(ref message._recyclingCount, recipientCount);
+
+            foreach (var endPoint in recipients.AsListEnumerator())
             {
                 if (endPoint == null)
-                    throw new InvalidOperationException("Null recipient endpoint.");
+                    continue;
+
                 UnsentUnconnectedMessages.Enqueue((endPoint, message));
             }
         }
