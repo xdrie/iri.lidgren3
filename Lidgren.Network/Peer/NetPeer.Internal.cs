@@ -72,6 +72,7 @@ namespace Lidgren.Network
         internal void ReleaseMessage(NetIncomingMessage message)
         {
             LidgrenException.Assert(message.MessageType != NetIncomingMessageType.Error);
+            message.BitPosition = 0;
 
             if (message.IsFragment)
             {
@@ -319,7 +320,7 @@ namespace Lidgren.Network
 
 #if DEBUG
                     // sanity check
-                    if (conn._internalStatus == NetConnectionStatus.Disconnected &&
+                    if (conn.Status == NetConnectionStatus.Disconnected &&
                         Handshakes.TryRemove(conn.RemoteEndPoint, out _))
                     {
                         LogWarning("Sanity fail! Handshakes list contained disconnected connection!");
@@ -342,7 +343,7 @@ namespace Lidgren.Network
                         var conn = connections[i];
                         conn.Heartbeat(now, _frameCounter);
 
-                        if (conn._internalStatus == NetConnectionStatus.Disconnected)
+                        if (conn.Status == NetConnectionStatus.Disconnected)
                         {
                             connections.RemoveAt(i);
                             ConnectionLookup.TryRemove(conn.RemoteEndPoint, out _);
@@ -680,7 +681,7 @@ namespace Lidgren.Network
 
                     // Ok, start handshake!
                     NetConnection conn = new NetConnection(this, senderEndPoint);
-                    conn._internalStatus = NetConnectionStatus.ReceivedInitiation;
+                    conn.Status = NetConnectionStatus.ReceivedInitiation;
                     Handshakes.TryAdd(senderEndPoint, conn);
                     conn.ReceivedHandshake(now, type, offset, payloadByteLength);
                     return;

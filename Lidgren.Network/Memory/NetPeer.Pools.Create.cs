@@ -37,7 +37,14 @@ namespace Lidgren.Network
         {
             if (_outgoingMessagePool == null ||
                 !_outgoingMessagePool.TryDequeue(out NetOutgoingMessage? retval))
+            {
                 retval = new NetOutgoingMessage(null);
+            }
+            else
+            {
+                retval.BitPosition = 0;
+                retval.BitLength = 0;
+            }
 
             if (minimumByteCapacity > 0)
                 retval._data = GetStorage(minimumByteCapacity);
@@ -54,8 +61,11 @@ namespace Lidgren.Network
             }
             else
             {
-                retval._data = buffer;
                 retval.MessageType = type;
+
+                retval._data = buffer;
+                retval.BitPosition = 0;
+                retval.BitLength = 0;
             }
             return retval;
         }
@@ -64,12 +74,12 @@ namespace Lidgren.Network
         {
             if (_incomingMessagePool == null ||
                 !_incomingMessagePool.TryDequeue(out NetIncomingMessage? msg))
-            {
                 msg = new NetIncomingMessage(null, type);
-            }
             else
             {
                 msg.MessageType = type;
+                msg.BitPosition = 0;
+                msg.BitLength = 0;
             }
 
             if (minimumByteCapacity > 0)
