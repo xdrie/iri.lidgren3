@@ -321,7 +321,7 @@ namespace Lidgren.Network
                 int offset = _head;
                 while (left > 0)
                 {
-                    var slice = _items.AsSpan(offset, Math.Min(left, Count - _head));
+                    var slice = _items.AsSpan(offset, Math.Min(left, _items.Length - offset));
                     foreach (var other in slice)
                     {
                         if (comparer.Equals(item, other))
