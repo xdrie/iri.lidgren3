@@ -32,6 +32,7 @@ namespace Lidgren.Network
         public const int ReliableSequencedChannels = 32;
         public const int ReliableOrderedChannels = 32;
         public const int StreamChannels = 32;
+        public const int UsableStreamChannels = StreamChannels - 1; 
 
         public const int TotalChannels =
             UnreliableChannels + UnreliableSequencedChannels +

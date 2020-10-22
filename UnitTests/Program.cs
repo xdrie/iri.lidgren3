@@ -47,7 +47,9 @@ namespace UnitTests
 
             ReadWriteTests.Run(peer);
 
-            MiscTests.Run(peer);
+            MiscTests.Run();
+
+            NetStreamTests.Run();
 
             //EncryptionTests.Run(peer);
 
@@ -106,8 +108,6 @@ namespace UnitTests
             }
 
             Console.WriteLine($"Waiting for messages with {readTimeout}ms timeout...");
-
-            Console.WriteLine("Awaiting read threads...");
             foreach (var thread in readThreads)
                 thread.Join();
             

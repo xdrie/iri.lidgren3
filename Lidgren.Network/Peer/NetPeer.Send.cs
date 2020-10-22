@@ -62,7 +62,7 @@ namespace Lidgren.Network
             else
             {
                 // message must be fragmented!
-                if (recipient._internalStatus != NetConnectionStatus.Connected)
+                if (recipient.Status != NetConnectionStatus.Connected)
                     return NetSendResult.FailedNotConnected;
 
                 var recipients = NetConnectionListPool.Rent(1);

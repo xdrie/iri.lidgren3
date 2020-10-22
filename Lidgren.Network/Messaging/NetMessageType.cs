@@ -155,7 +155,7 @@ namespace Lidgren.Network
         NatIntroduction = 142, // send to master server
         ExpandMTURequest = 143,
         ExpandMTUSuccess = 144
-
+        
         // 111 left
     }
 }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Net;
 using System.Diagnostics;
+using System.Collections.Generic;
 
 namespace Lidgren.Network
 {
@@ -24,9 +25,9 @@ namespace Lidgren.Network
         private int _sendBufferWritePtr;
         private int _sendBufferNumMessages;
         internal NetPeerConfiguration _peerConfiguration;
-        internal NetConnectionStatus _internalStatus;
         internal NetSenderChannel[] _sendChannels;
         internal NetReceiverChannel[] _receiveChannels;
+        internal NetStream?[] _openStreams;
         internal NetQueue<(NetMessageType Type, int SequenceNumber)> _queuedOutgoingAcks;
         internal NetQueue<(NetMessageType Type, int SequenceNumber)> _queuedIncomingAcks;
 
@@ -44,7 +45,7 @@ namespace Lidgren.Network
         public object? Tag { get; set; }
 
         /// <summary>
-        /// Gets the current status of the connection (synced to the last status message read).
+        /// Gets the current status of the connection.
         /// </summary>
         public NetConnectionStatus Status { get; internal set; }
 
@@ -86,11 +87,11 @@ namespace Lidgren.Network
         {
             Peer = peer;
             _peerConfiguration = Peer.Configuration;
-            _internalStatus = NetConnectionStatus.None;
             Status = NetConnectionStatus.None;
             RemoteEndPoint = remoteEndPoint;
             _sendChannels = new NetSenderChannel[NetConstants.TotalChannels];
             _receiveChannels = new NetReceiverChannel[NetConstants.TotalChannels];
+            _openStreams = new NetStream?[NetConstants.UsableStreamChannels];
             _queuedOutgoingAcks = new NetQueue<(NetMessageType, int)>(16);
             _queuedIncomingAcks = new NetQueue<(NetMessageType, int)>(16);
             Statistics = new NetConnectionStatistics(this);
@@ -111,14 +112,14 @@ namespace Lidgren.Network
         {
             // user or library thread
 
-            if (status == _internalStatus)
+            if (status == Status)
                 return;
-            _internalStatus = status;
+            Status = status;
 
             if (reason == null)
                 reason = string.Empty;
 
-            if (_internalStatus == NetConnectionStatus.Connected)
+            if (Status == NetConnectionStatus.Connected)
             {
                 _timeoutDeadline = NetTime.Now + _peerConfiguration._connectionTimeout;
                 Peer.LogVerbose("Timeout deadline initialized to  " + _timeoutDeadline);
@@ -131,14 +132,9 @@ namespace Lidgren.Network
 
                 info.SenderConnection = this;
                 info.SenderEndPoint = RemoteEndPoint;
-                info.Write(_internalStatus);
+                info.Write(Status);
                 info.Write(reason);
                 Peer.ReleaseMessage(info);
-            }
-            else
-            {
-                // app dont want those messages, update visible status immediately
-                Status = _internalStatus;
             }
         }
 
@@ -147,8 +143,8 @@ namespace Lidgren.Network
             Peer.AssertIsOnLibraryThread();
 
             LidgrenException.Assert(
-                _internalStatus != NetConnectionStatus.InitiatedConnect &&
-                _internalStatus != NetConnectionStatus.RespondedConnect);
+                Status != NetConnectionStatus.InitiatedConnect &&
+                Status != NetConnectionStatus.RespondedConnect);
 
             if ((frameCounter % InfrequentEventsSkipFrames) == 0)
             {
@@ -163,7 +159,7 @@ namespace Lidgren.Network
                 }
 
                 // send ping?
-                if (_internalStatus == NetConnectionStatus.Connected)
+                if (Status == NetConnectionStatus.Connected)
                 {
                     if (now > _sentPingTime + Peer.Configuration._pingInterval)
                         SendPing();
@@ -326,17 +322,17 @@ namespace Lidgren.Network
         internal NetSendResult EnqueueMessage(
             NetOutgoingMessage message, NetDeliveryMethod method, int sequenceChannel)
         {
-            if (_internalStatus != NetConnectionStatus.Connected)
+            if (Status != NetConnectionStatus.Connected)
                 return NetSendResult.FailedNotConnected;
 
-            var tp = (NetMessageType)((int)method + sequenceChannel);
-            message._messageType = tp;
+            var type = (NetMessageType)((int)method + sequenceChannel);
+            message._messageType = type;
 
             // TODO: do we need to make this more thread safe?
             int channelSlot = (int)method - 1 + sequenceChannel;
             NetSenderChannel chan = _sendChannels[channelSlot];
             if (chan == null)
-                chan = CreateSenderChannel(tp);
+                chan = CreateSenderChannel(type);
 
             if (method != NetDeliveryMethod.Unreliable &&
                 method != NetDeliveryMethod.UnreliableSequenced &&

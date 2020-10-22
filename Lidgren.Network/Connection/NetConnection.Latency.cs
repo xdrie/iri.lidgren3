@@ -106,7 +106,7 @@ namespace Lidgren.Network
 
             _timeoutDeadline = now + _peerConfiguration._connectionTimeout;
 
-            var rtt = now - _sentPingTime;
+            TimeSpan rtt = now - _sentPingTime;
             LidgrenException.Assert(rtt.TotalSeconds >= 0);
 
             var diff = remoteSendTime + (rtt / 2.0) - now;
@@ -142,7 +142,7 @@ namespace Lidgren.Network
             // notify the application that average rtt changed
             if (Peer.Configuration.IsMessageTypeEnabled(NetIncomingMessageType.ConnectionLatencyUpdated))
             {
-                var updateMsg = Peer.CreateIncomingMessage(NetIncomingMessageType.ConnectionLatencyUpdated, 4);
+                var updateMsg = Peer.CreateIncomingMessage(NetIncomingMessageType.ConnectionLatencyUpdated, 8);
                 updateMsg.SenderConnection = this;
                 updateMsg.SenderEndPoint = RemoteEndPoint;
                 updateMsg.Write(rtt);

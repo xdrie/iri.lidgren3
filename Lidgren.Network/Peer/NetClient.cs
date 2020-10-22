@@ -46,7 +46,7 @@ namespace Lidgren.Network
         /// Gets the connection status of the server connection 
         /// (or <see cref="NetConnectionStatus.Disconnected"/> if no connection).
         /// </summary>
-        public NetConnectionStatus ConnectionStatuss => ServerConnection?.Status ?? NetConnectionStatus.Disconnected;
+        public NetConnectionStatus ConnectionStatus => ServerConnection?.Status ?? NetConnectionStatus.Disconnected;
 
         /// <summary>
         /// Constructs the client with a given configuration.

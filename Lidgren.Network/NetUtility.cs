@@ -521,6 +521,7 @@ namespace Lidgren.Network
                     return NetConstants.UnreliableWindowSize;
 
                 case NetDeliveryMethod.ReliableOrdered:
+                case NetDeliveryMethod.Stream:
                     return NetConstants.ReliableOrderedWindowSize;
 
                 case NetDeliveryMethod.ReliableSequenced:

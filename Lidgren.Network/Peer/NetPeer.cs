@@ -20,9 +20,6 @@ namespace Lidgren.Network
         private bool _isDisposed;
         private string? _shutdownReason;
 
-        private static Action<NetIncomingMessage> TryApplyConnectionStatusAction { get; } =
-            TryApplyConnectionStatus;
-
         private object MessageReceivedEventInitMutex { get; } = new object();
 
         private ConcurrentDictionary<IPEndPoint, NetConnection> ConnectionLookup { get; } = 
@@ -30,6 +27,9 @@ namespace Lidgren.Network
 
         internal List<NetConnection> Connections { get; } = 
             new List<NetConnection>();
+
+        public NetMessageScheduler DefaultScheduler { get; } =
+            new NetMessageScheduler();
 
         /// <summary>
         /// Gets the <see cref="NetPeerStatus"/> of the <see cref="NetPeer"/>.
@@ -186,18 +186,6 @@ namespace Lidgren.Network
             return connection;
         }
 
-        private static void TryApplyConnectionStatus(NetIncomingMessage message)
-        {
-            if (message.SenderConnection == null)
-                return;
-
-            if (message.MessageType == NetIncomingMessageType.StatusChanged)
-            {
-                var status = message.PeekEnum<NetConnectionStatus>();
-                message.SenderConnection.Status = status;
-            }
-        }
-
         /// <summary>
         /// Tries to read a pending incoming message from any connection without blocking.
         /// </summary>
@@ -205,10 +193,7 @@ namespace Lidgren.Network
         public bool TryReadMessage([MaybeNullWhen(false)] out NetIncomingMessage message)
         {
             if (ReleasedIncomingMessages.TryDequeue(out message))
-            {
-                TryApplyConnectionStatus(message);
                 return true;
-            }
             return false;
         }
 
@@ -221,7 +206,7 @@ namespace Lidgren.Network
             TimeSpan timeout,
             [MaybeNullWhen(false)] out NetIncomingMessage message)
         {
-            if (timeout.Ticks < 0)
+            if (timeout.Ticks < 0 && timeout != Timeout.InfiniteTimeSpan)
                 throw new ArgumentOutOfRangeException(nameof(timeout));
 
             // check if we already have a message to return
@@ -229,6 +214,14 @@ namespace Lidgren.Network
                 return true;
 
             var resetEvent = MessageReceivedEvent;
+            if(timeout == Timeout.InfiniteTimeSpan)
+            {
+                WaitLoop:
+                resetEvent.WaitOne();
+                if (TryReadMessage(out message))
+                    return true;
+                goto WaitLoop;
+            }
 
             TryWait:
             long startTicks = Stopwatch.GetTimestamp();
@@ -279,7 +272,7 @@ namespace Lidgren.Network
             if (destination.IsReadOnly)
                 throw new ArgumentException("The collection is read-only.");
 
-            return ReleasedIncomingMessages.TryDrain(destination, onItem: TryApplyConnectionStatusAction);
+            return ReleasedIncomingMessages.TryDrain(destination);
         }
 
         // send message immediately

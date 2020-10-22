@@ -6,7 +6,7 @@ namespace UnitTests
 {
     public static class MiscTests
     {
-        public static void Run(NetPeer peer)
+        public static void Run()
         {
             var config = new NetPeerConfiguration("Test");
 
