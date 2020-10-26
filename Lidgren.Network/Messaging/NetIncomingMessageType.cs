@@ -21,7 +21,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 namespace Lidgren.Network
 {
 	/// <summary>
-	/// The type of a NetIncomingMessage.
+	/// The type of a <see cref="NetIncomingMessage"/>.
 	/// </summary>
 	public enum NetIncomingMessageType
 	{
@@ -100,6 +100,9 @@ namespace Lidgren.Network
 		/// </summary>
 		ConnectionLatencyUpdated = 1 << 12, // Seconds as a TimeSpan,
 
-		StreamStatus = 1 << 13			// Data
+		/// <summary>
+		/// Represents various data sent by a <see cref="NetStream"/>. 
+		/// </summary>
+		StreamData = 1 << 13
 	}
 }

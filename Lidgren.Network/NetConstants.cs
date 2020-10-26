@@ -32,7 +32,6 @@ namespace Lidgren.Network
         public const int ReliableSequencedChannels = 32;
         public const int ReliableOrderedChannels = 32;
         public const int StreamChannels = 32;
-        public const int UsableStreamChannels = StreamChannels - 1; 
 
         public const int TotalChannels =
             UnreliableChannels + UnreliableSequencedChannels +
@@ -41,12 +40,13 @@ namespace Lidgren.Network
 
         public const int SequenceNumbers = 1024;
 
-        public const int HeaderByteSize = 5;
+        public const int HeaderSize = 5;
 
-        public const int UnreliableWindowSize = 128;
-        public const int DefaultWindowSize = 64;
+        public const int DefaultWindowSize = 128;
+        public const int UnreliableWindowSize = DefaultWindowSize * 2;
         public const int ReliableOrderedWindowSize = DefaultWindowSize;
         public const int ReliableSequencedWindowSize = DefaultWindowSize;
+        public const int StreamWindowSize = DefaultWindowSize;
 
         public const int MaxFragmentationGroups = ushort.MaxValue - 1;
         public const int UnfragmentedMessageHeaderSize = 5;

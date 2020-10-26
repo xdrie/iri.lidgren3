@@ -86,6 +86,19 @@ namespace Lidgren.Network
                 throw new EndOfMessageException();
         }
 
+        public static bool TryRead(this IBitBuffer buffer, int count, out byte[] data)
+        {
+            data = new byte[count];
+            return buffer.TryRead(data);
+        }
+
+        public static byte[] Read(this IBitBuffer buffer, int count)
+        {
+            var data = new byte[count];
+            buffer.Read(data);
+            return data;
+        }
+
         #region Bool
 
         /// <summary>

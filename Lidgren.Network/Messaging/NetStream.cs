@@ -1,71 +1,55 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Threading;
 
 namespace Lidgren.Network
 {
-    public interface INetMessageProducerConsumer
+    public enum NetStreamMessageType : byte
     {
-        NetConnection Connection { get; }
-
-        bool TryReceive(NetIncomingMessage message);
-        bool TrySend(out NetOutgoingMessage message);
+        Open,
+        Data,
+        Pause,
+        Resume,
+        Close,
     }
 
-    public interface INetMessageScheduler
+    public class NetStream : Stream
     {
-        void RegisterSystem(INetMessageProducerConsumer system);
-        void UnregisterSystem(INetMessageProducerConsumer system);
-    }
+        public const int MaxDataHeaderSize = 6;
 
-    /// <summary>
-    /// Acts as a default implementation of <see cref="INetMessageScheduler"/>.
-    /// </summary>
-    public class NetMessageScheduler : INetMessageScheduler
-    {
-        private Dictionary<NetConnection, INetMessageProducerConsumer> _systems =
-            new Dictionary<NetConnection, INetMessageProducerConsumer>();
+        public delegate void StreamDataRequest(NetStream stream, int amount);
+        public delegate long StreamSeekRequest(NetStream stream, long offset, SeekOrigin origin);
 
-        public void RegisterSystem(INetMessageProducerConsumer system)
-        {
-            if (system == null)
-                throw new ArgumentNullException(nameof(system));
+        private Queue<byte[]> _readQueue;
+        private byte[]? _readBuffer;
+        private int _readBufferOffset;
+        private bool _closed;
+        private AutoResetEvent _readEvent = new AutoResetEvent(false);
 
-            _systems.Add(system.Connection, system);
-        }
-
-        public void UnregisterSystem(INetMessageProducerConsumer system)
-        {
-            if (system == null)
-                throw new ArgumentNullException(nameof(system));
-
-            if (!_systems.Remove(system.Connection))
-                throw new KeyNotFoundException();
-        }
-    }
-
-    public class NetStream : Stream, INetMessageProducerConsumer
-    {
-        public delegate int StreamReadCallback(Span<byte> buffer);
-        public delegate void StreamWriteCallback(ReadOnlySpan<byte> buffer);
-        public delegate long StreamSeekCallback(long offset, SeekOrigin origin);
+        private byte[] _writeBuffer;
+        private int _writeBufferOffset;
 
         public NetMessageScheduler Scheduler { get; }
         public NetConnection Connection { get; }
-        public int SequenceChannel { get; }
-
-        public StreamReadCallback? ReadCallback { get; }
-        public StreamWriteCallback? WriteCallback { get; }
-        public StreamSeekCallback? SeekCallback { get; }
-        private Action? CloseCallback { get; }
+        public int Channel { get; }
 
         public bool IsDisposed { get; private set; }
 
         public NetPeer Peer => Connection.Peer;
 
-        public override bool CanRead => ReadCallback != null;
-        public override bool CanWrite => WriteCallback != null;
-        public override bool CanSeek => SeekCallback != null;
+        //public StreamDataRequest? ReadRequest { get; }
+        //public StreamWriteRequest? WriteCallback { get; }
+        //public StreamSeekRequest? SeekCallback { get; }
+        //private Action? CloseCallback { get; }
+        //
+        //public override bool CanRead => ReadRequest != null;
+        //public override bool CanWrite => WriteCallback != null;
+        //public override bool CanSeek => SeekCallback != null;
+
+        public override bool CanRead => true;
+        public override bool CanWrite => true;
+        public override bool CanSeek => true;
 
         public override long Length => throw new InvalidOperationException();
 
@@ -78,79 +62,149 @@ namespace Lidgren.Network
         public NetStream(
             NetMessageScheduler scheduler,
             NetConnection connection,
-            int sequenceChannel,
-            StreamReadCallback? readCallback,
-            StreamWriteCallback? writeCallback,
-            StreamSeekCallback? seekCallback,
-            Action? closeCallback)
+            int sequenceChannel
+            )//,
+             //StreamDataRequest? readRequest,
+             //StreamWriteRequest? writeRequest,
+             //StreamSeekRequest? seekCallback,
+             //Action? closeCallback))
         {
             NetConstants.AssertValidDeliveryChannel(
                 NetDeliveryMethod.Stream, sequenceChannel,
                 null, nameof(sequenceChannel));
 
-            if (readCallback == null && writeCallback == null)
-                throw new ArgumentException("Both read and write callbacks are null.");
+            //if (readRequest == null && writeRequest == null)
+            //    throw new ArgumentException("Both read and write callbacks are null.");
 
             Scheduler = scheduler ?? throw new ArgumentNullException(nameof(scheduler));
             Connection = connection ?? throw new ArgumentNullException(nameof(connection));
-            SequenceChannel = sequenceChannel;
-            ReadCallback = readCallback;
-            WriteCallback = writeCallback;
-            SeekCallback = seekCallback;
-            CloseCallback = closeCallback;
+            Channel = sequenceChannel;
 
-            Scheduler.RegisterSystem(this);
+            _readQueue = new Queue<byte[]>();
 
-            var createMessage = Peer.CreateMessage();
-            createMessage.Write(CanRead);
-            createMessage.Write(CanWrite);
-            createMessage.Write(CanSeek);
-            createMessage.Write(CanTimeout); // TODO:
-            SendStreamMessage(createMessage);
-        }
+            _writeBuffer = new byte[GetBufferSize(Connection.CurrentMTU)];
+            _writeBufferOffset = 0;
 
-        public NetStream(
-            NetConnection connection,
-            int sequenceChannel,
-            StreamReadCallback? readCallback,
-            StreamWriteCallback? writeCallback,
-            StreamSeekCallback? seekCallback,
-            Action? closeCallback) 
-            : this(
-                connection?.Peer.DefaultScheduler!, connection!, sequenceChannel,
-                readCallback, writeCallback, seekCallback, closeCallback)
-        {
+            //var createMessage = Peer.CreateMessage();
+            //createMessage.Write(CanRead);
+            //createMessage.Write(CanWrite);
+            //createMessage.Write(CanSeek);
+            //createMessage.Write(CanTimeout); // TODO:
+            //SendStreamMessage(createMessage);
+
+            var openMessage = Peer.CreateMessage();
+            openMessage.Write((byte)NetStreamMessageType.Open);
+            var result = SendStreamMessage(openMessage);
+            // TODO: check result
 
         }
 
-        bool INetMessageProducerConsumer.TryReceive(NetIncomingMessage message)
+        //public NetStream(
+        //    NetConnection connection,
+        //    int sequenceChannel,
+        //    StreamReadRequest? readCallback,
+        //    StreamWriteRequest? writeCallback,
+        //    StreamSeekRequest? seekCallback,
+        //    Action? closeCallback) 
+        //    : this(
+        //        connection?.Peer.DefaultScheduler!, connection!, sequenceChannel,
+        //        readCallback, writeCallback, seekCallback, closeCallback)
+        //{
+        //}
+
+        public static int GetBufferSize(int mtu)
         {
-            throw new NotImplementedException();
+            return Math.Max(1, mtu - MaxDataHeaderSize - NetConstants.HeaderSize);
         }
 
-        bool INetMessageProducerConsumer.TrySend(out NetOutgoingMessage message)
+        internal void OnDataMessage(IBitBuffer buffer)
         {
-            throw new NotImplementedException();
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
+
+            int length = buffer.ReadVarInt32();
+            byte[] data = buffer.Read(length);
+
+            lock (_readQueue)
+                _readQueue.Enqueue(data);
+
+            _readEvent.Set();
         }
 
-        private void WriteHeader()
+        internal void OnCloseMessage(IBitBuffer buffer)
         {
-
-        }
-
-        private void ReadHeader()
-        {
-
+            _closed = true;
+            _readEvent.Set();
         }
 
         public override int Read(Span<byte> buffer)
         {
-            throw new NotImplementedException();
+            if (buffer.IsEmpty)
+                return 0;
+
+            int read = TryRead(buffer);
+            if (read != 0)
+                return read;
+
+            TryRead:
+            if (_closed)
+                return TryRead(buffer);
+
+            _readEvent.WaitOne();
+            read = TryRead(buffer);
+            if (read == 0)
+                goto TryRead;
+            return read;
+        }
+
+        private int TryRead(Span<byte> buffer)
+        {
+            int read = 0;
+
+            TryRead:
+            if (_readBuffer != null)
+            {
+                var dataSlice = _readBuffer.AsSpan(_readBufferOffset);
+                dataSlice = dataSlice.Slice(0, Math.Min(dataSlice.Length, buffer.Length));
+                dataSlice.CopyTo(buffer);
+                buffer = buffer.Slice(dataSlice.Length);
+                read += dataSlice.Length;
+
+                _readBufferOffset += dataSlice.Length;
+                if (_readBufferOffset == _readBuffer.Length)
+                {
+                    _readBuffer = null;
+                    _readBufferOffset = 0;
+                }
+            }
+
+            if (_readBuffer == null)
+            {
+                lock (_readQueue)
+                {
+                    if (_readQueue.TryDequeue(out _readBuffer))
+                        goto TryRead;
+                }
+            }
+            return read;
         }
 
         public override void Write(ReadOnlySpan<byte> buffer)
         {
-            throw new NotImplementedException();
+            while (buffer.Length > 0)
+            {
+                var space = _writeBuffer.AsSpan(_writeBufferOffset);
+                if (space.IsEmpty)
+                {
+                    FlushCore();
+                    continue;
+                }
+
+                var toCopy = buffer.Slice(0, Math.Min(buffer.Length, space.Length));
+                toCopy.CopyTo(space);
+                buffer = buffer.Slice(toCopy.Length);
+                _writeBufferOffset += toCopy.Length;
+            }
         }
 
         public override int Read(byte[] buffer, int offset, int count)
@@ -178,6 +232,25 @@ namespace Lidgren.Network
 
         public override void Flush()
         {
+            if (_writeBufferOffset == 0)
+                return;
+
+            FlushCore();
+        }
+
+        private void FlushCore()
+        {
+            int length = _writeBufferOffset;
+
+            var message = Peer.CreateMessage(length + 6);
+            message.Write((byte)NetStreamMessageType.Data);
+            message.WriteVar(length);
+            message.Write(_writeBuffer.AsSpan(0, length));
+
+            var result = SendStreamMessage(message);
+            // TODO: check result
+
+            _writeBufferOffset = 0;
         }
 
         public override long Seek(long offset, SeekOrigin origin)
@@ -192,14 +265,14 @@ namespace Lidgren.Network
 
         private NetSendResult SendClose()
         {
-            var message = Peer.CreateMessage();
-
+            var message = Peer.CreateMessage(1);
+            message.Write((byte)NetStreamMessageType.Close);
             return SendStreamMessage(message);
         }
 
         private NetSendResult SendStreamMessage(NetOutgoingMessage message)
         {
-            return Connection.SendMessage(message, NetDeliveryMethod.Stream, SequenceChannel);
+            return Connection.SendMessage(message, NetDeliveryMethod.Stream, Channel);
         }
 
         protected override void Dispose(bool disposing)
@@ -208,8 +281,11 @@ namespace Lidgren.Network
 
             if (!IsDisposed)
             {
-                SendClose();
-                Scheduler.UnregisterSystem(this);
+                Flush();
+
+                var result = SendClose();
+                // TODO: check result
+
                 IsDisposed = true;
             }
         }

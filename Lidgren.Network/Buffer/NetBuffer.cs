@@ -44,10 +44,7 @@ namespace Lidgren.Network
             get => _bitLength;
             set
             {
-                if (value < 0)
-                    throw new ArgumentOutOfRangeException(nameof(value));
-                if (value > BitCapacity)
-                    EnsureBitCapacity(value);
+                EnsureBitCapacity(value);
                 _bitLength = value;
             }
         }
@@ -88,6 +85,9 @@ namespace Lidgren.Network
 
         public void EnsureBitCapacity(int bitCount)
         {
+            if (bitCount < 0)
+                throw new ArgumentOutOfRangeException(nameof(bitCount));
+
             int byteLength = NetBitWriter.BytesForBits(bitCount);
             if (ByteCapacity < byteLength)
                 ByteCapacity = byteLength + ExtraGrowAmount;

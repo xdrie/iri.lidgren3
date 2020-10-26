@@ -181,7 +181,7 @@ namespace Lidgren.Network
                     DestoreMessage(_windowStart % _windowSize);
 
                     LidgrenException.Assert(
-                        StoredMessages[_windowStart % _windowSize].Message != null,
+                        StoredMessages[_windowStart % _windowSize].Message == null,
                         "Stored message has not been recycled.");
 
                     _windowStart = (_windowStart + 1) % NetConstants.SequenceNumbers;
@@ -203,14 +203,10 @@ namespace Lidgren.Network
             if (sendRelate <= 0)
             {
                 // yes, we've sent this message - it's an early (but valid) ack
-                if (_receivedAcks[seqNr])
-                {
-                    // we've already destored/been acked for this message
-                }
-                else
-                {
+                if (!_receivedAcks[seqNr])
                     _receivedAcks[seqNr] = true;
-                }
+                //else
+                    // we've already destored/been acked for this message
             }
             else if (sendRelate > 0)
             {
@@ -242,17 +238,17 @@ namespace Lidgren.Network
                         // just sent once; resend immediately since we found gap in ack sequence
                         //m_connection.m_peer.LogVerbose("Resending #" + rnr + " (" + storedMessage.Message + ")");
 
-                        if (now - storedMessage.LastSent < resendDelay)
-                        {
-                            // already resent recently
-                        }
-                        else
+                        if (now - storedMessage.LastSent >= resendDelay)
                         {
                             storedMessage.NumSent++;
                             storedMessage.LastSent = now;
                             _connection.Statistics.MessageResent(MessageResendReason.HoleInSequence);
                             _connection.QueueSendMessage(storedMessage.Message, rnr);
                         }
+                        //else
+                        //{
+                        //    // already resent recently
+                        //}
                     }
                 }
 

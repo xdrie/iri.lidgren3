@@ -91,7 +91,7 @@ namespace Lidgren.Network
             RemoteEndPoint = remoteEndPoint;
             _sendChannels = new NetSenderChannel[NetConstants.TotalChannels];
             _receiveChannels = new NetReceiverChannel[NetConstants.TotalChannels];
-            _openStreams = new NetStream?[NetConstants.UsableStreamChannels];
+            _openStreams = new NetStream?[NetConstants.StreamChannels];
             _queuedOutgoingAcks = new NetQueue<(NetMessageType, int)>(16);
             _queuedIncomingAcks = new NetQueue<(NetMessageType, int)>(16);
             Statistics = new NetConnectionStatistics(this);

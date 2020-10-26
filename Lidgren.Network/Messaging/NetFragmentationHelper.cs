@@ -56,7 +56,7 @@ namespace Lidgren.Network
             int shift = 0;
             while (true)
             {
-                byte num3 = buffer[offset++];
+                int num3 = buffer[offset++];
                 part |= (num3 & 0x7f) << (shift & 0x1f);
                 shift += 7;
                 if ((num3 & 0x80) == 0)
@@ -70,7 +70,7 @@ namespace Lidgren.Network
             shift = 0;
             while (true)
             {
-                byte num3 = buffer[offset++];
+                int num3 = buffer[offset++];
                 part |= (num3 & 0x7f) << (shift & 0x1f);
                 shift += 7;
                 if ((num3 & 0x80) == 0)
@@ -84,7 +84,7 @@ namespace Lidgren.Network
             shift = 0;
             while (true)
             {
-                byte num3 = buffer[offset++];
+                int num3 = buffer[offset++];
                 part |= (num3 & 0x7f) << (shift & 0x1f);
                 shift += 7;
                 if ((num3 & 0x80) == 0)
@@ -98,7 +98,7 @@ namespace Lidgren.Network
             shift = 0;
             while (true)
             {
-                byte num3 = buffer[offset++];
+                int num3 = buffer[offset++];
                 part |= (num3 & 0x7f) << (shift & 0x1f);
                 shift += 7;
                 if ((num3 & 0x80) == 0)
@@ -125,9 +125,9 @@ namespace Lidgren.Network
             // TODO: optimize
 
             int totalBits = totalBytes * 8;
-            int tryChunkSize = mtu - NetConstants.HeaderByteSize - 4; // naive approximation
+            int tryChunkSize = mtu - NetConstants.HeaderSize - 4; // naive approximation
             int est = GetFragmentationHeaderSize(group, totalBits, tryChunkSize, totalBytes / tryChunkSize);
-            tryChunkSize = mtu - NetConstants.HeaderByteSize - est; // slightly less naive approximation
+            tryChunkSize = mtu - NetConstants.HeaderSize - est; // slightly less naive approximation
 
             int headerSize;
             do
@@ -141,7 +141,7 @@ namespace Lidgren.Network
                 headerSize = GetFragmentationHeaderSize(group, totalBits, tryChunkSize, numChunks); // 4+ bytes
 
             }
-            while (tryChunkSize + headerSize + NetConstants.HeaderByteSize + 1 >= mtu);
+            while (tryChunkSize + headerSize + NetConstants.HeaderSize + 1 >= mtu);
 
             return tryChunkSize;
         }

@@ -413,7 +413,7 @@ namespace Lidgren.Network
                     }
                 }
 
-                if (bytesReceived < NetConstants.HeaderByteSize)
+                if (bytesReceived < NetConstants.HeaderSize)
                     return;
 
                 //LogVerbose("Received " + bytesReceived + " bytes");
@@ -431,7 +431,7 @@ namespace Lidgren.Network
                 int numMessages = 0;
                 int numFragments = 0;
                 int offset = 0;
-                while ((bytesReceived - offset) >= NetConstants.HeaderByteSize)
+                while ((bytesReceived - offset) >= NetConstants.HeaderSize)
                 {
                     // decode header
                     //  8 bits - NetMessageType
@@ -477,7 +477,11 @@ namespace Lidgren.Network
                                 !Configuration.IsMessageTypeEnabled(NetIncomingMessageType.UnconnectedData))
                                 return; // dropping unconnected message since it's not enabled
 
-                            var msg = CreateIncomingMessage(NetIncomingMessageType.Data, payloadByteLength);
+                            var messageType = type >= NetMessageType.UserNetStream1
+                                ? NetIncomingMessageType.StreamData 
+                                : NetIncomingMessageType.Data;
+
+                            var msg = CreateIncomingMessage(messageType, payloadByteLength);
                             msg._baseMessageType = type;
                             msg.IsFragment = isFragment;
                             msg.ReceiveTime = now;

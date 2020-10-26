@@ -69,11 +69,11 @@ namespace Lidgren.Network
             for (int i = 0; i < numChunks; i++)
             {
                 int bitLength = bitsLeft > bitsPerChunk ? bitsPerChunk : bitsLeft;
-                int byteLength = NetBitWriter.BytesForBits(bitLength);
-                NetOutgoingMessage chunk = CreateMessage(byteLength);
+                NetOutgoingMessage chunk = CreateMessage(0);
 
-                chunk.BitLength = bitLength;
                 chunk._data = message._data; // TODO: add api for accessing _data
+                chunk.BitLength = bitLength;
+
                 chunk._fragmentGroup = group;
                 chunk._fragmentGroupTotalBits = totalBytes * 8;
                 chunk._fragmentChunkByteSize = bytesPerChunk;

@@ -12,21 +12,32 @@ namespace Lidgren.Network
         private void AssertValidUnconnectedLength(NetOutgoingMessage message)
         {
             if (message.ByteLength > Configuration.MaximumTransmissionUnit)
+            {
                 throw new LidgrenException(
                     "Unconnected message must be shorter than NetConfiguration.MaximumTransmissionUnit (currently " +
                     Configuration.MaximumTransmissionUnit + ").");
+            }
         }
 
-        /// <summary>
-        /// Send a message to a specific connection.
-        /// </summary>
-        /// <param name="message">The message to send</param>
-        /// <param name="recipient">The recipient connection</param>
-        /// <param name="method">How to deliver the message</param>
-        public NetSendResult SendMessage(
-            NetOutgoingMessage message, NetConnection recipient, NetDeliveryMethod method)
+        public static int GetMTU(IEnumerable<NetConnection?> recipients, out int recipientCount)
         {
-            return SendMessage(message, recipient, method, 0);
+            if (recipients == null)
+                throw new ArgumentNullException(nameof(recipients));
+
+            int mtu = NetPeerConfiguration.DefaultMTU;
+            recipientCount = 0;
+
+            foreach (var conn in recipients.AsListEnumerator())
+            {
+                if (conn != null)
+                {
+                    if (conn.CurrentMTU < mtu)
+                        mtu = conn.CurrentMTU;
+
+                    recipientCount++;
+                }
+            }
+            return mtu;
         }
 
         /// <summary>
@@ -78,25 +89,16 @@ namespace Lidgren.Network
             }
         }
 
-        public static int GetMTU(IEnumerable<NetConnection?> recipients, out int recipientCount)
+        /// <summary>
+        /// Send a message to a specific connection.
+        /// </summary>
+        /// <param name="message">The message to send</param>
+        /// <param name="recipient">The recipient connection</param>
+        /// <param name="method">How to deliver the message</param>
+        public NetSendResult SendMessage(
+            NetOutgoingMessage message, NetConnection recipient, NetDeliveryMethod method)
         {
-            if (recipients == null)
-                throw new ArgumentNullException(nameof(recipients));
-
-            int mtu = NetPeerConfiguration.DefaultMTU;
-            recipientCount = 0;
-
-            foreach (var conn in recipients.AsListEnumerator())
-            {
-                if (conn != null)
-                {
-                    if (conn.CurrentMTU < mtu)
-                        mtu = conn.CurrentMTU;
-
-                    recipientCount++;
-                }
-            }
-            return mtu;
+            return SendMessage(message, recipient, method, 0);
         }
 
         /// <summary>
