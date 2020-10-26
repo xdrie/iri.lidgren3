@@ -8,7 +8,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Create a connection to a remote endpoint.
         /// </summary>
-        public virtual NetConnection? Connect(IPEndPoint remoteEndPoint, NetOutgoingMessage? hailMessage)
+        public virtual NetConnection Connect(IPEndPoint remoteEndPoint, NetOutgoingMessage? hailMessage)
         {
             if (remoteEndPoint == null)
                 throw new ArgumentNullException(nameof(remoteEndPoint));
@@ -55,14 +55,13 @@ namespace Lidgren.Network
             conn._connectionInitiator = true;
 
             Handshakes.TryAdd(remoteEndPoint, conn);
-
             return conn;
         }
 
         /// <summary>
         /// Create a connection to a remote endpoint.
         /// </summary>
-        public NetConnection? Connect(ReadOnlySpan<char> host, int port)
+        public NetConnection Connect(ReadOnlySpan<char> host, int port)
         {
             return Connect(new IPEndPoint(NetUtility.Resolve(host), port), null);
         }
@@ -70,7 +69,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Create a connection to a remote endpoint.
         /// </summary>
-        public NetConnection? Connect(ReadOnlySpan<char> host, int port, NetOutgoingMessage hailMessage)
+        public NetConnection Connect(ReadOnlySpan<char> host, int port, NetOutgoingMessage hailMessage)
         {
             return Connect(new IPEndPoint(NetUtility.Resolve(host), port), hailMessage);
         }
@@ -78,7 +77,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Create a connection to a remote endpoint
         /// </summary>
-        public NetConnection? Connect(IPEndPoint remoteEndPoint)
+        public NetConnection Connect(IPEndPoint remoteEndPoint)
         {
             return Connect(remoteEndPoint, null);
         }

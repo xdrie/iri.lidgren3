@@ -47,7 +47,7 @@ namespace Lidgren.Network
                 if (value < 0)
                     throw new ArgumentOutOfRangeException(nameof(value));
                 if (value > BitCapacity)
-                    throw new ArgumentOutOfRangeException(nameof(value));
+                    EnsureBitCapacity(value);
                 _bitLength = value;
             }
         }

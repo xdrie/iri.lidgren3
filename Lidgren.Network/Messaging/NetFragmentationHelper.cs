@@ -2,9 +2,9 @@
 
 namespace Lidgren.Network
 {
-    internal static class NetFragmentationHelper
+    public static class NetFragmentationHelper
     {
-        internal static void WriteHeader(
+        public static void WriteHeader(
             Span<byte> destination,
             ref int offset,
             int group,
@@ -48,77 +48,70 @@ namespace Lidgren.Network
             destination[offset++] = (byte)num4;
         }
 
-        internal static bool ReadHeader(
+        public static bool ReadHeader(
             ReadOnlySpan<byte> buffer, ref int offset,
             out int group, out int totalBits, out int chunkByteSize, out int chunkNumber)
         {
-            int part;
-            int shift;
+            int part = 0;
+            int shift = 0;
+            while (true)
+            {
+                byte num3 = buffer[offset++];
+                part |= (num3 & 0x7f) << (shift & 0x1f);
+                shift += 7;
+                if ((num3 & 0x80) == 0)
+                {
+                    group = part;
+                    break;
+                }
+            }
 
+            part = 0;
             shift = 0;
-            group = 0;
-            do
+            while (true)
             {
-                if (shift == 5 * 7)
-                {
-                    totalBits = default;
-                    chunkByteSize = default;
-                    chunkNumber = default;
-                    return false;
-                }
-
-                part = buffer[offset++];
-                group |= (part & 0x7F) << shift;
+                byte num3 = buffer[offset++];
+                part |= (num3 & 0x7f) << (shift & 0x1f);
                 shift += 7;
-            } while ((part & 0x80) == 0);
+                if ((num3 & 0x80) == 0)
+                {
+                    totalBits = part;
+                    break;
+                }
+            }
 
+            part = 0;
             shift = 0;
-            totalBits = 0;
-            do
+            while (true)
             {
-                if (shift == 5 * 7)
+                byte num3 = buffer[offset++];
+                part |= (num3 & 0x7f) << (shift & 0x1f);
+                shift += 7;
+                if ((num3 & 0x80) == 0)
                 {
-                    chunkByteSize = default;
-                    chunkNumber = default;
-                    return false;
+                    chunkByteSize = part;
+                    break;
                 }
+            }
 
-                part = buffer[offset++];
-                totalBits |= (part & 0x7F) << shift;
-                shift += 7;
-            } while ((part & 0x80) == 0);
-
-            shift = 0; 
-            chunkByteSize = 0;
-            do
+            part = 0;
+            shift = 0;
+            while (true)
             {
-                if (shift == 5 * 7)
+                byte num3 = buffer[offset++];
+                part |= (num3 & 0x7f) << (shift & 0x1f);
+                shift += 7;
+                if ((num3 & 0x80) == 0)
                 {
-                    chunkNumber = default;
-                    return false;
+                    chunkNumber = part;
+                    break;
                 }
-
-                part = buffer[offset++];
-                chunkByteSize |= (part & 0x7F) << shift;
-                shift += 7;
-            } while ((part & 0x80) == 0);
-
-            shift = 0; 
-            chunkNumber = 0;
-            do
-            {
-                if (shift == 5 * 7)
-                    return false;
-
-                part = buffer[offset++];
-                chunkNumber |= (part & 0x7F) << shift;
-                shift += 7;
-            } while ((part & 0x80) == 0);
+            }
 
             return true;
         }
 
-        internal static int GetFragmentationHeaderSize(int groupId, int totalBits, int chunkByteSize, int numChunks)
+        public static int GetFragmentationHeaderSize(int groupId, int totalBits, int chunkByteSize, int numChunks)
         {
             return (
                 NetBitWriter.BitsForValue((uint)groupId) +
@@ -127,7 +120,7 @@ namespace Lidgren.Network
                 NetBitWriter.BitsForValue((uint)numChunks)) / 7 + 4;
         }
 
-        internal static int GetBestChunkSize(int group, int totalBytes, int mtu)
+        public static int GetBestChunkSize(int group, int totalBytes, int mtu)
         {
             // TODO: optimize
 
@@ -147,7 +140,8 @@ namespace Lidgren.Network
 
                 headerSize = GetFragmentationHeaderSize(group, totalBits, tryChunkSize, numChunks); // 4+ bytes
 
-            } while (tryChunkSize + headerSize + NetConstants.HeaderByteSize + 1 >= mtu);
+            }
+            while (tryChunkSize + headerSize + NetConstants.HeaderByteSize + 1 >= mtu);
 
             return tryChunkSize;
         }

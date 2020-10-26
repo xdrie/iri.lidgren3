@@ -40,12 +40,18 @@ namespace Lidgren.Network
             if (_list != null)
             {
                 if ((uint)_index < (uint)_list.Count)
+                {
                     Current = _list[_index++];
+                    return true;
+                }
             }
             else if (_roList != null)
             {
                 if ((uint)_index < (uint)_roList.Count)
+                {
                     Current = _roList[_index++];
+                    return true;
+                }
             }
             else if (_enumerator != null)
             {
@@ -55,6 +61,7 @@ namespace Lidgren.Network
                     return true;
                 }
             }
+            Current = default!;
             return false;
         }
 
