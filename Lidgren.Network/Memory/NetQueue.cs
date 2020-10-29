@@ -32,6 +32,9 @@ namespace Lidgren.Network
     [DebuggerDisplay("{DebuggerDisplay}")]
     public sealed class NetQueue<T> : IDisposable
     {
+        public const int ArrayMaxGrowth = 1024;
+        public const int ArrayGrowthFactor = 2;
+
         // Example:
         // m_capacity = 8
         // m_size = 6
@@ -78,9 +81,10 @@ namespace Lidgren.Network
             _items = Array.Empty<T>();
         }
 
-        private void AddCapacity()
+        private void AddCapacity(int baseLength)
         {
-            SetCapacity(_items.Length + 64);
+            int newLength = Math.Min(Math.Max(16, baseLength * ArrayGrowthFactor), baseLength + ArrayMaxGrowth);
+            SetCapacity(newLength);
         }
 
         /// <summary>
@@ -92,7 +96,7 @@ namespace Lidgren.Network
             try
             {
                 if (Count == _items.Length)
-                    AddCapacity();
+                    AddCapacity(_items.Length);
 
                 int slot = (_head + Count) % _items.Length;
                 _items[slot] = item;
@@ -123,13 +127,13 @@ namespace Lidgren.Network
                     expectedCount += roColl.Count;
 
                 if (expectedCount > Capacity)
-                    SetCapacity(expectedCount + 64);
+                    AddCapacity(expectedCount);
 
                 foreach (var item in items.AsListEnumerator())
                 {
                     // check capacity as we cannot be sure about the resulting count
                     if (Count == _items.Length)
-                        AddCapacity();
+                        AddCapacity(_items.Length);
 
                     int slot = (_head + Count) % _items.Length;
                     _items[slot] = item;
@@ -151,7 +155,7 @@ namespace Lidgren.Network
             try
             {
                 if (Count >= _items.Length)
-                    AddCapacity();
+                    AddCapacity(_items.Length);
 
                 _head--;
                 if (_head < 0)

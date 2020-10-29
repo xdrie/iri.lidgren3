@@ -33,6 +33,7 @@ namespace Lidgren.Network
         /// </summary>
         /// <param name="destination">The destination span.</param>
         /// <param name="bitCount">The number of bits to read.</param>
+        /// <exception cref="EndOfMessageException"></exception>
         public static void ReadBits(this IBitBuffer buffer, Span<byte> destination, int bitCount)
         {
             if (!buffer.TryReadBits(destination, bitCount))
@@ -40,7 +41,7 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Reads the specified number of bits, between one and <paramref name="maxBitCount"/>, into the given buffer.
+        /// Reads the specified number of bits, clamped between one and <paramref name="maxBitCount"/>, into the given buffer.
         /// </summary>
         /// <param name="destination">The destination span.</param>
         /// <param name="bitCount">The number of bits to read.</param>
@@ -48,6 +49,7 @@ namespace Lidgren.Network
         /// <exception cref="ArgumentOutOfRangeException">
         /// Bit count is less than one or greater than <paramref name="maxBitCount"/>.
         /// </exception>
+        /// <exception cref="EndOfMessageException"></exception>
         public static void ReadBits(this IBitBuffer buffer, Span<byte> destination, int bitCount, int maxBitCount)
         {
             if (bitCount < 1)
@@ -80,6 +82,7 @@ namespace Lidgren.Network
         /// Reads bytes into the given span.
         /// </summary>
         /// <param name="destination">The destination span.</param>
+        /// <exception cref="EndOfMessageException"></exception>
         public static void Read(this IBitBuffer buffer, Span<byte> destination)
         {
             if (!buffer.TryRead(destination))
@@ -92,11 +95,35 @@ namespace Lidgren.Network
             return buffer.TryRead(data);
         }
 
+        /// <summary>
+        /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         public static byte[] Read(this IBitBuffer buffer, int count)
         {
             var data = new byte[count];
             buffer.Read(data);
             return data;
+        }
+
+        /// <summary>
+        /// Reads bytes into the given span.
+        /// </summary>
+        /// <param name="destination">The destination span.</param>
+        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
+        public static int StreamRead(this IBitBuffer buffer, Span<byte> destination)
+        {
+            if (buffer.IsByteAligned())
+            {
+                int remainingBytes = Math.Min(buffer.ByteLength - buffer.BytePosition, destination.Length);
+                buffer.Read(destination.Slice(0, remainingBytes));
+                return remainingBytes;
+            }
+            else
+            {
+                int remainingBits = Math.Min(buffer.BitLength - buffer.BitPosition, destination.Length * 8);
+                buffer.ReadBits(destination, remainingBits);
+                return remainingBits / 8;
+            }
         }
 
         #region Bool
@@ -140,6 +167,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads a <see cref="byte"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         public static byte ReadByte(this IBitBuffer buffer)
         {
             if (!buffer.ReadByte(out byte value))
@@ -150,6 +178,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads 1 to 8 bits into a <see cref="byte"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         public static byte ReadByte(this IBitBuffer buffer, int bitCount)
         {
@@ -164,6 +193,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads a <see cref="sbyte"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         [CLSCompliant(false)]
         public static sbyte ReadSByte(this IBitBuffer buffer)
@@ -180,6 +210,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads a 16-bit <see cref="short"/> written by <see cref="Write(short)"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         public static short ReadInt16(this IBitBuffer buffer)
         {
             Span<byte> tmp = stackalloc byte[sizeof(short)];
@@ -190,6 +221,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads a 16-bit <see cref="ushort"/> written by <see cref="Write(ushort)"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         [CLSCompliant(false)]
         public static ushort ReadUInt16(this IBitBuffer buffer)
         {
@@ -221,6 +253,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads a 32-bit <see cref="int"/> written by <see cref="Write(int)"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         public static int ReadInt32(this IBitBuffer buffer)
         {
             Span<byte> tmp = stackalloc byte[sizeof(int)];
@@ -231,6 +264,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads a <see cref="int"/> stored in 1 to 32 bits, written by <see cref="Write(int, int)"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         public static int ReadInt32(this IBitBuffer buffer, int bitCount)
         {
             Span<byte> tmp = stackalloc byte[sizeof(int)];
@@ -259,6 +293,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads a <see cref="uint"/> written by <see cref="Write(uint)"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         [CLSCompliant(false)]
         public static uint ReadUInt32(this IBitBuffer buffer)
         {
@@ -286,6 +321,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads an <see cref="uint"/> stored in 1 to 32 bits, written by <see cref="Write(uint, int)"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         [CLSCompliant(false)]
         public static uint ReadUInt32(this IBitBuffer buffer, int bitCount)
         {
@@ -300,6 +336,7 @@ namespace Lidgren.Network
         /// <param name="min">The minimum value used when writing the value</param>
         /// <param name="max">The maximum value used when writing the value</param>
         /// <returns>A signed integer value larger or equal to MIN and smaller or equal to MAX</returns>
+        /// <exception cref="EndOfMessageException"></exception>
         public static int ReadRangedInt32(this IBitBuffer buffer, int min, int max)
         {
             uint range = (uint)(max - min);
@@ -315,6 +352,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads a 64-bit <see cref="long"/> written by <see cref="Write(long)"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         public static long ReadInt64(this IBitBuffer buffer)
         {
             Span<byte> tmp = stackalloc byte[sizeof(long)];
@@ -325,6 +363,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads a 64-bit <see cref="ulong"/> written by <see cref="Write(ulong)"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         [CLSCompliant(false)]
         public static ulong ReadUInt64(this IBitBuffer buffer)
         {
@@ -336,6 +375,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads a <see cref="long"/> stored in 1 to 64 bits, written by <see cref="Write(long, int)"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         public static long ReadInt64(this IBitBuffer buffer, int bitCount)
         {
             Span<byte> tmp = stackalloc byte[sizeof(long)];
@@ -364,6 +404,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads an <see cref="ulong"/> stored in 1 to 64 bits, written by <see cref="Write(ulong, int)"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         [CLSCompliant(false)]
         public static ulong ReadUInt64(this IBitBuffer buffer, int bitCount)
         {
@@ -394,6 +435,9 @@ namespace Lidgren.Network
             return NetBitWriter.ReadVarUInt64(buffer, peek: false, out result);
         }
 
+        /// <summary>
+        /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         [CLSCompliant(false)]
         public static uint ReadVarUInt32(this IBitBuffer buffer)
         {
@@ -407,6 +451,9 @@ namespace Lidgren.Network
             return default;
         }
 
+        /// <summary>
+        /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         [CLSCompliant(false)]
         public static ulong ReadVarUInt64(this IBitBuffer buffer)
         {
@@ -423,6 +470,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads a variable sized <see cref="int"/> written by <see cref="WriteVar(int)"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         public static int ReadVarInt32(this IBitBuffer buffer)
         {
             uint n = buffer.ReadVarUInt32();
@@ -432,6 +480,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads a variable sized <see cref="long"/> written by <see cref="WriteVar(long)"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         public static long ReadVarInt64(this IBitBuffer buffer)
         {
             ulong n = buffer.ReadVarUInt64();
@@ -445,6 +494,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads a 32-bit <see cref="float"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         public static float ReadSingle(this IBitBuffer buffer)
         {
             int intValue = buffer.ReadInt32();
@@ -454,6 +504,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads a 64-bit <see cref="double"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         public static double ReadDouble(this IBitBuffer buffer)
         {
             long intValue = buffer.ReadInt64();
@@ -465,6 +516,7 @@ namespace Lidgren.Network
         /// </summary>
         /// <param name="bitCount">The number of bits used when writing the value</param>
         /// <returns>A floating point value larger or equal to -1 and smaller or equal to 1</returns>
+        /// <exception cref="EndOfMessageException"></exception>
         public static float ReadSignedSingle(this IBitBuffer buffer, int bitCount)
         {
             uint encodedVal = buffer.ReadUInt32(bitCount);
@@ -477,6 +529,7 @@ namespace Lidgren.Network
         /// </summary>
         /// <param name="bitCount">The number of bits used when writing the value</param>
         /// <returns>A floating point value larger or equal to 0 and smaller or equal to 1</returns>
+        /// <exception cref="EndOfMessageException"></exception>
         public static float ReadUnitSingle(this IBitBuffer buffer, int bitCount)
         {
             uint encodedVal = buffer.ReadUInt32(bitCount);
@@ -491,6 +544,7 @@ namespace Lidgren.Network
         /// <param name="max">The maximum value used when writing the value</param>
         /// <param name="bitCount">The number of bits used when writing the value</param>
         /// <returns>A floating point value larger or equal to MIN and smaller or equal to MAX</returns>
+        /// <exception cref="EndOfMessageException"></exception>
         public static float ReadRangedSingle(this IBitBuffer buffer, float min, float max, int bitCount)
         {
             float range = max - min;
@@ -619,6 +673,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads a <see cref="string"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         public static string ReadString(this IBitBuffer buffer)
         {
             if (!buffer.ReadString(out string result))
@@ -653,6 +708,7 @@ namespace Lidgren.Network
         /// Reads local time comparable to <see cref="NetTime.Now"/>,
         /// written by <see cref="WriteLocalTime"/> for the given <see cref="NetConnection"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         public static TimeSpan ReadLocalTime(this IBitBuffer buffer, NetConnection connection)
         {
             if (connection == null)
@@ -665,6 +721,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads an <see cref="IPAddress"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         public static IPAddress ReadIPAddress(this IBitBuffer buffer)
         {
             byte length = buffer.ReadByte();
@@ -675,6 +732,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads an <see cref="IPEndPoint"/> description.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         public static IPEndPoint ReadIPEndPoint(this IBitBuffer buffer)
         {
             var address = buffer.ReadIPAddress();
@@ -685,11 +743,15 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads a <see cref="TimeSpan"/>.
         /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         public static TimeSpan ReadTimeSpan(this IBitBuffer buffer)
         {
             return new TimeSpan(buffer.ReadVarInt64());
         }
 
+        /// <summary>
+        /// </summary>
+        /// <exception cref="EndOfMessageException"></exception>
         public static TEnum ReadEnum<TEnum>(this IBitBuffer buffer)
             where TEnum : Enum
         {

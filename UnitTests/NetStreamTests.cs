@@ -102,6 +102,7 @@ namespace UnitTests
                                     stream = new NetStream(server.DefaultScheduler, connection, channel);
 
                                     OnStream(stream);
+                                    stream.Peer.Recycle(message);
                                     break;
 
                                 case NetStreamMessageType.Data:
@@ -154,17 +155,19 @@ namespace UnitTests
                 var msg = client.CreateMessage("hello");
                 connection.SendMessage(msg, NetDeliveryMethod.ReliableOrdered, 0);
 
-                Task.Run(() =>
+                for (int j = 0; j < 8; j++)
                 {
-                    void WriteFor(int channel)
+                    int channel = j;
+                    Task.Run(() =>
                     {
                         try
                         {
                             var stream = new NetStream(client.DefaultScheduler, connection, channel);
-                            Span<byte> span = stackalloc byte[1024];
-                            for (int i = 0; i < 1024 * 1024 * 16; i += span.Length)
+                            Span<byte> span = stackalloc byte[1024 * 4];
+                            for (int i = 0; i < 1024 * 1024 * 32; i += span.Length)
                             {
                                 stream.Write(span);
+                                //Thread.Sleep(1);
                             }
                             stream.Dispose();
                             Console.WriteLine($"Server Stream {channel} Data Written");
@@ -173,11 +176,8 @@ namespace UnitTests
                         {
                             Console.WriteLine(ex);
                         }
-                    }
-
-                    for (int i = 0; i < 4; i++)
-                        WriteFor(i);
-                });
+                    });
+                }
 
                 while (client.TryReadMessage(5000, out var message))
                 {
@@ -206,6 +206,7 @@ namespace UnitTests
 
                             Console.WriteLine("Client Stream: " + type);
 
+                            client.Recycle(message);
                             break;
                         }
 

@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Buffers;
+using System.Collections.Generic;
 
 namespace Lidgren.Network
 {
@@ -25,6 +26,8 @@ namespace Lidgren.Network
             if (_storagePool == null)
                 return new byte[minimumCapacityInBytes];
 
+            //return ArrayPool<byte>.Shared.Rent(minimumCapacityInBytes);
+            
             lock (_storagePool)
             {
                 for (int i = 0; i < _storagePool.Count; i++)

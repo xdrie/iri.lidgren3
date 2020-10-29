@@ -16,16 +16,14 @@ namespace Lidgren.Network
 
     public class NetStream : Stream
     {
-        public const int MaxDataHeaderSize = 6;
+        //public delegate void StreamDataRequest(NetStream stream, int amount);
+        //public delegate long StreamSeekRequest(NetStream stream, long offset, SeekOrigin origin);
 
-        public delegate void StreamDataRequest(NetStream stream, int amount);
-        public delegate long StreamSeekRequest(NetStream stream, long offset, SeekOrigin origin);
-
-        private Queue<byte[]> _readQueue;
-        private byte[]? _readBuffer;
-        private int _readBufferOffset;
-        private bool _closed;
+        private Queue<NetIncomingMessage> _readQueue;
+        private int _receivedByteCount;
+        private NetIncomingMessage? _readBuffer;
         private AutoResetEvent _readEvent = new AutoResetEvent(false);
+        private bool _closed;
 
         private byte[] _writeBuffer;
         private int _writeBufferOffset;
@@ -80,7 +78,7 @@ namespace Lidgren.Network
             Connection = connection ?? throw new ArgumentNullException(nameof(connection));
             Channel = sequenceChannel;
 
-            _readQueue = new Queue<byte[]>();
+            _readQueue = new Queue<NetIncomingMessage>();
 
             _writeBuffer = new byte[GetBufferSize(Connection.CurrentMTU)];
             _writeBufferOffset = 0;
@@ -114,27 +112,26 @@ namespace Lidgren.Network
 
         public static int GetBufferSize(int mtu)
         {
-            return Math.Max(1, mtu - MaxDataHeaderSize - NetConstants.HeaderSize);
+            return Math.Max(1, mtu - 1 - NetConstants.HeaderSize);
         }
 
-        internal void OnDataMessage(IBitBuffer buffer)
+        internal void OnDataMessage(NetIncomingMessage buffer)
         {
             if (buffer == null)
                 throw new ArgumentNullException(nameof(buffer));
 
-            int length = buffer.ReadVarInt32();
-            byte[] data = buffer.Read(length);
-
             lock (_readQueue)
-                _readQueue.Enqueue(data);
+                _readQueue.Enqueue(buffer);
 
             _readEvent.Set();
         }
 
-        internal void OnCloseMessage(IBitBuffer buffer)
+        internal void OnCloseMessage(NetIncomingMessage buffer)
         {
             _closed = true;
             _readEvent.Set();
+
+            Peer.Recycle(buffer);
         }
 
         public override int Read(Span<byte> buffer)
@@ -159,22 +156,22 @@ namespace Lidgren.Network
 
         private int TryRead(Span<byte> buffer)
         {
-            int read = 0;
+            int totalRead = 0;
 
             TryRead:
+            if (buffer.IsEmpty)
+                return totalRead;
+
             if (_readBuffer != null)
             {
-                var dataSlice = _readBuffer.AsSpan(_readBufferOffset);
-                dataSlice = dataSlice.Slice(0, Math.Min(dataSlice.Length, buffer.Length));
-                dataSlice.CopyTo(buffer);
-                buffer = buffer.Slice(dataSlice.Length);
-                read += dataSlice.Length;
+                int read = _readBuffer.StreamRead(buffer);
+                buffer = buffer.Slice(read);
+                totalRead += read;
 
-                _readBufferOffset += dataSlice.Length;
-                if (_readBufferOffset == _readBuffer.Length)
+                if (_readBuffer.BitPosition == _readBuffer.BitLength)
                 {
+                    Peer.Recycle(_readBuffer);
                     _readBuffer = null;
-                    _readBufferOffset = 0;
                 }
             }
 
@@ -186,7 +183,7 @@ namespace Lidgren.Network
                         goto TryRead;
                 }
             }
-            return read;
+            return totalRead;
         }
 
         public override void Write(ReadOnlySpan<byte> buffer)
@@ -244,7 +241,6 @@ namespace Lidgren.Network
 
             var message = Peer.CreateMessage(length + 6);
             message.Write((byte)NetStreamMessageType.Data);
-            message.WriteVar(length);
             message.Write(_writeBuffer.AsSpan(0, length));
 
             var result = SendStreamMessage(message);

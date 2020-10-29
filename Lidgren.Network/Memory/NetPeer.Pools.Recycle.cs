@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Collections.Generic;
 
 namespace Lidgren.Network
@@ -11,6 +12,9 @@ namespace Lidgren.Network
         {
             if (_storagePool == null || storage == null)
                 return;
+
+            //ArrayPool<byte>.Shared.Return(storage);
+            //return;
 
             lock (_storagePool)
             {
@@ -46,6 +50,7 @@ namespace Lidgren.Network
 
             byte[] storage = message._data;
             message._data = Array.Empty<byte>();
+
             Recycle(storage);
             message.Reset();
             _incomingMessagePool.Enqueue(message);
@@ -69,8 +74,9 @@ namespace Lidgren.Network
                 {
                     foreach (var message in messages)
                     {
-                        var storage = message._data;
+                        byte[] storage = message._data;
                         message._data = Array.Empty<byte>();
+
                         _bytesInPool += storage.Length;
                         for (int i = 0; i < _storagePool.Count; i++)
                         {

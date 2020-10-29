@@ -314,18 +314,21 @@ namespace Lidgren.Network
                 _lastHeartbeat = now;
 
                 // do handshake heartbeats
-                foreach (var conn in Handshakes.Values)
+                if (!Handshakes.IsEmpty)
                 {
-                    conn.UnconnectedHeartbeat(now);
+                    foreach (var conn in Handshakes.Values)
+                    {
+                        conn.UnconnectedHeartbeat(now);
 
 #if DEBUG
-                    // sanity check
-                    if (conn.Status == NetConnectionStatus.Disconnected &&
-                        Handshakes.TryRemove(conn.RemoteEndPoint, out _))
-                    {
-                        LogWarning("Sanity fail! Handshakes list contained disconnected connection!");
-                    }
+                        // sanity check
+                        if (conn.Status == NetConnectionStatus.Disconnected &&
+                            Handshakes.TryRemove(conn.RemoteEndPoint, out _))
+                        {
+                            LogWarning("Sanity fail! Handshakes list contained disconnected connection!");
+                        }
 #endif
+                    }
                 }
 
                 SendDelayedPackets();
