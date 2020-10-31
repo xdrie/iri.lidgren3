@@ -582,10 +582,7 @@ namespace Lidgren.Network
 
             var dr = CreateIncomingMessage(NetIncomingMessageType.DiscoveryRequest);
             if (payloadByteLength > 0)
-            {
                 dr.Write(_receiveBuffer.AsSpan(offset, payloadByteLength));
-                dr.BitPosition = 0;
-            }
 
             dr.ReceiveTime = now;
             dr.SenderEndPoint = senderEndPoint;
@@ -600,10 +597,7 @@ namespace Lidgren.Network
 
             var dr = CreateIncomingMessage(NetIncomingMessageType.DiscoveryResponse);
             if (payloadByteLength > 0)
-            {
                 dr.Write(_receiveBuffer.AsSpan(offset, payloadByteLength));
-                dr.BitPosition = 0;
-            }
 
             dr.ReceiveTime = now;
             dr.SenderEndPoint = senderEndPoint;

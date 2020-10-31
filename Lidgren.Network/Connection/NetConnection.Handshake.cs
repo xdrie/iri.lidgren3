@@ -107,14 +107,10 @@ namespace Lidgren.Network
                 SendDisconnect(reason, true);
 
             if (Status == NetConnectionStatus.ReceivedInitiation)
-            {
                 // nothing much has happened yet; no need to send disconnected status message
                 Status = NetConnectionStatus.Disconnected;
-            }
             else
-            {
                 SetStatus(NetConnectionStatus.Disconnected, reason);
-            }
 
             // in case we're still in handshake
             Peer.Handshakes.TryRemove(RemoteEndPoint, out _);
@@ -147,7 +143,7 @@ namespace Lidgren.Network
 
             if (_handshakeAttempts > 1)
                 Peer.LogDebug("Resending Connect...");
-            SetStatus(NetConnectionStatus.InitiatedConnect, "Locally requested connect");
+            SetStatus(NetConnectionStatus.InitiatedConnect);
         }
 
         internal void SendConnectResponse(TimeSpan now, bool onLibraryThread)
@@ -177,7 +173,7 @@ namespace Lidgren.Network
             if (_handshakeAttempts > 1)
                 Peer.LogDebug("Resending ConnectResponse...");
 
-            SetStatus(NetConnectionStatus.RespondedConnect, "Remotely requested connect");
+            SetStatus(NetConnectionStatus.RespondedConnect);
         }
 
         internal void SendDisconnect(string? reason, bool onLibraryThread)
@@ -223,7 +219,7 @@ namespace Lidgren.Network
 
             InitializePing();
             if (Status != NetConnectionStatus.Connected)
-                SetStatus(NetConnectionStatus.Connected, "Connected to " + NetUtility.ToHexString(RemoteUniqueIdentifier));
+                SetStatus(NetConnectionStatus.Connected);
         }
 
         /// <summary>
@@ -316,7 +312,7 @@ namespace Lidgren.Network
                                 if (RemoteHailMessage != null)
                                     appMsg.Write(RemoteHailMessage.GetBuffer().AsSpan(0, RemoteHailMessage.ByteLength));
 
-                                SetStatus(NetConnectionStatus.RespondedAwaitingApproval, "Awaiting approval");
+                                SetStatus(NetConnectionStatus.RespondedAwaitingApproval);
                                 Peer.ReleaseMessage(appMsg);
                                 return;
                             }
@@ -372,9 +368,7 @@ namespace Lidgren.Network
 
                             Peer.AcceptConnection(this);
                             InitializePing();
-                            SetStatus(
-                                NetConnectionStatus.Connected,
-                                "Connected to " + NetUtility.ToHexString(RemoteUniqueIdentifier));
+                            SetStatus(NetConnectionStatus.Connected);
                             return;
                     }
                     break;

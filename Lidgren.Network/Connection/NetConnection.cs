@@ -108,7 +108,7 @@ namespace Lidgren.Network
             RemoteEndPoint = endPoint;
         }
 
-        internal void SetStatus(NetConnectionStatus status, string? reason)
+        internal void SetStatus(NetConnectionStatus status, string? reason = null)
         {
             // user or library thread
 
