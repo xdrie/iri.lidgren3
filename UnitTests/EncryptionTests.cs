@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Lidgren.Network;
 
@@ -14,13 +15,13 @@ namespace UnitTests
             //
 
             Console.WriteLine("Testing encryption:");
-            TestEncryption(new NetXorEncryption(peer, "TopSecret"));
-            TestEncryption(new NetXteaEncryption(peer, "TopSecret"));
-            TestEncryption(new NetAESEncryption(peer, "TopSecret"));
-            TestEncryption(new NetRC2Encryption(peer, "TopSecret"));
-            TestEncryption(new NetDESEncryption(peer, "TopSecret"));
-            TestEncryption(new NetTripleDESEncryption(peer, "TopSecret"));
-
+            TestEncryption(new NetXorEncryption(peer));
+            TestEncryption(new NetXteaEncryption(peer));
+            TestEncryption(new NetSymmetricEncryption<Aes>(peer, Aes.Create()));
+            TestEncryption(new NetSymmetricEncryption<RC2>(peer, RC2.Create()));
+            TestEncryption(new NetSymmetricEncryption<DES>(peer, DES.Create()));
+            TestEncryption(new NetSymmetricEncryption<TripleDES>(peer, TripleDES.Create()));
+            
             var srpXteas = TestSRPWithRandomness(peer);
             Console.WriteLine("Testing SRP-based Xtea encryptions...");
             foreach (var algo in srpXteas)
@@ -44,15 +45,15 @@ namespace UnitTests
 
             // convert to incoming message
             NetIncomingMessage im = Program.CreateIncomingMessage(
-                om.Span.Slice(0, om.ByteLength).ToArray(), om.BitLength);
+                om.GetBuffer().AsSpan(0, om.ByteLength).ToArray(), om.BitLength);
 
-            if (im.Span.Length == 0)
+            if (im.GetBuffer().Length == 0)
                 throw new LidgrenException("bad im!");
 
             if (!im.Decrypt(algo))
                 throw new LidgrenException("failed to decrypt");
 
-            if (im.Span.Length == 0 || im.BitLength != unencLen)
+            if (im.GetBuffer().Length == 0 || im.BitLength != unencLen)
                 throw new LidgrenException("Length fail");
 
             var str = im.ReadString();

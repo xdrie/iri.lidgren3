@@ -28,7 +28,7 @@ namespace Lidgren.Network
     /// </summary>
     public sealed class NetBitVector
     {
-        private const int BitsPerData = sizeof(int) * 8;
+        private const int BitsPerElement = sizeof(int) * 8;
 
         private readonly uint[] _data;
 
@@ -84,7 +84,7 @@ namespace Lidgren.Network
                 throw new ArgumentOutOfRangeException(nameof(bitsCapacity));
 
             Capacity = bitsCapacity;
-            _data = new uint[(Capacity + BitsPerData - 1) / BitsPerData];
+            _data = new uint[(Capacity + BitsPerElement - 1) / BitsPerElement];
         }
 
         [CLSCompliant(false)]
@@ -106,7 +106,7 @@ namespace Lidgren.Network
             for (int i = 0; i < lenMinusOne; i++)
                 _data[i] = ((_data[i] >> 1) & ~(1 << 31)) | _data[i + 1] << 31;
 
-            int lastIndex = Capacity - 1 - (BitsPerData * lenMinusOne);
+            int lastIndex = Capacity - 1 - (BitsPerElement * lenMinusOne);
 
             // special handling of last int
             uint last = _data[lenMinusOne];
@@ -129,7 +129,7 @@ namespace Lidgren.Network
             while (((data >> a) & 1) != flag)
             {
                 a++;
-                if (a == BitsPerData)
+                if (a == BitsPerElement)
                 {
                     offset++;
                     a = 0;
@@ -137,7 +137,7 @@ namespace Lidgren.Network
                 }
             }
 
-            return (offset * BitsPerData) + a;
+            return (offset * BitsPerElement) + a;
         }
 
         /// <summary>
@@ -147,7 +147,7 @@ namespace Lidgren.Network
         {
             LidgrenException.Assert(bitIndex >= 0 && bitIndex < Capacity);
 
-            return (_data[bitIndex / BitsPerData] & (1 << (bitIndex % BitsPerData))) != 0;
+            return (_data[bitIndex / BitsPerElement] & (1 << (bitIndex % BitsPerElement))) != 0;
         }
 
         /// <summary>
@@ -157,8 +157,8 @@ namespace Lidgren.Network
         {
             LidgrenException.Assert(bitIndex >= 0 && bitIndex < Capacity);
 
-            int index = bitIndex / BitsPerData;
-            uint mask = (uint)(1 << (bitIndex % BitsPerData));
+            int index = bitIndex / BitsPerElement;
+            uint mask = (uint)(1 << (bitIndex % BitsPerElement));
             if (value)
             {
                 //if ((_data[index] & (1 << (bitIndex % BitsPerData))) == 0)

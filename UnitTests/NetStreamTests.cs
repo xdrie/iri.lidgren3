@@ -167,7 +167,7 @@ namespace UnitTests
                             for (int i = 0; i < 1024 * 1024 * 32; i += span.Length)
                             {
                                 stream.Write(span);
-                                //Thread.Sleep(1);
+                                Thread.Sleep(1);
                             }
                             stream.Dispose();
                             Console.WriteLine($"Server Stream {channel} Data Written");

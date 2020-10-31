@@ -47,7 +47,7 @@ namespace Lidgren.Network
 
             if (_expandMTUStatus == ExpandMTUStatus.None)
             {
-                if (_peerConfiguration._autoExpandMTU == false)
+                if (!_peerConfiguration._autoExpandMTU)
                 {
                     FinalizeMTU(CurrentMTU);
                     return;
@@ -106,14 +106,15 @@ namespace Lidgren.Network
 
         private void SendExpandMTU(TimeSpan now, int size)
         {
-            NetOutgoingMessage om = Peer.CreateMessage(size);
+            NetOutgoingMessage om = Peer.CreateMessage();
             om.WritePadBytes(size);
             om._messageType = NetMessageType.ExpandMTURequest;
             int length = 0;
             om.Encode(Peer._sendBuffer, ref length, 0);
+            Peer.Recycle(om);
 
             bool ok = Peer.SendMTUPacket(length, RemoteEndPoint);
-            if (ok == false)
+            if (!ok)
             {
                 //m_peer.LogDebug("Send MTU failed for size " + size);
 
@@ -134,9 +135,6 @@ namespace Lidgren.Network
 
             _lastSentMTUAttemptSize = size;
             _lastSentMTUAttemptTime = now;
-
-            Statistics.PacketSent(length, 1);
-            Peer.Recycle(om);
         }
 
         private void FinalizeMTU(int size)
@@ -152,17 +150,16 @@ namespace Lidgren.Network
 
         private void SendMTUSuccess(int size)
         {
-            NetOutgoingMessage om = Peer.CreateMessage(4);
+            NetOutgoingMessage om = Peer.CreateMessage();
             om.Write(size);
             om._messageType = NetMessageType.ExpandMTUSuccess;
             int length = 0;
             om.Encode(Peer._sendBuffer, ref length, 0);
-            Peer.SendPacket(length, RemoteEndPoint, 1, out _);
             Peer.Recycle(om);
 
-            //m_peer.LogDebug("Received MTU expand request for " + size + " bytes");
+            Peer.SendPacket(length, RemoteEndPoint, 1, out _);
 
-            Statistics.PacketSent(length, 1);
+            //m_peer.LogDebug("Received MTU expand request for " + size + " bytes");
         }
 
         private void HandleExpandMTUSuccess(TimeSpan now, int size)

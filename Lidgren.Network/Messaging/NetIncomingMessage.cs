@@ -19,6 +19,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 using System.Net;
 using System.Diagnostics;
 using System;
+using System.Buffers;
 
 namespace Lidgren.Network
 {
@@ -66,16 +67,14 @@ namespace Lidgren.Network
         /// </summary>
         public int SequenceChannel => (int)_baseMessageType - (int)DeliveryMethod;
 
-        public NetIncomingMessage(byte[]? buffer, NetIncomingMessageType type = default) : base(buffer)
+        public NetIncomingMessage(ArrayPool<byte> storagePool) : base(storagePool)
         {
-            MessageType = type;
         }
 
         internal void Reset()
         {
             _baseMessageType = NetMessageType.LibraryError;
             MessageType = NetIncomingMessageType.Error;
-            BitPosition = 0;
             BitLength = 0;
             SenderConnection = null;
             IsFragment = false;

@@ -1,9 +1,10 @@
 ﻿using System;
+using System.Buffers;
 using System.Text;
 
 namespace Lidgren.Network
 {
-    public partial class NetBuffer : IBitBuffer
+    public class NetBuffer : IBitBuffer
     {
         // TODO: rethink pooling (ArrayPool is probably the best candidate)
         //       implementing IDisposable for recycling/returning objects would also be wise
@@ -17,20 +18,15 @@ namespace Lidgren.Network
 
         private int _bitPosition;
         private int _bitLength;
-        internal byte[] _data; // TODO: hide this
+        private ArrayPool<byte> _storagePool;
+        private byte[] _buffer;
+        private bool _recycleData;
         private bool _isDisposed;
-
-        public Span<byte> Span => _data.AsSpan();
 
         public int BitPosition
         {
             get => _bitPosition;
-            set
-            {
-                if (value < 0)
-                    throw new ArgumentOutOfRangeException(nameof(value));
-                _bitPosition = value;
-            }
+            set => _bitPosition = value;
         }
 
         public int BytePosition
@@ -46,6 +42,8 @@ namespace Lidgren.Network
             {
                 EnsureBitCapacity(value);
                 _bitLength = value;
+                if (_bitPosition > _bitLength)
+                    _bitPosition = _bitLength;
             }
         }
 
@@ -57,30 +55,31 @@ namespace Lidgren.Network
 
         public int BitCapacity
         {
-            get => _data.Length * 8;
+            get => _buffer.Length * 8;
             set => ByteCapacity = NetBitWriter.BytesForBits(value);
         }
 
         public int ByteCapacity
         {
-            get => _data.Length;
+            get => _buffer.Length;
             set
             {
                 if (value < 0)
                     throw new ArgumentOutOfRangeException(nameof(value));
 
-                if (_data.Length != value)
+                if (value > _buffer.Length)
                 {
-                    var newBuffer = new byte[value];
-                    _data.AsMemory(0, ByteLength).CopyTo(newBuffer);
-                    _data = newBuffer;
+                    var newBuffer = _storagePool.Rent(value);
+                    _buffer.AsMemory(0, ByteLength).CopyTo(newBuffer);
+                    SetBuffer(newBuffer);
                 }
             }
         }
 
-        public NetBuffer(byte[]? buffer)
+        public NetBuffer(ArrayPool<byte> storagePool)
         {
-            _data = buffer ?? Array.Empty<byte>();
+            _storagePool = storagePool ?? throw new ArgumentNullException(nameof(storagePool));
+            _buffer = Array.Empty<byte>();
         }
 
         public void EnsureBitCapacity(int bitCount)
@@ -102,12 +101,40 @@ namespace Lidgren.Network
             this.SetLengthByPosition();
         }
 
+        public byte[] GetBuffer()
+        {
+            return _buffer;
+        }
+
+        public void SetBuffer(byte[] buffer, bool isRecyclable = true)
+        {
+            if (_recycleData)
+                _storagePool.Return(_buffer);
+
+            _buffer = buffer ?? throw new ArgumentNullException(nameof(buffer));
+            _recycleData = buffer.Length > 0 && isRecyclable;
+        }
+
+        public void Trim()
+        {
+            if (_bitLength == 0)
+            {
+                if (_recycleData)
+                {
+                    _storagePool.Return(_buffer);
+                    _buffer = Array.Empty<byte>();
+                    _recycleData = false;
+                }
+            }
+        }
+
         protected virtual void Dispose(bool disposing)
         {
             if (!_isDisposed)
             {
                 if (disposing)
                 {
+                    Trim();
                 }
                 _isDisposed = true;
             }

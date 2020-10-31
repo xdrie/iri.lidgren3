@@ -127,9 +127,8 @@ namespace Lidgren.Network
 
             if (_peerConfiguration.IsMessageTypeEnabled(NetIncomingMessageType.StatusChanged))
             {
-                NetIncomingMessage info = Peer.CreateIncomingMessage(
-                    NetIncomingMessageType.StatusChanged, 4 + reason.Length + (reason.Length > 126 ? 2 : 1));
-
+                NetIncomingMessage info = Peer.CreateIncomingMessage(NetIncomingMessageType.StatusChanged);
+                info.EnsureCapacity(4 + reason.Length + (reason.Length > 126 ? 2 : 1));
                 info.SenderConnection = this;
                 info.SenderEndPoint = RemoteEndPoint;
                 info.Write(Status);

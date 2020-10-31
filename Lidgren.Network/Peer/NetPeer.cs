@@ -7,6 +7,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Buffers;
 
 namespace Lidgren.Network
 {
@@ -72,6 +73,8 @@ namespace Lidgren.Network
         /// Gets the configuration used to instantiate this <see cref="NetPeer"/>.
         /// </summary>
         public NetPeerConfiguration Configuration { get; }
+
+        public ArrayPool<byte> StoragePool => Configuration.StoragePool;
 
         /// <summary>
         /// Signalling event which can be waited on to determine when a message may be queued for reading.

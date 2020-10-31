@@ -6,16 +6,16 @@ namespace Lidgren.Network
     /// <summary>
     /// Base for a block based encryption class. This class is not thread-safe.
     /// </summary>
-    public abstract class NetBlockEncryptionBase : NetEncryption
+    public abstract class NetBlockEncryption : NetEncryption
     {
         private byte[] _buffer;
 
         /// <summary>
-        /// Block size in bytes for this cipher
+        /// Block size in bytes for this cipher.
         /// </summary>
         public abstract int BlockSize { get; }
 
-        public NetBlockEncryptionBase(NetPeer peer) : base(peer)
+        public NetBlockEncryption(NetPeer peer) : base(peer)
         {
             _buffer = new byte[BlockSize];
         }
@@ -50,7 +50,7 @@ namespace Lidgren.Network
             message.BitPosition = 0;
 
             var buffer = _buffer.AsSpan();
-            var messageBuffer = message.Span;
+            var messageBuffer = message.GetBuffer().AsSpan();
             for (int i = 0; i < numBlocks; i++)
             {
                 var messageSlice = messageBuffer.Slice(i * blockSize);
@@ -83,7 +83,7 @@ namespace Lidgren.Network
                 return false;
 
             var buffer = _buffer.AsSpan();
-            var messageBuffer = message.Span;
+            var messageBuffer = message.GetBuffer().AsSpan();
             for (int i = 0; i < numBlocks; i++)
             {
                 var messageSlice = messageBuffer.Slice(i * blockSize);

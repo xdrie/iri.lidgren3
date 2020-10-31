@@ -7,6 +7,16 @@ namespace Lidgren.Network
     public static class BitBufferExtensions
     {
         /// <summary>
+        /// Ensures that the buffer can hold this number of bytes.
+        /// </summary>
+        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void EnsureCapacity(this IBitBuffer buffer, int byteCount)
+        {
+            buffer.EnsureBitCapacity(byteCount * 8);
+        }
+
+        /// <summary>
         /// Ensures the buffer can hold it's current bits and the given amount.
         /// </summary>
         [SuppressMessage("Design", "CA1062", Justification = "Performance")]

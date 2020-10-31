@@ -24,7 +24,7 @@ namespace Lidgren.Network
     /// <summary>
     /// Methods to encrypt and decrypt data using the XTEA algorithm.
     /// </summary>
-    public sealed class NetXteaEncryption : NetBlockEncryptionBase
+    public sealed class NetXteaEncryption : NetBlockEncryption
     {
         private const int KeySize = 16;
         //private const int c_delta = unchecked((int)0x9E3779B9);
@@ -38,24 +38,16 @@ namespace Lidgren.Network
         /// </summary>
         public override int BlockSize => 8;
 
-        private NetXteaEncryption(NetPeer peer, int rounds) : base(peer)
+        public override bool SupportsIV => false;
+
+        public NetXteaEncryption(NetPeer peer, int rounds = 32) : base(peer)
         {
             _rounds = rounds;
             _sum0 = new uint[_rounds];
             _sum1 = new uint[_rounds];
         }
 
-        public NetXteaEncryption(NetPeer peer, ReadOnlySpan<byte> key, int rounds = 32) : this(peer, rounds)
-        {
-            SetKey(key);
-        }
-
-        public NetXteaEncryption(NetPeer peer, ReadOnlySpan<char> key, int rounds = 32) : this(peer, rounds)
-        {
-            SetKey(key);
-        }
-
-        public override void SetKey(ReadOnlySpan<byte> data)
+        public override void SetKey(byte[] data)
         {
             Span<byte> hash = stackalloc byte[NetBitWriter.BytesForBits(NetUtility.Sha256.HashSize)];
             var key = data.Length > KeySize ? hash : data;
@@ -63,7 +55,7 @@ namespace Lidgren.Network
             if (data.Length > KeySize)
                 if (!NetUtility.Sha256.TryComputeHash(data, hash, out _))
                     throw new Exception();
-
+            
             Span<uint> tmp = stackalloc uint[8];
             int i = 0;
             int j = 0;
@@ -79,6 +71,12 @@ namespace Lidgren.Network
                 j += -1640531527;
                 _sum1[i] = ((uint)j) + tmp[(j >> 11) & 3];
             }
+        }
+
+        public override void SetIV(byte[] iv)
+        {
+            // TODO:
+            throw new NotSupportedException();
         }
 
         protected override void EncryptBlock(ReadOnlySpan<byte> source, Span<byte> destination)

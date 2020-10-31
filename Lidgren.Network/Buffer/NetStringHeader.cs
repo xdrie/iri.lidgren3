@@ -11,38 +11,43 @@ namespace Lidgren.Network
         public int CharCount { get; }
         public int? ByteCount { get; }
 
+        /// <summary>
+        /// <see cref="MaxByteCount"/> if <see cref="ByteCount"/> is <see langword="null"/>,
+        /// otherwise <see cref="ByteCount"/>.
+        /// </summary>
+        public int ExpectedByteCount => ByteCount ?? MaxByteCount;
+
         public int MaxByteCount => NetBuffer.StringEncoding.GetMaxByteCount(CharCount);
         public int MaxByteCountVarSize => NetBitWriter.GetVarIntSize((uint)MaxByteCount);
         public int CharCountVarSize => NetBitWriter.GetVarIntSize((uint)CharCount);
-        public int ByteCountVarSize => NetBitWriter.GetVarIntSize((uint)(ByteCount ?? MaxByteCount));
+        public int ExpectedByteCountVarSize => NetBitWriter.GetVarIntSize((uint)ExpectedByteCount);
 
         /// <summary>
         /// Gets the size of the header in bytes. 
-        ///  <see cref="MaxByteCount"/> is used if <see cref="ByteCount"/> is <see langword="null"/>.
         /// </summary>
-        public int Size => CharCountVarSize + ByteCountVarSize;
+        public int HeaderSize => CharCountVarSize + ExpectedByteCountVarSize;
 
-        public NetStringHeader(int charLength, int? byteLength)
+        public NetStringHeader(int charCount, int? byteCount)
         {
-            if (charLength < 0)
-                throw new ArgumentOutOfRangeException(nameof(charLength));
-            if (byteLength < 0)
-                throw new ArgumentOutOfRangeException(nameof(byteLength));
+            if (charCount < 0)
+                throw new ArgumentOutOfRangeException(nameof(charCount));
+            if (byteCount < 0)
+                throw new ArgumentOutOfRangeException(nameof(byteCount));
 
-            CharCount = charLength;
-            ByteCount = byteLength;
+            CharCount = charCount;
+            ByteCount = byteCount;
         }
 
         [CLSCompliant(false)]
-        public NetStringHeader(uint charLength, uint? byteLength)
+        public NetStringHeader(uint charCount, uint? byteCount)
         {
-            if (charLength > int.MaxValue)
-                throw new ArgumentOutOfRangeException(nameof(charLength));
-            if (byteLength > int.MaxValue)
-                throw new ArgumentOutOfRangeException(nameof(byteLength));
+            if (charCount > int.MaxValue)
+                throw new ArgumentOutOfRangeException(nameof(charCount));
+            if (byteCount > int.MaxValue)
+                throw new ArgumentOutOfRangeException(nameof(byteCount));
 
-            CharCount = (int)charLength;
-            ByteCount = (int?)byteLength;
+            CharCount = (int)charCount;
+            ByteCount = (int?)byteCount;
         }
 
         public bool Equals(NetStringHeader other)

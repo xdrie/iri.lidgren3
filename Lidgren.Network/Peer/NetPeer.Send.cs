@@ -248,10 +248,10 @@ namespace Lidgren.Network
             message._messageType = NetMessageType.Unconnected;
             message._isSent = true;
 
-            if (Configuration.IsMessageTypeEnabled(NetIncomingMessageType.UnconnectedData) == false)
+            if (!Configuration.IsMessageTypeEnabled(NetIncomingMessageType.UnconnectedData))
                 return; // dropping unconnected message since it's not enabled for receiving
 
-            var om = CreateIncomingMessage(NetIncomingMessageType.UnconnectedData, message.ByteLength);
+            var om = CreateIncomingMessage(NetIncomingMessageType.UnconnectedData);
             om.Write(message);
             om.IsFragment = false;
             om.ReceiveTime = NetTime.Now;

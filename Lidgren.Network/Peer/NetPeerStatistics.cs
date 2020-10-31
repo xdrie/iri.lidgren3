@@ -39,8 +39,6 @@ namespace Lidgren.Network
         internal int _sentBytes;
         internal int _receivedBytes;
 
-        internal long _totalBytesAllocated;
-
         internal NetPeerStatistics(NetPeer peer)
         {
             _peer = peer;
@@ -57,8 +55,6 @@ namespace Lidgren.Network
 
             _sentBytes = 0;
             _receivedBytes = 0;
-
-            _totalBytesAllocated = 0;
         }
 
         /// <summary>
@@ -91,16 +87,6 @@ namespace Lidgren.Network
         /// </summary>
         public int ReceivedBytes => _receivedBytes;
 
-        /// <summary>
-        /// Gets the number of bytes allocated (and possibly garbage collected) for message storage.
-        /// </summary>
-        public long StorageBytesAllocated => _totalBytesAllocated;
-
-        /// <summary>
-        /// Gets the number of bytes in the recycled pool.
-        /// </summary>
-        public int BytesInRecyclePool => _peer._bytesInPool;
-
         internal void PacketSent(int byteCount, int messageCount)
         {
             _sentPackets++;
@@ -132,10 +118,6 @@ namespace Lidgren.Network
             sb.AppendFormatLine(
                 "Received {0} bytes in {1} messages ({2} fragments) in {3} packets", 
                 _receivedBytes, _receivedMessages, _receivedFragments, _receivedPackets);
-
-            sb.AppendLine();
-            sb.AppendFormatLine("Bytes in pool: {0}", BytesInRecyclePool);
-            sb.AppendFormatLine("Total bytes allocated: {0} bytes", _totalBytesAllocated);
 
             return sb.ToString();
         }

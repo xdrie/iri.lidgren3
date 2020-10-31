@@ -10,6 +10,7 @@ using System.Diagnostics;
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using System.Threading;
+using System.Buffers;
 
 namespace UnitTests
 {
@@ -115,15 +116,13 @@ namespace UnitTests
             Console.WriteLine("Tests finished");
         }
 
-        /// <summary>
-        /// Helper method
-        /// </summary>
         public static NetIncomingMessage CreateIncomingMessage(ReadOnlySpan<byte> fromData, int bitLength)
         {
-            var inc = new NetIncomingMessage(
-                fromData.Slice(0, NetBitWriter.BytesForBits(bitLength)).ToArray());
-            inc.BitLength = bitLength;
-            return inc;
+            var message = new NetIncomingMessage(ArrayPool<byte>.Shared);
+            message.Write(fromData);
+            message.BitPosition = 0;
+            message.BitLength = bitLength;
+            return message;
         }
     }
 }

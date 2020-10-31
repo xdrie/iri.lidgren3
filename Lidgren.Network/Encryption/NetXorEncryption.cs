@@ -10,22 +10,20 @@ namespace Lidgren.Network
     {
         private byte[] _key = Array.Empty<byte>();
 
-        public NetXorEncryption(NetPeer peer, ReadOnlySpan<byte> key) : base(peer)
+        public override bool SupportsIV => false;
+
+        public NetXorEncryption(NetPeer peer) : base(peer)
         {
-            SetKey(key);
         }
 
-        public NetXorEncryption(NetPeer peer, ReadOnlySpan<char> key) : base(peer)
+        public override void SetKey(byte[] data)
         {
-            SetKey(key);
+            _key = (byte[])data.Clone();
         }
 
-        public override void SetKey(ReadOnlySpan<byte> data)
+        public override void SetIV(byte[] iv)
         {
-            if (data.IsEmpty)
-                throw new ArgumentException("Span may not be empty.", nameof(data));
-
-            _key = data.ToArray();
+            throw new NotSupportedException();
         }
 
         public override bool Encrypt(NetOutgoingMessage message)
@@ -33,8 +31,8 @@ namespace Lidgren.Network
             if (message == null)
                 throw new ArgumentNullException(nameof(message));
 
-            var data = message.Span;
-            var slice = data.Slice(0, message.ByteLength);
+            var data = message.GetBuffer();
+            var slice = data.AsSpan(0, message.ByteLength);
             for (int i = 0; i < slice.Length; i++)
             {
                 int offset = i % _key.Length;
@@ -48,8 +46,8 @@ namespace Lidgren.Network
             if (message == null)
                 throw new ArgumentNullException(nameof(message));
 
-            var data = message.Span;
-            var slice = data.Slice(0, message.ByteLength);
+            var data = message.GetBuffer();
+            var slice = data.AsSpan(0, message.ByteLength);
             for (int i = 0; i < slice.Length; i++)
             {
                 int offset = i % _key.Length;

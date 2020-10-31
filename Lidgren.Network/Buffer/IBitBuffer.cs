@@ -28,11 +28,16 @@ namespace Lidgren.Network
         /// </summary>
         int BytePosition { get; set; }
 
-        Span<byte> Span { get; }
-
         /// <summary>
         /// Ensures that the buffer can hold this number of bits.
         /// </summary>
         void EnsureBitCapacity(int bitCount);
+
+        /// <summary>
+        /// Reduces capacity.
+        /// </summary>
+        void Trim();
+
+        byte[] GetBuffer();
     }
 }

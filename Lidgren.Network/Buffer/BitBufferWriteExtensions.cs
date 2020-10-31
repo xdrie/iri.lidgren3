@@ -19,7 +19,7 @@ namespace Lidgren.Network
                 return;
 
             buffer.EnsureEnoughBitCapacity(bitCount);
-            NetBitWriter.CopyBits(source, sourceBitOffset, bitCount, buffer.Span, buffer.BitPosition);
+            NetBitWriter.CopyBits(source, sourceBitOffset, bitCount, buffer.GetBuffer(), buffer.BitPosition);
             buffer.IncrementBitPosition(bitCount);
         }
 
@@ -45,7 +45,7 @@ namespace Lidgren.Network
             }
 
             buffer.EnsureEnoughBitCapacity(source.Length * 8);
-            source.CopyTo(buffer.Span.Slice(buffer.BytePosition));
+            source.CopyTo(buffer.GetBuffer().AsSpan(buffer.BytePosition));
             buffer.IncrementBitPosition(source.Length * 8);
         }
 
@@ -58,7 +58,7 @@ namespace Lidgren.Network
         public static void Write(this IBitBuffer buffer, bool value)
         {
             buffer.EnsureEnoughBitCapacity(1);
-            NetBitWriter.WriteByteUnchecked(value ? 1 : 0, 1, buffer.Span, buffer.BitPosition);
+            NetBitWriter.WriteByteUnchecked(value ? 1 : 0, 1, buffer.GetBuffer(), buffer.BitPosition);
             buffer.IncrementBitPosition(1);
         }
 
@@ -74,7 +74,7 @@ namespace Lidgren.Network
         public static void Write(this IBitBuffer buffer, sbyte value)
         {
             buffer.EnsureEnoughBitCapacity(8);
-            NetBitWriter.WriteByteUnchecked((byte)value, 8, buffer.Span, buffer.BitPosition);
+            NetBitWriter.WriteByteUnchecked((byte)value, 8, buffer.GetBuffer(), buffer.BitPosition);
             buffer.IncrementBitPosition(8);
         }
 
@@ -85,7 +85,7 @@ namespace Lidgren.Network
         public static void Write(this IBitBuffer buffer, byte value)
         {
             buffer.EnsureEnoughBitCapacity(8);
-            NetBitWriter.WriteByteUnchecked(value, 8, buffer.Span, buffer.BitPosition);
+            NetBitWriter.WriteByteUnchecked(value, 8, buffer.GetBuffer(), buffer.BitPosition);
             buffer.IncrementBitPosition(8);
         }
 
@@ -96,7 +96,7 @@ namespace Lidgren.Network
         public static void Write(this IBitBuffer buffer, byte source, int bitCount)
         {
             buffer.EnsureEnoughBitCapacity(bitCount, maxBitCount: 8);
-            NetBitWriter.WriteByteUnchecked(source, bitCount, buffer.Span, buffer.BitPosition);
+            NetBitWriter.WriteByteUnchecked(source, bitCount, buffer.GetBuffer(), buffer.BitPosition);
             buffer.IncrementBitPosition(bitCount);
         }
 
@@ -411,20 +411,24 @@ namespace Lidgren.Network
         [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         public static void Write(this IBitBuffer buffer, ReadOnlySpan<char> source)
         {
-            var initialHeader = new NetStringHeader(source.Length, null);
             if (source.IsEmpty)
             {
                 buffer.Write(NetStringHeader.Empty);
                 return;
             }
 
+            var initialHeader = new NetStringHeader(source.Length, null);
+            int headerBitCount = initialHeader.HeaderSize * 8;
+            buffer.EnsureBitCapacity(headerBitCount + initialHeader.ExpectedByteCount * 8);
+
             int startPosition = buffer.BitPosition;
-            buffer.BitPosition += initialHeader.Size * 8;
+            // Here we reserve space for the header.
+            buffer.BitPosition += headerBitCount;
 
             Span<byte> writeBuffer = stackalloc byte[4096];
-            int totalBytesWritten = 0;
+            int byteCount = 0;
             var charSource = source;
-            while (charSource.Length > 0)
+            do
             {
                 var status = Utf8.FromUtf16(
                     charSource, writeBuffer, out int charsRead, out int bytesWritten, true, true);
@@ -432,23 +436,24 @@ namespace Lidgren.Network
 
                 charSource = charSource.Slice(charsRead);
 
-                totalBytesWritten += bytesWritten;
+                byteCount += bytesWritten;
                 buffer.Write(writeBuffer.Slice(0, bytesWritten));
             }
-
-            if (charSource.Length > 0)
-                throw new Exception();
+            while (charSource.Length > 0);
 
             int endPosition = buffer.BitPosition;
+
+            // Write header with exact values in previously reserved space.
             buffer.BitPosition = startPosition;
-            buffer.Write(new NetStringHeader(source.Length, totalBytesWritten));
+            buffer.Write(new NetStringHeader(source.Length, byteCount));
+
             buffer.BitPosition = endPosition;
         }
 
         /// <summary>
         /// Writes a <see cref="string"/>.
         /// </summary>
-        public static void Write(this IBitBuffer buffer, string source)
+        public static void Write(this IBitBuffer buffer, string? source)
         {
             buffer.Write(source.AsSpan());
         }
@@ -506,7 +511,7 @@ namespace Lidgren.Network
             if (sourceBuffer == null)
                 throw new ArgumentNullException(nameof(sourceBuffer));
 
-            buffer.Write(sourceBuffer.Span, 0, sourceBuffer.BitLength);
+            buffer.Write(sourceBuffer.GetBuffer(), 0, sourceBuffer.BitLength);
         }
 
         public static void Write<TEnum>(this IBitBuffer buffer, TEnum value)
@@ -534,7 +539,7 @@ namespace Lidgren.Network
             {
                 buffer.WriteVar((uint)value.ByteCount);
 
-                int sizeDiff = value.MaxByteCountVarSize - value.ByteCountVarSize;
+                int sizeDiff = value.MaxByteCountVarSize - value.ExpectedByteCountVarSize;
                 if (sizeDiff > 0)
                 {
                     buffer.BitPosition -= 1; // rewind to last byte's high bit

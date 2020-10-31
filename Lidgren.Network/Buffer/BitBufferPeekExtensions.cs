@@ -20,7 +20,7 @@ namespace Lidgren.Network
             if (!buffer.HasEnough(bitCount))
                 return false;
 
-            NetBitWriter.CopyBits(buffer.Span, buffer.BitPosition, bitCount, destination, 0);
+            NetBitWriter.CopyBits(buffer.GetBuffer(), buffer.BitPosition, bitCount, destination, 0);
             return true;
         }
 
@@ -70,7 +70,7 @@ namespace Lidgren.Network
             if (!buffer.HasEnough(destination.Length))
                 return false;
 
-            buffer.Span.Slice(buffer.BytePosition, destination.Length).CopyTo(destination);
+            buffer.GetBuffer().AsSpan(buffer.BytePosition, destination.Length).CopyTo(destination);
             return true;
         }
 
@@ -91,7 +91,7 @@ namespace Lidgren.Network
         {
             if (!buffer.HasEnough(1))
                 throw new EndOfMessageException();
-            return NetBitWriter.ReadByteUnchecked(buffer.Span, buffer.BitPosition, 1) > 0;
+            return NetBitWriter.ReadByteUnchecked(buffer.GetBuffer(), buffer.BitPosition, 1) > 0;
         }
 
         /// <summary>
@@ -103,7 +103,7 @@ namespace Lidgren.Network
         {
             if (!buffer.HasEnough(8))
                 throw new EndOfMessageException();
-            return (sbyte)NetBitWriter.ReadByteUnchecked(buffer.Span, buffer.BitPosition, 8);
+            return (sbyte)NetBitWriter.ReadByteUnchecked(buffer.GetBuffer(), buffer.BitPosition, 8);
         }
 
         /// <summary>
@@ -114,7 +114,7 @@ namespace Lidgren.Network
         {
             if (!buffer.HasEnough(8))
                 throw new EndOfMessageException();
-            return NetBitWriter.ReadByteUnchecked(buffer.Span, buffer.BitPosition, 8);
+            return NetBitWriter.ReadByteUnchecked(buffer.GetBuffer(), buffer.BitPosition, 8);
         }
 
         /// <summary>
@@ -125,7 +125,7 @@ namespace Lidgren.Network
         {
             if (!buffer.HasEnough(bitCount))
                 throw new EndOfMessageException();
-            return NetBitWriter.ReadByte(buffer.Span, buffer.BitPosition, bitCount);
+            return NetBitWriter.ReadByte(buffer.GetBuffer(), buffer.BitPosition, bitCount);
         }
 
         #region Int16

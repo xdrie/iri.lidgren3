@@ -198,7 +198,7 @@ namespace Lidgren.Network
             if (LocalHailMessage == null)
                 return;
 
-            var hi = LocalHailMessage.Span;
+            var hi = LocalHailMessage.GetBuffer();
             if (hi.Length >= LocalHailMessage.ByteLength)
             {
                 if (om.ByteLength + LocalHailMessage.ByteLength > _peerConfiguration._maximumTransmissionUnit - 10)
@@ -208,13 +208,13 @@ namespace Lidgren.Network
                         (_peerConfiguration._maximumTransmissionUnit - 10 - om.ByteLength));
                 }
 
-                om.Write(hi.Slice(0, LocalHailMessage.ByteLength));
+                om.Write(hi.AsSpan(0, LocalHailMessage.ByteLength));
             }
         }
 
         internal void SendConnectionEstablished()
         {
-            NetOutgoingMessage om = Peer.CreateMessage(4);
+            NetOutgoingMessage om = Peer.CreateMessage();
             om._messageType = NetMessageType.ConnectionEstablished;
             om.Write(NetTime.Now);
             Peer.SendLibraryMessage(om, RemoteEndPoint);
@@ -291,12 +291,13 @@ namespace Lidgren.Network
                     if (Status == NetConnectionStatus.ReceivedInitiation)
                     {
                         // Whee! Server full has already been checked
-                        if (ValidateHandshakeData(offset, payloadLength, out byte[]? hail))
+                        if (ValidateHandshakeData(offset, payloadLength, out byte[]? hail, out int hailLength))
                         {
                             if (hail != null)
                             {
-                                RemoteHailMessage = Peer.CreateIncomingMessage(hail, NetIncomingMessageType.Data);
-                                RemoteHailMessage.ByteLength = hail.Length;
+                                RemoteHailMessage = Peer.CreateIncomingMessage(NetIncomingMessageType.Data);
+                                RemoteHailMessage.SetBuffer(hail, true);
+                                RemoteHailMessage.ByteLength = hailLength;
                             }
                             else
                             {
@@ -306,16 +307,14 @@ namespace Lidgren.Network
                             if (_peerConfiguration.IsMessageTypeEnabled(NetIncomingMessageType.ConnectionApproval))
                             {
                                 // ok, let's not add connection just yet
-                                var appMsg = Peer.CreateIncomingMessage(
-                                    NetIncomingMessageType.ConnectionApproval,
-                                    RemoteHailMessage == null ? 0 : RemoteHailMessage.ByteLength);
+                                var appMsg = Peer.CreateIncomingMessage(NetIncomingMessageType.ConnectionApproval);
 
                                 appMsg.ReceiveTime = now;
                                 appMsg.SenderConnection = this;
                                 appMsg.SenderEndPoint = RemoteEndPoint;
 
                                 if (RemoteHailMessage != null)
-                                    appMsg.Write(RemoteHailMessage.Span.Slice(0, RemoteHailMessage.ByteLength));
+                                    appMsg.Write(RemoteHailMessage.GetBuffer().AsSpan(0, RemoteHailMessage.ByteLength));
 
                                 SetStatus(NetConnectionStatus.RespondedAwaitingApproval, "Awaiting approval");
                                 Peer.ReleaseMessage(appMsg);
@@ -413,18 +412,16 @@ namespace Lidgren.Network
 
         private void HandleConnectResponse(int offset, int payloadLength)
         {
-            byte[]? hail;
             switch (Status)
             {
                 case NetConnectionStatus.InitiatedConnect:
-                    // awesome
-                    bool ok = ValidateHandshakeData(offset, payloadLength, out hail);
-                    if (ok)
+                    if (ValidateHandshakeData(offset, payloadLength, out byte[]? hail, out int hailLength))
                     {
                         if (hail != null)
                         {
-                            RemoteHailMessage = Peer.CreateIncomingMessage(hail, NetIncomingMessageType.Data);
-                            RemoteHailMessage.BitLength = hail.Length * 8;
+                            RemoteHailMessage = Peer.CreateIncomingMessage(NetIncomingMessageType.Data);
+                            RemoteHailMessage.SetBuffer(hail, true);
+                            RemoteHailMessage.ByteLength = hailLength;
                         }
                         else
                         {
@@ -438,14 +435,14 @@ namespace Lidgren.Network
                     break;
 
                 case NetConnectionStatus.RespondedConnect:
-                    // hello, wtf?
+                    // hello?
                     break;
 
                 case NetConnectionStatus.Disconnecting:
                 case NetConnectionStatus.Disconnected:
                 case NetConnectionStatus.ReceivedInitiation:
                 case NetConnectionStatus.None:
-                    // wtf? anyway, bye!
+                    // anyway, bye!
                     break;
 
                 case NetConnectionStatus.Connected:
@@ -455,7 +452,7 @@ namespace Lidgren.Network
             }
         }
 
-        private bool ValidateHandshakeData(int offset, int payloadLength, out byte[]? hail)
+        private bool ValidateHandshakeData(int offset, int payloadLength, out byte[]? hail, out int hailLength)
         {
             // create temporary incoming message
             NetIncomingMessage msg = Peer.SetupReadHelperMessage(offset, payloadLength);
@@ -465,11 +462,11 @@ namespace Lidgren.Network
                 long remoteUniqueIdentifier = msg.ReadInt64();
                 InitializeRemoteTimeOffset(msg.ReadTimeSpan());
 
-                int remainingBytes = payloadLength - (msg.BytePosition - offset);
-                if (remainingBytes > 0)
+                hailLength = payloadLength - (msg.BytePosition - offset);
+                if (hailLength > 0)
                 {
-                    hail = new byte[remainingBytes];
-                    msg.Read(hail);
+                    hail = Peer.StoragePool.Rent(hailLength);
+                    msg.Read(hail.AsSpan(0, hailLength));
                 }
                 else
                     hail = null;
@@ -490,6 +487,7 @@ namespace Lidgren.Network
                 Peer.LogWarning("ReadRemoteHandshakeData failed: " + ex.Message);
 
                 hail = null;
+                hailLength = 0;
                 return false;
             }
         }

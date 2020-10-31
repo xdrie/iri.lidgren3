@@ -178,8 +178,6 @@ namespace Lidgren.Network
                 if (Configuration._enableUPnP)
                     UPnP = new NetUPnP(this);
 
-                InitializePools();
-
                 ReleasedIncomingMessages.Clear();
                 UnsentUnconnectedMessages.Clear();
                 Handshakes.Clear();
@@ -189,7 +187,9 @@ namespace Lidgren.Network
 
                 _receiveBuffer = new byte[Configuration.ReceiveBufferSize];
                 _sendBuffer = new byte[Configuration.SendBufferSize];
-                _readHelperMessage = new NetIncomingMessage(_receiveBuffer, NetIncomingMessageType.Error);
+
+                _readHelperMessage = CreateIncomingMessage(NetIncomingMessageType.Error);
+                _readHelperMessage.SetBuffer(_receiveBuffer, false); // TODO: recycle
 
                 var epBytes = MemoryMarshal.AsBytes(socket.LocalEndPoint.ToString().AsSpan());
                 var macBytes = NetUtility.GetPhysicalAddress()?.GetAddressBytes() ?? Array.Empty<byte>();
@@ -481,19 +481,20 @@ namespace Lidgren.Network
                                 return; // dropping unconnected message since it's not enabled
 
                             var messageType = type >= NetMessageType.UserNetStream1
-                                ? NetIncomingMessageType.StreamData 
+                                ? NetIncomingMessageType.StreamData
                                 : NetIncomingMessageType.Data;
 
-                            var msg = CreateIncomingMessage(messageType, payloadByteLength);
+                            var msg = CreateIncomingMessage(messageType);
                             msg._baseMessageType = type;
                             msg.IsFragment = isFragment;
                             msg.ReceiveTime = now;
                             msg.SequenceNumber = sequenceNumber;
                             msg.SenderConnection = sender;
                             msg.SenderEndPoint = senderEndPoint;
-                            msg.BitLength = payloadBitLength;
 
-                            _receiveBuffer.AsSpan(offset, payloadByteLength).CopyTo(msg.Span);
+                            msg.Write(_receiveBuffer.AsSpan(offset, payloadByteLength));
+                            msg.BitLength = payloadBitLength;
+                            msg.BitPosition = 0;
 
                             if (sender != null)
                             {
@@ -579,13 +580,15 @@ namespace Lidgren.Network
             if (!Configuration.IsMessageTypeEnabled(NetIncomingMessageType.DiscoveryRequest))
                 return;
 
-            var dr = CreateIncomingMessage(NetIncomingMessageType.DiscoveryRequest, payloadByteLength);
+            var dr = CreateIncomingMessage(NetIncomingMessageType.DiscoveryRequest);
             if (payloadByteLength > 0)
-                _receiveBuffer.AsSpan(offset, payloadByteLength).CopyTo(dr.Span);
+            {
+                dr.Write(_receiveBuffer.AsSpan(offset, payloadByteLength));
+                dr.BitPosition = 0;
+            }
 
             dr.ReceiveTime = now;
             dr.SenderEndPoint = senderEndPoint;
-            dr.BitLength = payloadByteLength * 8;
             ReleaseMessage(dr);
         }
 
@@ -595,13 +598,15 @@ namespace Lidgren.Network
             if (!Configuration.IsMessageTypeEnabled(NetIncomingMessageType.DiscoveryResponse))
                 return;
 
-            var dr = CreateIncomingMessage(NetIncomingMessageType.DiscoveryResponse, payloadByteLength);
+            var dr = CreateIncomingMessage(NetIncomingMessageType.DiscoveryResponse);
             if (payloadByteLength > 0)
-                _receiveBuffer.AsSpan(offset, payloadByteLength).CopyTo(dr.Span);
+            {
+                dr.Write(_receiveBuffer.AsSpan(offset, payloadByteLength));
+                dr.BitPosition = 0;
+            }
 
             dr.ReceiveTime = now;
             dr.SenderEndPoint = senderEndPoint;
-            dr.BitLength = payloadByteLength * 8;
             ReleaseMessage(dr);
         }
 
@@ -733,9 +738,11 @@ namespace Lidgren.Network
         {
             var ct = Thread.CurrentThread;
             if (ct != _networkThread)
+            {
                 throw new LidgrenException(
                     "Executing on wrong thread. " +
                     "Should be library thread (is " + ct.Name + ", ManagedThreadId " + ct.ManagedThreadId + ")");
+            }
         }
 
         internal NetIncomingMessage SetupReadHelperMessage(int offset, int payloadLength)

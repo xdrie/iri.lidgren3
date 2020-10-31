@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Runtime.InteropServices;
 
 namespace Lidgren.Network
 {
@@ -12,6 +11,8 @@ namespace Lidgren.Network
 
         public bool IsDisposed { get; private set; }
 
+        public abstract bool SupportsIV { get; }
+
         /// <summary>
         /// Constructs the base encryption object.
         /// </summary>
@@ -20,12 +21,9 @@ namespace Lidgren.Network
             Peer = peer ?? throw new ArgumentNullException(nameof(peer));
         }
 
-        public void SetKey(ReadOnlySpan<char> data)
-        {
-            SetKey(MemoryMarshal.AsBytes(data));
-        }
+        public abstract void SetKey(byte[] key);
 
-        public abstract void SetKey(ReadOnlySpan<byte> data);
+        public abstract void SetIV(byte[] iv);
 
         /// <summary>
         /// Encrypt an outgoing message in place.

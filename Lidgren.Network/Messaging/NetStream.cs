@@ -261,7 +261,7 @@ namespace Lidgren.Network
 
         private NetSendResult SendClose()
         {
-            var message = Peer.CreateMessage(1);
+            var message = Peer.CreateMessage();
             message.Write((byte)NetStreamMessageType.Close);
             return SendStreamMessage(message);
         }

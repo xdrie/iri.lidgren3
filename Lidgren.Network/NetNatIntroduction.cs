@@ -95,7 +95,7 @@ namespace Lidgren.Network
             //
             // Release punch success to client; enabling him to Connect() to msg.SenderIPEndPoint if token is ok
             //
-            var punchSuccess = CreateIncomingMessage(NetIncomingMessageType.NatIntroductionSuccess, 10);
+            var punchSuccess = CreateIncomingMessage(NetIncomingMessageType.NatIntroductionSuccess);
             punchSuccess.SenderEndPoint = senderEndPoint;
             punchSuccess.Write(token);
             ReleaseMessage(punchSuccess);

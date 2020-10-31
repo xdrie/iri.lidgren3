@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 using System.Diagnostics;
 
 namespace Lidgren.Network
@@ -15,12 +16,12 @@ namespace Lidgren.Network
 
         internal int _fragmentGroup;             // which group of fragments ths belongs to
         internal int _fragmentGroupTotalBits;    // total number of bits in this group
-        internal int _fragmentChunkByteSize;	  // size, in bytes, of every chunk but the last one
+        internal int _fragmentChunkByteSize;	 // size, in bytes, of every chunk but the last one
         internal int _fragmentChunkNumber;       // which number chunk this is, starting with 0
 
         internal string DebuggerDisplay => $"BitLength = {BitLength}";
 
-        public NetOutgoingMessage(byte[]? buffer) : base(buffer)
+        public NetOutgoingMessage(ArrayPool<byte> storagePool) : base(storagePool)
         {
         }
 
@@ -50,7 +51,7 @@ namespace Lidgren.Network
                 destination[offset++] = (byte)(BitLength >> 8);
 
                 int byteLen = NetBitWriter.BytesForBits(BitLength);
-                Span.Slice(0, byteLen).CopyTo(destination.Slice(offset));
+                GetBuffer().AsSpan(0, byteLen).CopyTo(destination.Slice(offset));
                 offset += byteLen;
             }
             else
@@ -72,7 +73,7 @@ namespace Lidgren.Network
                 destination[baseOffset + 1] = (byte)(actualBitLength >> 8);
 
                 int byteLen = NetBitWriter.BytesForBits(BitLength);
-                Span.Slice(_fragmentChunkNumber * _fragmentChunkByteSize, byteLen).CopyTo(destination.Slice(offset));
+                GetBuffer().AsSpan(_fragmentChunkNumber * _fragmentChunkByteSize, byteLen).CopyTo(destination.Slice(offset));
                 offset += byteLen;
             }
         }

@@ -23,7 +23,7 @@ namespace Lidgren.Network
             if (!buffer.HasEnough(bitCount))
                 return false;
 
-            NetBitWriter.CopyBits(buffer.Span, buffer.BitPosition, bitCount, destination, 0);
+            NetBitWriter.CopyBits(buffer.GetBuffer(), buffer.BitPosition, bitCount, destination, 0);
             buffer.BitPosition += bitCount;
             return true;
         }
@@ -73,7 +73,7 @@ namespace Lidgren.Network
             if (!buffer.HasEnough(destination.Length))
                 return false;
 
-            buffer.Span.Slice(buffer.BytePosition, destination.Length).CopyTo(destination);
+            buffer.GetBuffer().AsSpan(buffer.BytePosition, destination.Length).CopyTo(destination);
             buffer.BitPosition += destination.Length * 8;
             return true;
         }
@@ -137,7 +137,7 @@ namespace Lidgren.Network
             if (!buffer.HasEnough(1))
                 throw new EndOfMessageException();
 
-            byte value = NetBitWriter.ReadByteUnchecked(buffer.Span, buffer.BitPosition, 1);
+            byte value = NetBitWriter.ReadByteUnchecked(buffer.GetBuffer(), buffer.BitPosition, 1);
             buffer.BitPosition += 1;
             return value > 0;
         }
@@ -159,7 +159,7 @@ namespace Lidgren.Network
                 return false;
             }
 
-            result = NetBitWriter.ReadByteUnchecked(buffer.Span, buffer.BitPosition, 8);
+            result = NetBitWriter.ReadByteUnchecked(buffer.GetBuffer(), buffer.BitPosition, 8);
             buffer.BitPosition += 8;
             return true;
         }
@@ -185,7 +185,7 @@ namespace Lidgren.Network
             if (!buffer.HasEnough(bitCount))
                 throw new EndOfMessageException();
             
-            byte value = NetBitWriter.ReadByte(buffer.Span, buffer.BitPosition, bitCount);
+            byte value = NetBitWriter.ReadByte(buffer.GetBuffer(), buffer.BitPosition, bitCount);
             buffer.BitPosition += bitCount;
             return value;
         }
@@ -595,7 +595,7 @@ namespace Lidgren.Network
 
             if (buffer.IsByteAligned())
             {
-                var source = buffer.Span.Slice(buffer.BytePosition, byteCount);
+                var source = buffer.GetBuffer().AsSpan(buffer.BytePosition, byteCount);
                 var status = Utf8.ToUtf16(source, destination, out bytesRead, out charsWritten, false, false);
                 buffer.BitPosition += bytesRead * 8;
                 return status;

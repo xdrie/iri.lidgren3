@@ -18,6 +18,7 @@ USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
 using System;
+using System.Buffers;
 using System.Net;
 
 namespace Lidgren.Network
@@ -44,7 +45,7 @@ namespace Lidgren.Network
         /// Default MTU value in bytes.
         /// </summary>
         public const int DefaultMTU = 1408;
-        
+
         private const string IsLockedMessage =
             "You may not modify the configuration after it has been used to initialize a NetPeer.";
 
@@ -53,10 +54,10 @@ namespace Lidgren.Network
         private IPAddress _localAddress;
         private IPAddress _broadcastAddress;
         private bool _dualStack;
+        private ArrayPool<byte> _storagePool;
 
         internal bool _acceptIncomingConnections;
         internal int _maximumConnections;
-        internal int _defaultOutgoingMessageCapacity;
         internal TimeSpan _pingInterval;
         internal bool _useMessageRecycling;
         internal TimeSpan _connectionTimeout;
@@ -89,7 +90,7 @@ namespace Lidgren.Network
             if (string.IsNullOrEmpty(appIdentifier))
                 throw new LidgrenException("App identifier must be at least one character long.");
             AppIdentifier = appIdentifier;
-            
+
             _disabledTypes =
                 NetIncomingMessageType.ConnectionApproval |
                 NetIncomingMessageType.UnconnectedData |
@@ -99,17 +100,14 @@ namespace Lidgren.Network
 
             _networkThreadName = "Lidgren Network Thread";
             _localAddress = IPAddress.Any;
-            _broadcastAddress = IPAddress.Broadcast;
-            var ip = NetUtility.RetrieveBroadcastAddress();
-            if (ip != null)
-                _broadcastAddress = ip;
+            _broadcastAddress = NetUtility.RetrieveBroadcastAddress() ?? IPAddress.Broadcast;
+            _storagePool = ArrayPool<byte>.Shared;
 
             _port = 0;
             _receiveBufferSize = 131071;
             _sendBufferSize = 131071;
             _acceptIncomingConnections = false;
             _maximumConnections = 32;
-            _defaultOutgoingMessageCapacity = 16;
             _pingInterval = TimeSpan.FromSeconds(4);
             _connectionTimeout = TimeSpan.FromSeconds(25);
             _useMessageRecycling = true;
@@ -182,6 +180,12 @@ namespace Lidgren.Network
         /// </summary>
         public NetUnreliableSizeBehaviour UnreliableSizeBehaviour { get; set; }
 
+        public ArrayPool<byte> StoragePool
+        {
+            get => _storagePool;
+            set => _storagePool = value ?? ArrayPool<byte>.Shared;
+        }
+
         /// <summary>
         /// Gets or sets the name of the library network thread.
         /// <para>
@@ -234,15 +238,6 @@ namespace Lidgren.Network
                     throw new LidgrenException("MaximumTransmissionUnit must be between 1 and " + (((ushort.MaxValue + 1) / 8) - 1) + " bytes");
                 _maximumTransmissionUnit = value;
             }
-        }
-
-        /// <summary>
-        /// Gets or sets the default capacity for messages created by <see cref="NetPeer.CreateMessage()"/>.
-        /// </summary>
-        public int DefaultOutgoingMessageCapacity
-        {
-            get => _defaultOutgoingMessageCapacity;
-            set => _defaultOutgoingMessageCapacity = value;
         }
 
         /// <summary>

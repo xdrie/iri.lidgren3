@@ -194,7 +194,7 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Create XTEA symmetrical encryption object from sessionValue
+        /// Create XTEA symmetrical encryption object from <paramref name="sessionValue"/>.
         /// </summary>
         public static NetXteaEncryption CreateEncryption(NetPeer peer, ReadOnlySpan<byte> sessionValue)
         {
@@ -211,11 +211,13 @@ namespace Lidgren.Network
                     key[i] ^= hash[i + (j * 16)];
             }
 
-            return new NetXteaEncryption(peer, key);
+            var enc = new NetXteaEncryption(peer);
+            enc.SetKey(key.ToArray());
+            return enc;
         }
 
         /// <summary>
-        /// Create XTEA symmetrical encryption object from sessionValue
+        /// Create XTEA symmetrical encryption object from <paramref name="sessionValue"/>.
         /// </summary>
         public static NetXteaEncryption CreateEncryption(NetPeer peer, BigInteger sessionValue)
         {

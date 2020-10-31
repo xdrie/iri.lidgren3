@@ -66,13 +66,12 @@ namespace Lidgren.Network
 
             int bitsPerChunk = bytesPerChunk * 8;
             int bitsLeft = message.BitLength;
+            byte[] buffer = message.GetBuffer();
             for (int i = 0; i < numChunks; i++)
             {
-                int bitLength = bitsLeft > bitsPerChunk ? bitsPerChunk : bitsLeft;
-                NetOutgoingMessage chunk = CreateMessage(0);
-
-                chunk._data = message._data; // TODO: add api for accessing _data
-                chunk.BitLength = bitLength;
+                NetOutgoingMessage chunk = CreateMessage();
+                chunk.SetBuffer(buffer);
+                chunk.BitLength = Math.Min(bitsLeft, bitsPerChunk);
 
                 chunk._fragmentGroup = group;
                 chunk._fragmentGroupTotalBits = totalBytes * 8;
@@ -109,7 +108,7 @@ namespace Lidgren.Network
             // read fragmentation header and combine fragments
             int headerOffset = 0;
             if(!NetFragmentationHelper.ReadHeader(
-                message.Span,
+                message.GetBuffer(),
                 ref headerOffset,
                 out int group,
                 out int totalBits,
@@ -155,20 +154,25 @@ namespace Lidgren.Network
 
             // copy to data
             int offset = chunkNumber * chunkByteSize;
-            message.Span[headerOffset..message.ByteLength].CopyTo(info.Data.AsSpan(offset));
+            message.GetBuffer().AsSpan()[headerOffset..message.ByteLength].CopyTo(info.Data.AsSpan(offset));
 
             int chunkCount = info.ReceivedChunks.PopCount;
+
             //LogVerbose("Found fragment #" + chunkNumber + " in group " + group + " offset " + 
             //    offset + " of total bits " + totalBits + " (total chunks done " + cnt + ")");
 
             LogVerbose(
                 "Received fragment " + chunkNumber + " of " + totalChunkCount + " (" + chunkCount + " chunks received)");
 
-            if (info.ReceivedChunks.PopCount == totalChunkCount)
+            if (chunkCount == totalChunkCount)
             {
                 // Done! Transform this incoming message
-                message._data = info.Data; // TODO: add api for accessing _data
+                message.BitLength = 0;
+                message.Trim();
+
+                message.SetBuffer(info.Data);
                 message.BitLength = totalBits;
+
                 message.IsFragment = false;
 
                 LogVerbose(

@@ -10,7 +10,7 @@ namespace Lidgren.Network
         /// </summary>
         public void DiscoverLocalPeers(int serverPort)
         {
-            NetOutgoingMessage om = CreateMessage(0);
+            NetOutgoingMessage om = CreateMessage();
             om._messageType = NetMessageType.Discovery;
             UnsentUnconnectedMessages.Enqueue((new IPEndPoint(IPAddress.Broadcast, serverPort), om));
         }
@@ -33,7 +33,7 @@ namespace Lidgren.Network
         /// </summary>
         public void DiscoverKnownPeer(IPEndPoint endPoint)
         {
-            NetOutgoingMessage om = CreateMessage(0);
+            NetOutgoingMessage om = CreateMessage();
             om._messageType = NetMessageType.Discovery;
             UnsentUnconnectedMessages.Enqueue((endPoint, om));
         }
@@ -47,7 +47,7 @@ namespace Lidgren.Network
                 throw new ArgumentNullException(nameof(recipient));
 
             if (message == null)
-                message = CreateMessage(0);
+                message = CreateMessage();
             else
                 message.AssertNotSent(nameof(message));
 

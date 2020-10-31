@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Buffers;
 
 namespace Lidgren.Network
 {
@@ -7,6 +8,7 @@ namespace Lidgren.Network
         private TimeSpan _sentPingTime;
         private TimeSpan _timeoutDeadline = TimeSpan.MaxValue;
         private byte _sentPingNumber;
+        private NetOutgoingMessage _pingPongBuffer = new NetOutgoingMessage(ArrayPool<byte>.Shared);
 
         /// <summary>
         /// Gets the current average roundtrip time.
@@ -62,38 +64,32 @@ namespace Lidgren.Network
             Peer.AssertIsOnLibraryThread();
 
             _sentPingNumber++;
-
             _sentPingTime = NetTime.Now;
-            NetOutgoingMessage om = Peer.CreateMessage(1);
-            om.Write(_sentPingNumber); // truncating to 0-255
-            om._messageType = NetMessageType.Ping;
+
+            _pingPongBuffer.Reset();
+            _pingPongBuffer.Write(_sentPingNumber);
+            _pingPongBuffer._messageType = NetMessageType.Ping;
 
             int length = 0;
-            om.Encode(Peer._sendBuffer, ref length, 0);
+            _pingPongBuffer.Encode(Peer._sendBuffer, ref length, 0);
             Peer.SendPacket(length, RemoteEndPoint, 1, out _);
-
-            Statistics.PacketSent(length, 1);
-            Peer.Recycle(om);
         }
 
         internal void SendPong(byte pongNumber)
         {
             Peer.AssertIsOnLibraryThread();
 
-            NetOutgoingMessage om = Peer.CreateMessage(5);
-            om.Write(pongNumber);
+            _pingPongBuffer.Reset();
+            _pingPongBuffer.Write(pongNumber);
 
-            // we should update this value to reflect the exact point in time the packet is SENT
-            om.Write(NetTime.Now);
-            
-            om._messageType = NetMessageType.Pong;
+            // TODO: we should update this value to reflect the exact point in time the packet is SENT
+            _pingPongBuffer.Write(NetTime.Now);
+
+            _pingPongBuffer._messageType = NetMessageType.Pong;
 
             int length = 0;
-            om.Encode(Peer._sendBuffer, ref length, 0);
+            _pingPongBuffer.Encode(Peer._sendBuffer, ref length, 0);
             Peer.SendPacket(length, RemoteEndPoint, 1, out _);
-
-            Statistics.PacketSent(length, 1);
-            Peer.Recycle(om);
         }
 
         internal void ReceivedPong(TimeSpan now, byte pongNumber, TimeSpan remoteSendTime)
@@ -142,7 +138,7 @@ namespace Lidgren.Network
             // notify the application that average rtt changed
             if (Peer.Configuration.IsMessageTypeEnabled(NetIncomingMessageType.ConnectionLatencyUpdated))
             {
-                var updateMsg = Peer.CreateIncomingMessage(NetIncomingMessageType.ConnectionLatencyUpdated, 8);
+                var updateMsg = Peer.CreateIncomingMessage(NetIncomingMessageType.ConnectionLatencyUpdated);
                 updateMsg.SenderConnection = this;
                 updateMsg.SenderEndPoint = RemoteEndPoint;
                 updateMsg.Write(rtt);
