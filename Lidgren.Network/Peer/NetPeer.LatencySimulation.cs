@@ -108,7 +108,7 @@ namespace Lidgren.Network
                 return;
 
             var now = NetTime.Now;
-            
+
             // reverse-for so elements can be removed without breaking loop
             for (int i = DelayedPackets.Count; i-- > 0;)
             {
@@ -145,11 +145,10 @@ namespace Lidgren.Network
 
             connectionReset = false;
             bool broadcasting = false;
-            IPAddress? ba;
 
             try
             {
-                ba = NetUtility.GetBroadcastAddress();
+                IPAddress? ba = NetUtility.GetBroadcastAddress();
 
                 // TODO: refactor this check outta here
                 if (target.Address.Equals(ba))
@@ -168,7 +167,7 @@ namespace Lidgren.Network
                     Configuration.LocalAddress.AddressFamily == AddressFamily.InterNetworkV6)
                 {
                     // Maps to IPv6 for Dual Mode
-                    NetUtility.CopyEndpoint(target, _targetCopy);
+                    NetUtility.MapToIPv6(target, _targetCopy);
                 }
                 else
                 {

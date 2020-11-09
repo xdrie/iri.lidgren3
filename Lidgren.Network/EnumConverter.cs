@@ -5,23 +5,30 @@ namespace Lidgren.Network
 {
     public static class EnumConverter
     {
-        public static long Convert<TEnum>(TEnum value)
+        public static long ToInt64<TEnum>(TEnum value)
             where TEnum : Enum
         {
             return Helper<TEnum>.ConvertFrom(value);
         }
 
-        public static TEnum Convert<TEnum>(long value)
+        [CLSCompliant(false)]
+        public static ulong ToUInt64<TEnum>(TEnum value)
+            where TEnum : Enum
+        {
+            return (ulong)ToInt64(value);
+        }
+
+        public static TEnum ToEnum<TEnum>(long value)
             where TEnum : Enum
         {
             return Helper<TEnum>.ConvertTo(value);
         }
 
         [CLSCompliant(false)]
-        public static TEnum Convert<TEnum>(ulong value)
+        public static TEnum ToEnum<TEnum>(ulong value)
             where TEnum : Enum
         {
-            return Convert<TEnum>((long)value);
+            return ToEnum<TEnum>((long)value);
         }
 
         private static class Helper<TEnum>

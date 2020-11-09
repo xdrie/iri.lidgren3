@@ -553,7 +553,7 @@ namespace Lidgren.Network
         /// </summary>
         /// <param name="src">Source.</param>
         /// <param name="dst">Destination.</param>
-        internal static void CopyEndpoint(IPEndPoint src, IPEndPoint dst)
+        internal static void MapToIPv6(IPEndPoint src, IPEndPoint dst)
         {
             dst.Port = src.Port;
             if (src.AddressFamily == AddressFamily.InterNetwork)
@@ -563,7 +563,7 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Maps the endpoint to an IPv6 address.
+        /// Creates a new endpoint mapped to an IPv6 address.
         /// </summary>
         internal static IPEndPoint MapToIPv6(IPEndPoint endPoint)
         {

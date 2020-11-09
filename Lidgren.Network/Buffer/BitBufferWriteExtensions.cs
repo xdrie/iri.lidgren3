@@ -517,7 +517,7 @@ namespace Lidgren.Network
         public static void Write<TEnum>(this IBitBuffer buffer, TEnum value)
             where TEnum : Enum
         {
-            buffer.WriteVar(EnumConverter.Convert(value));
+            buffer.WriteVar(EnumConverter.ToInt64(value));
         }
 
         [SuppressMessage("Design", "CA1062", Justification = "Performance")]

@@ -14,7 +14,6 @@ namespace Lidgren.Network
         private const int ProtocolMaxMTU = (int)((ushort.MaxValue / 8f) - 1f);
 
         private ExpandMTUStatus _expandMTUStatus;
-
         private int _largestSuccessfulMTU;
         private int _smallestFailedMTU;
 
@@ -113,8 +112,7 @@ namespace Lidgren.Network
             om.Encode(Peer._sendBuffer, ref length, 0);
             Peer.Recycle(om);
 
-            bool ok = Peer.SendMTUPacket(length, RemoteEndPoint);
-            if (!ok)
+            if (!Peer.SendMTUPacket(length, RemoteEndPoint))
             {
                 //m_peer.LogDebug("Send MTU failed for size " + size);
 

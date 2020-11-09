@@ -489,32 +489,15 @@ namespace Lidgren.Network
         private NetReceiverChannel CreateReceiverChannel(NetMessageType type)
         {
             NetDeliveryMethod method = NetUtility.GetDeliveryMethod(type);
-            NetReceiverChannel channel;
-            switch (method)
+            NetReceiverChannel channel = method switch
             {
-                case NetDeliveryMethod.Unreliable:
-                    channel = new NetUnreliableUnorderedReceiver(this);
-                    break;
-
-                case NetDeliveryMethod.UnreliableSequenced:
-                    channel = new NetUnreliableSequencedReceiver(this);
-                    break;
-
-                case NetDeliveryMethod.ReliableUnordered:
-                    channel = new NetReliableUnorderedReceiver(this, NetConstants.ReliableOrderedWindowSize);
-                    break;
-
-                case NetDeliveryMethod.ReliableSequenced:
-                    channel = new NetReliableSequencedReceiver(this, NetConstants.ReliableSequencedWindowSize);
-                    break;
-
-                case NetDeliveryMethod.ReliableOrdered:
-                case NetDeliveryMethod.Stream:
-                    channel = new NetReliableOrderedReceiver(this, NetConstants.ReliableOrderedWindowSize);
-                    break;
-
-                default:
-                    throw new ArgumentOutOfRangeException(nameof(type));
+                NetDeliveryMethod.Unreliable => new NetUnreliableUnorderedReceiver(this),
+                NetDeliveryMethod.UnreliableSequenced => new NetUnreliableSequencedReceiver(this),
+                NetDeliveryMethod.ReliableUnordered => new NetReliableUnorderedReceiver(this, NetConstants.ReliableOrderedWindowSize),
+                NetDeliveryMethod.ReliableSequenced => new NetReliableSequencedReceiver(this, NetConstants.ReliableSequencedWindowSize),
+                NetDeliveryMethod.ReliableOrdered => new NetReliableOrderedReceiver(this, NetConstants.ReliableOrderedWindowSize),
+                NetDeliveryMethod.Stream => new NetReliableOrderedReceiver(this, NetConstants.StreamWindowSize),
+                _ => throw new ArgumentOutOfRangeException(nameof(type)),
             };
 
             int channelSlot = (int)type - 1;

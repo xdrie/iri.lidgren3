@@ -390,7 +390,7 @@ namespace Lidgren.Network
             where TEnum : Enum
         {
             long value = buffer.PeekVarInt64();
-            return EnumConverter.Convert<TEnum>(value);
+            return EnumConverter.ToEnum<TEnum>(value);
         }
     }
 }

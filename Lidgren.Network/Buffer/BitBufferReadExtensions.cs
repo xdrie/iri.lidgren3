@@ -756,7 +756,7 @@ namespace Lidgren.Network
             where TEnum : Enum
         {
             long value = buffer.ReadVarInt64();
-            return EnumConverter.Convert<TEnum>(value);
+            return EnumConverter.ToEnum<TEnum>(value);
         }
 
         #endregion
