@@ -25,7 +25,7 @@ namespace Lidgren.Network
         /// <summary>
         /// Gets the size of the header in bytes. 
         /// </summary>
-        public int HeaderSize => CharCountVarSize + ExpectedByteCountVarSize;
+        public int MinimumHeaderSize => CharCountVarSize + ExpectedByteCountVarSize;
 
         public NetStringHeader(int charCount, int? byteCount)
         {

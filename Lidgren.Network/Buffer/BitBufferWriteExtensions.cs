@@ -12,9 +12,11 @@ namespace Lidgren.Network
         /// <summary>
         /// Writes a certain amount of bits from a span.
         /// </summary>
-        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         public static void Write(this IBitBuffer buffer, ReadOnlySpan<byte> source, int sourceBitOffset, int bitCount)
         {
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
+
             if (source.IsEmpty)
                 return;
 
@@ -35,9 +37,11 @@ namespace Lidgren.Network
         /// <summary>
         /// Writes bytes from a span.
         /// </summary>
-        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         public static void Write(this IBitBuffer buffer, ReadOnlySpan<byte> source)
         {
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
+
             if (!buffer.IsByteAligned())
             {
                 buffer.Write(source, 0, source.Length * 8);
@@ -408,7 +412,6 @@ namespace Lidgren.Network
         /// <summary>
         /// Write characters from a span, readable as a string.
         /// </summary>
-        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         public static void Write(this IBitBuffer buffer, ReadOnlySpan<char> source)
         {
             if (source.IsEmpty)
@@ -417,15 +420,18 @@ namespace Lidgren.Network
                 return;
             }
 
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
+
             var initialHeader = new NetStringHeader(source.Length, null);
-            int headerBitCount = initialHeader.HeaderSize * 8;
+            int headerBitCount = initialHeader.MinimumHeaderSize * 8;
             buffer.EnsureBitCapacity(headerBitCount + initialHeader.ExpectedByteCount * 8);
 
             int startPosition = buffer.BitPosition;
             // Here we reserve space for the header.
             buffer.BitPosition += headerBitCount;
 
-            Span<byte> writeBuffer = stackalloc byte[4096];
+            Span<byte> writeBuffer = stackalloc byte[2048];
             int byteCount = 0;
             var charSource = source;
             do
@@ -434,7 +440,7 @@ namespace Lidgren.Network
                     charSource, writeBuffer, out int charsRead, out int bytesWritten, true, true);
                 // TODO: check status
 
-                charSource = charSource.Slice(charsRead);
+                charSource = charSource[charsRead..];
 
                 byteCount += bytesWritten;
                 buffer.Write(writeBuffer.Slice(0, bytesWritten));
@@ -520,9 +526,11 @@ namespace Lidgren.Network
             buffer.WriteVar(EnumConverter.ToInt64(value));
         }
 
-        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         public static void Write(this IBitBuffer buffer, NetStringHeader value)
         {
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
+
             buffer.WriteVar((uint)value.CharCount);
 
             if (value.CharCount == 0)
@@ -560,9 +568,11 @@ namespace Lidgren.Network
         /// Byte-aligns the write position, 
         /// decreasing work for subsequent writes if the position was not aligned.
         /// </summary>
-        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         public static void WritePadBits(this IBitBuffer buffer)
         {
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
+
             buffer.BitPosition = NetBitWriter.BytesForBits(buffer.BitPosition) * 8;
             buffer.EnsureBitCapacity(buffer.BitPosition);
             buffer.SetLengthByPosition();
@@ -571,9 +581,10 @@ namespace Lidgren.Network
         /// <summary>
         /// Pads the write position with the specified number of bits.
         /// </summary>
-        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         public static void WritePadBits(this IBitBuffer buffer, int bitCount)
         {
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
             if (bitCount < 0)
                 throw new ArgumentOutOfRangeException(nameof(bitCount));
 
@@ -585,7 +596,6 @@ namespace Lidgren.Network
         /// <summary>
         /// Pads the write position with the specified number of bytes.
         /// </summary>
-        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         public static void WritePadBytes(this IBitBuffer buffer, int byteCount)
         {
             buffer.WritePadBits(byteCount * 8);

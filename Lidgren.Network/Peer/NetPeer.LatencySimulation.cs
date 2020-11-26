@@ -137,7 +137,8 @@ namespace Lidgren.Network
             DelayedPackets.Clear();
         }
 
-        // TODO: replace byte[] with Span when net5 hits (held back by Socket.SendTo)
+        // TODO: replace byte[] with Span in the future (held back by Socket.SendTo)
+        // https://github.com/dotnet/runtime/issues/33418
         internal bool ActuallySendPacket(byte[] data, int numBytes, IPEndPoint target, out bool connectionReset)
         {
             if (Socket == null)

@@ -27,7 +27,7 @@ using System.Threading;
 namespace Lidgren.Network
 {
     /// <summary>
-    /// Thread-safe (blocking) expanding queue with TryDequeue() and EnqueueFirst()
+    /// Thread-safe (blocking) expanding queue with TryDequeue() and EnqueueFirst().
     /// </summary>
     [DebuggerDisplay("{DebuggerDisplay}")]
     public sealed class NetQueue<T> : IDisposable
@@ -129,7 +129,7 @@ namespace Lidgren.Network
                 if (expectedCount > Capacity)
                     AddCapacity(expectedCount);
 
-                foreach (var item in items.AsListEnumerator())
+                foreach (T item in items.AsListEnumerator())
                 {
                     // check capacity as we cannot be sure about the resulting count
                     if (Count == _items.Length)
@@ -247,10 +247,10 @@ namespace Lidgren.Network
             try
             {
                 int count = Count;
-                while (Count > 0)
+                do
                 {
-                    var slice = _items.AsSpan(_head, Math.Min(Count, Count - _head));
-                    foreach (var item in slice)
+                    Span<T> slice = _items.AsSpan(_head, Math.Min(Count, Count - _head));
+                    foreach (T item in slice)
                     {
                         destination.Add(item);
                         onItem?.Invoke(item);
@@ -260,6 +260,7 @@ namespace Lidgren.Network
                     _head = 0;
                     Count -= slice.Length;
                 }
+                while (Count > 0);
                 return count;
             }
             finally
@@ -276,12 +277,6 @@ namespace Lidgren.Network
         /// <returns>Whether the peek returned a value.</returns>
         public bool TryPeek(int offset, [MaybeNullWhen(false)] out T value)
         {
-            if (Count == 0)
-            {
-                value = default;
-                return false;
-            }
-
             Lock.EnterReadLock();
             try
             {
@@ -305,7 +300,7 @@ namespace Lidgren.Network
         /// </summary>
         public T Peek(int offset)
         {
-            if (TryPeek(offset, out var value))
+            if (TryPeek(offset, out T value))
                 return value;
             return default!;
         }
@@ -325,8 +320,8 @@ namespace Lidgren.Network
                 int offset = _head;
                 while (left > 0)
                 {
-                    var slice = _items.AsSpan(offset, Math.Min(left, _items.Length - offset));
-                    foreach (var other in slice)
+                    Span<T> slice = _items.AsSpan(offset, Math.Min(left, _items.Length - offset));
+                    foreach (T other in slice)
                     {
                         if (comparer.Equals(item, other))
                             return true;
@@ -363,10 +358,10 @@ namespace Lidgren.Network
                 int offset = _head;
                 while (left > 0)
                 {
-                    var slice = _items.AsSpan(offset, Math.Min(left, Count - _head));
+                    Span<T> slice = _items.AsSpan(offset, Math.Min(left, Count - _head));
                     slice.CopyTo(destination);
 
-                    destination = destination.Slice(slice.Length);
+                    destination = destination[slice.Length..];
                     left -= slice.Length;
                     offset = 0;
                 }
@@ -385,7 +380,7 @@ namespace Lidgren.Network
             Lock.EnterWriteLock();
             try
             {
-                Array.Clear(_items, 0, _items.Length);
+                _items.AsSpan().Clear();
                 _head = 0;
                 Count = 0;
             }

@@ -75,7 +75,7 @@ namespace UnitTests
                             Console.WriteLine("Server Data: " + message.ReadString());
                             break;
 
-                        case NetIncomingMessageType.StreamData:
+                        case NetIncomingMessageType.StreamMessage:
                         {
                             var type = (NetStreamMessageType)message.ReadByte();
                             int channel = message.SequenceChannel;
@@ -163,8 +163,8 @@ namespace UnitTests
                         try
                         {
                             var stream = new NetStream(client.DefaultScheduler, connection, channel);
-                            Span<byte> span = stackalloc byte[1024 * 4];
-                            for (int i = 0; i < 1024 * 1024 * 32; i += span.Length)
+                            Span<byte> span = stackalloc byte[1024 * 16];
+                            for (int i = 0; i < 1024 * 1024 * 16; i += span.Length)
                             {
                                 stream.Write(span);
                                 Thread.Sleep(1);
@@ -199,7 +199,7 @@ namespace UnitTests
                             Console.WriteLine("Client Data: " + message.ReadString());
                             break;
 
-                        case NetIncomingMessageType.StreamData:
+                        case NetIncomingMessageType.StreamMessage:
                         {
                             var type = (NetStreamMessageType)message.ReadByte();
                             int channel = message.SequenceChannel;

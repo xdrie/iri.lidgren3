@@ -26,7 +26,6 @@ namespace Lidgren.Network
             buffer.EnsureBitCapacity(buffer.BitLength + bitCount);
         }
 
-        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static void EnsureEnoughBitCapacity(this IBitBuffer buffer, int bitCount, int maxBitCount)
         {

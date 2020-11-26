@@ -12,6 +12,8 @@ namespace Lidgren.Network
         Pause,
         Resume,
         Close,
+
+        // TODO: Pause/Resume acknowledge
     }
 
     public class NetStream : Stream
@@ -20,6 +22,7 @@ namespace Lidgren.Network
         //public delegate long StreamSeekRequest(NetStream stream, long offset, SeekOrigin origin);
 
         private Queue<NetIncomingMessage> _readQueue;
+        //private ReaderWriterLockSlim _queueLock = new ReaderWriterLockSlim();
         private int _receivedByteCount;
         private NetIncomingMessage? _readBuffer;
         private AutoResetEvent _readEvent = new AutoResetEvent(false);
@@ -90,11 +93,11 @@ namespace Lidgren.Network
             //createMessage.Write(CanTimeout); // TODO:
             //SendStreamMessage(createMessage);
 
-            var openMessage = Peer.CreateMessage();
+            NetOutgoingMessage openMessage = Peer.CreateMessage();
             openMessage.Write((byte)NetStreamMessageType.Open);
-            var result = SendStreamMessage(openMessage);
-            // TODO: check result
-
+            NetSendResult result = SendStreamMessage(openMessage);
+            // TODO: check result; await accept response from remote
+            // 
         }
 
         //public NetStream(
@@ -165,7 +168,7 @@ namespace Lidgren.Network
             if (_readBuffer != null)
             {
                 int read = _readBuffer.StreamRead(buffer);
-                buffer = buffer.Slice(read);
+                buffer = buffer[read..];
                 totalRead += read;
 
                 if (_readBuffer.BitPosition == _readBuffer.BitLength)
@@ -186,32 +189,9 @@ namespace Lidgren.Network
             return totalRead;
         }
 
-        public override void Write(ReadOnlySpan<byte> buffer)
-        {
-            while (buffer.Length > 0)
-            {
-                var space = _writeBuffer.AsSpan(_writeBufferOffset);
-                if (space.IsEmpty)
-                {
-                    FlushCore();
-                    continue;
-                }
-
-                var toCopy = buffer.Slice(0, Math.Min(buffer.Length, space.Length));
-                toCopy.CopyTo(space);
-                buffer = buffer.Slice(toCopy.Length);
-                _writeBufferOffset += toCopy.Length;
-            }
-        }
-
         public override int Read(byte[] buffer, int offset, int count)
         {
             return Read(buffer.AsSpan(offset, count));
-        }
-
-        public override void Write(byte[] buffer, int offset, int count)
-        {
-            Write(buffer.AsSpan(offset, count));
         }
 
         public override int ReadByte()
@@ -220,6 +200,30 @@ namespace Lidgren.Network
             if (Read(tmp) != tmp.Length)
                 return -1;
             return tmp[0];
+        }
+
+        public override void Write(ReadOnlySpan<byte> buffer)
+        {
+            while (buffer.Length > 0)
+            {
+                Span<byte> space = _writeBuffer.AsSpan(_writeBufferOffset);
+                if (space.IsEmpty)
+                {
+                    FlushCore();
+                    continue;
+                }
+
+                ReadOnlySpan<byte> toCopy = buffer.Slice(0, Math.Min(buffer.Length, space.Length));
+                toCopy.CopyTo(space);
+
+                buffer = buffer[toCopy.Length..];
+                _writeBufferOffset += toCopy.Length;
+            }
+        }
+
+        public override void Write(byte[] buffer, int offset, int count)
+        {
+            Write(buffer.AsSpan(offset, count));
         }
 
         public override void WriteByte(byte value)
@@ -239,11 +243,11 @@ namespace Lidgren.Network
         {
             int length = _writeBufferOffset;
 
-            var message = Peer.CreateMessage(length + 6);
+            NetOutgoingMessage message = Peer.CreateMessage(length + 6);
             message.Write((byte)NetStreamMessageType.Data);
             message.Write(_writeBuffer.AsSpan(0, length));
 
-            var result = SendStreamMessage(message);
+            NetSendResult result = SendStreamMessage(message);
             // TODO: check result
 
             _writeBufferOffset = 0;
@@ -261,7 +265,7 @@ namespace Lidgren.Network
 
         private NetSendResult SendClose()
         {
-            var message = Peer.CreateMessage();
+            NetOutgoingMessage message = Peer.CreateMessage();
             message.Write((byte)NetStreamMessageType.Close);
             return SendStreamMessage(message);
         }
@@ -279,7 +283,7 @@ namespace Lidgren.Network
             {
                 Flush();
 
-                var result = SendClose();
+                NetSendResult result = SendClose();
                 // TODO: check result
 
                 IsDisposed = true;

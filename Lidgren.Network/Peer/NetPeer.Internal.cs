@@ -160,7 +160,9 @@ namespace Lidgren.Network
                 mutex.Dispose();
             }
 
-            var boundEp = (IPEndPoint)Socket.LocalEndPoint;
+            var boundEp = (Socket.LocalEndPoint as IPEndPoint) ??
+                throw new Exception("The socket has no bound endpoint.");
+
             LogDebug("Socket bound to " + boundEp + ": " + Socket.IsBound);
             Port = boundEp.Port;
             return Socket;
@@ -185,13 +187,15 @@ namespace Lidgren.Network
                 // bind to socket
                 var socket = BindSocket(false);
 
+                // TODO: recycle buffers
                 _receiveBuffer = new byte[Configuration.ReceiveBufferSize];
                 _sendBuffer = new byte[Configuration.SendBufferSize];
 
                 _readHelperMessage = CreateIncomingMessage(NetIncomingMessageType.Error);
-                _readHelperMessage.SetBuffer(_receiveBuffer, false); // TODO: recycle
-
-                var epBytes = MemoryMarshal.AsBytes(socket.LocalEndPoint.ToString().AsSpan());
+                _readHelperMessage.SetBuffer(_receiveBuffer, false);
+                
+                string? endPointString = socket.LocalEndPoint?.ToString();
+                var epBytes = MemoryMarshal.AsBytes(endPointString.AsSpan());
                 var macBytes = NetUtility.GetPhysicalAddress()?.GetAddressBytes() ?? Array.Empty<byte>();
                 int combinedLength = epBytes.Length + macBytes.Length;
                 var combined = new byte[combinedLength];
@@ -222,7 +226,8 @@ namespace Lidgren.Network
                 {
                     LogWarning(ex.ToString());
                 }
-            } while (Status == NetPeerStatus.Running);
+            }
+            while (Status == NetPeerStatus.Running);
 
             // perform shutdown
             ExecutePeerShutdown();
@@ -385,7 +390,7 @@ namespace Lidgren.Network
             // update now
             now = NetTime.Now;
 
-            do
+            while (Socket.Available > 0)
             {
                 int bytesReceived = 0;
                 try
@@ -481,7 +486,7 @@ namespace Lidgren.Network
                                 return; // dropping unconnected message since it's not enabled
 
                             var messageType = type >= NetMessageType.UserNetStream1
-                                ? NetIncomingMessageType.StreamData
+                                ? NetIncomingMessageType.StreamMessage
                                 : NetIncomingMessageType.Data;
 
                             var msg = CreateIncomingMessage(messageType);
@@ -529,7 +534,7 @@ namespace Lidgren.Network
                 Statistics.PacketReceived(bytesReceived, numMessages, numFragments);
                 sender?.Statistics.PacketReceived(bytesReceived, numMessages, numFragments);
 
-            } while (Socket.Available > 0);
+            }
         }
 
         private bool SetupUpnp(NetUPnP upnp, TimeSpan now, ReadOnlySpan<byte> data)
@@ -539,16 +544,16 @@ namespace Lidgren.Network
                 return false;
 
             // is this an UPnP response?
-            string resp = System.Text.Encoding.ASCII.GetString(data);
-            if (resp.Contains("upnp:rootdevice", StringComparison.OrdinalIgnoreCase) ||
-                resp.Contains("UPnP/1.0", StringComparison.OrdinalIgnoreCase))
+            string response = System.Text.Encoding.ASCII.GetString(data);
+            if (response.Contains("upnp:rootdevice", StringComparison.OrdinalIgnoreCase) ||
+                response.Contains("UPnP/1.0", StringComparison.OrdinalIgnoreCase))
             {
                 try
                 {
-                    var locationLine = resp.AsSpan()
-                        .Slice(resp.IndexOf("location:", StringComparison.OrdinalIgnoreCase) + 9);
+                    int locationIndex = response.IndexOf("location:", StringComparison.OrdinalIgnoreCase) + 9;
+                    ReadOnlySpan<char> locationLine = response.AsSpan()[locationIndex..];
 
-                    var location = locationLine
+                    ReadOnlySpan<char> location = locationLine
                         .Slice(0, locationLine.IndexOf("\r", StringComparison.Ordinal))
                         .Trim();
 

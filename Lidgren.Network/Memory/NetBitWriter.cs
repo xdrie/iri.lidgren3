@@ -49,8 +49,8 @@ namespace Lidgren.Network
             if (bitCount == 0)
                 return;
 
-            var src = source.Slice(sourceBitOffset / 8);
-            var dst = destination.Slice(destinationBitOffset / 8);
+            var src = source[(sourceBitOffset / 8)..];
+            var dst = destination[(destinationBitOffset / 8)..];
 
             sourceBitOffset %= 8;
             destinationBitOffset %= 8;

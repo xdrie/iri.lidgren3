@@ -61,7 +61,7 @@ namespace Lidgren.Network
             int j = 0;
             while (i < 4)
             {
-                tmp[i] = BinaryPrimitives.ReadUInt32LittleEndian(key.Slice(j));
+                tmp[i] = BinaryPrimitives.ReadUInt32LittleEndian(key[j..]);
                 i++;
                 j += 4;
             }
@@ -82,7 +82,7 @@ namespace Lidgren.Network
         protected override void EncryptBlock(ReadOnlySpan<byte> source, Span<byte> destination)
         {
             uint v0 = BinaryPrimitives.ReadUInt32LittleEndian(source);
-            uint v1 = BinaryPrimitives.ReadUInt32LittleEndian(source.Slice(4));
+            uint v1 = BinaryPrimitives.ReadUInt32LittleEndian(source[4..]);
 
             for (int i = 0; i < _rounds; i++)
             {
@@ -91,13 +91,13 @@ namespace Lidgren.Network
             }
 
             BinaryPrimitives.WriteUInt32LittleEndian(destination, v0);
-            BinaryPrimitives.WriteUInt32LittleEndian(destination.Slice(4), v1);
+            BinaryPrimitives.WriteUInt32LittleEndian(destination[4..], v1);
         }
 
         protected override void DecryptBlock(ReadOnlySpan<byte> source, Span<byte> destination)
         {
             uint v0 = BinaryPrimitives.ReadUInt32LittleEndian(source);
-            uint v1 = BinaryPrimitives.ReadUInt32LittleEndian(source.Slice(4));
+            uint v1 = BinaryPrimitives.ReadUInt32LittleEndian(source[4..]);
 
             for (int i = _rounds; i-- > 0;)
             {
@@ -106,7 +106,7 @@ namespace Lidgren.Network
             }
 
             BinaryPrimitives.WriteUInt32LittleEndian(destination, v0);
-            BinaryPrimitives.WriteUInt32LittleEndian(destination.Slice(4), v1);
+            BinaryPrimitives.WriteUInt32LittleEndian(destination[4..], v1);
         }
     }
 }

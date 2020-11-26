@@ -43,7 +43,7 @@ namespace Lidgren.Network
 
             Span<char> tmp = stackalloc char[1 + NetUtility.GetHexCharCount(ccHashed.Length)];
             tmp[0] = '0'; // ensure that the value is unsigned
-            NetUtility.ToHexString(ccHashed, tmp.Slice(1));
+            NetUtility.ToHexString(ccHashed, tmp[1..]);
 
             return BigInteger.Parse(tmp, NumberStyles.HexNumber, CultureInfo.InvariantCulture);
         }
@@ -84,7 +84,7 @@ namespace Lidgren.Network
             int totalLength = innerHash.Length + salt.Length;
             var total = totalLength < 4096 ? stackalloc byte[totalLength] : new byte[totalLength];
             salt.CopyTo(total);
-            innerHash.CopyTo(total.Slice(salt.Length));
+            innerHash.CopyTo(total[salt.Length..]);
 
             Span<byte> totalHash = stackalloc byte[NetBitWriter.BytesForBits(algorithm.HashSize)];
             if (!algorithm.TryComputeHash(total, totalHash, out _))
@@ -144,7 +144,7 @@ namespace Lidgren.Network
             var buffer = byteCount < 4096 ? stackalloc byte[byteCount] : new byte[byteCount];
 
             if (!clientPublicEphemeral.TryWriteBytes(buffer, out int clientBytesWritten, isUnsigned: true) ||
-                !serverPublicEphemeral.TryWriteBytes(buffer.Slice(clientBytesWritten), out _, isUnsigned: true))
+                !serverPublicEphemeral.TryWriteBytes(buffer[clientBytesWritten..], out _, isUnsigned: true))
                 throw new Exception();
 
             using var algorithm = GetHashAlgorithm();

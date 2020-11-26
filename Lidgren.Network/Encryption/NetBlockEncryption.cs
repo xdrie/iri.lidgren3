@@ -49,11 +49,11 @@ namespace Lidgren.Network
             message.EnsureBitCapacity((dstSize + 4) * 8); // add 4 bytes for payload length
             message.BitPosition = 0;
 
-            var buffer = _buffer.AsSpan();
-            var messageBuffer = message.GetBuffer().AsSpan();
+            Span<byte> buffer = _buffer.AsSpan();
+            Span<byte> messageBuffer = message.GetBuffer().AsSpan();
             for (int i = 0; i < numBlocks; i++)
             {
-                var messageSlice = messageBuffer.Slice(i * blockSize);
+                Span<byte> messageSlice = messageBuffer[(i * blockSize)..];
                 EncryptBlock(messageSlice, buffer);
                 buffer.CopyTo(messageSlice);
             }
@@ -82,16 +82,16 @@ namespace Lidgren.Network
             if (numBlocks * blockSize != numEncryptedBytes)
                 return false;
 
-            var buffer = _buffer.AsSpan();
-            var messageBuffer = message.GetBuffer().AsSpan();
+            Span<byte> buffer = _buffer.AsSpan();
+            Span<byte> messageBuffer = message.GetBuffer().AsSpan();
             for (int i = 0; i < numBlocks; i++)
             {
-                var messageSlice = messageBuffer.Slice(i * blockSize);
+                Span<byte> messageSlice = messageBuffer[(i * blockSize)..];
                 DecryptBlock(messageSlice, buffer);
                 buffer.CopyTo(messageSlice);
             }
 
-            uint realSize = BinaryPrimitives.ReadUInt32LittleEndian(messageBuffer.Slice(numEncryptedBytes));
+            uint realSize = BinaryPrimitives.ReadUInt32LittleEndian(messageBuffer[numEncryptedBytes..]);
             message.BitLength = (int)realSize;
 
             return true;

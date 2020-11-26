@@ -51,7 +51,7 @@ namespace Lidgren.Network
                 destination[offset++] = (byte)(BitLength >> 8);
 
                 int byteLen = NetBitWriter.BytesForBits(BitLength);
-                GetBuffer().AsSpan(0, byteLen).CopyTo(destination.Slice(offset));
+                GetBuffer().AsSpan(0, byteLen).CopyTo(destination[offset..]);
                 offset += byteLen;
             }
             else
@@ -73,7 +73,7 @@ namespace Lidgren.Network
                 destination[baseOffset + 1] = (byte)(actualBitLength >> 8);
 
                 int byteLen = NetBitWriter.BytesForBits(BitLength);
-                GetBuffer().AsSpan(_fragmentChunkNumber * _fragmentChunkByteSize, byteLen).CopyTo(destination.Slice(offset));
+                GetBuffer().AsSpan(_fragmentChunkNumber * _fragmentChunkByteSize, byteLen).CopyTo(destination[offset..]);
                 offset += byteLen;
             }
         }

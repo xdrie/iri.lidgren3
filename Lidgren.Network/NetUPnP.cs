@@ -69,7 +69,7 @@ namespace Lidgren.Network
             try
 #endif
             {
-                var discoveryEndTime = NetTime.Now;
+                TimeSpan discoveryEndTime = NetTime.Now;
 
                 var desc = new XmlDocument();
                 using (var rep = WebRequest.Create(location).GetResponse())
@@ -78,13 +78,13 @@ namespace Lidgren.Network
 
                 var nsMgr = new XmlNamespaceManager(desc.NameTable);
                 nsMgr.AddNamespace("tns", "urn:schemas-upnp-org:device-1-0");
-                XmlNode typen = desc.SelectSingleNode("//tns:device/tns:deviceType/text()", nsMgr);
-                if (!typen.Value.Contains("InternetGatewayDevice", StringComparison.Ordinal))
+                XmlNode? typen = desc.SelectSingleNode("//tns:device/tns:deviceType/text()", nsMgr);
+                if (typen?.Value == null || !typen.Value.Contains("InternetGatewayDevice", StringComparison.Ordinal))
                     return;
 
                 _serviceName = "WANIPConnection";
 
-                XmlNode node = desc.SelectSingleNode(
+                XmlNode? node = desc.SelectSingleNode(
                     "//tns:service[tns:serviceType=\"urn:schemas-upnp-org:service:" +
                     _serviceName + ":1\"]/tns:controlURL/text()", nsMgr);
 
@@ -96,10 +96,10 @@ namespace Lidgren.Network
                     node = desc.SelectSingleNode(
                         "//tns:service[tns:serviceType=\"urn:schemas-upnp-org:service:" +
                         _serviceName + ":1\"]/tns:controlURL/text()", nsMgr);
-
-                    if (node == null)
-                        return;
                 }
+
+                if (node?.Value == null)
+                    return;
 
                 var controlUri = new Uri(node.Value, UriKind.RelativeOrAbsolute);
                 _serviceUri = controlUri.IsAbsoluteUri
@@ -222,8 +222,8 @@ namespace Lidgren.Network
 
                 var nsMgr = new XmlNamespaceManager(xdoc.NameTable);
                 nsMgr.AddNamespace("tns", "urn:schemas-upnp-org:device-1-0");
-                string ip = xdoc.SelectSingleNode("//NewExternalIPAddress/text()", nsMgr).Value;
-                return IPAddress.Parse(ip);
+                string? ip = xdoc.SelectSingleNode("//NewExternalIPAddress/text()", nsMgr)?.Value;
+                return ip != null ? IPAddress.Parse(ip) : null;
             }
             catch (Exception ex)
             {

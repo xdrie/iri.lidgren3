@@ -1,12 +1,11 @@
 ﻿using System;
 using System.Buffers;
 using System.Buffers.Binary;
-using System.Diagnostics.CodeAnalysis;
 
 namespace Lidgren.Network
 {
     // TODO: check NetBuffer.Read
-    
+
     public static class BitBufferPeekExtensions
     {
         /// <summary>
@@ -14,9 +13,11 @@ namespace Lidgren.Network
         /// </summary>
         /// <param name="destination">The destination span.</param>
         /// <param name="bitCount">The number of bits to read.</param>
-        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         public static bool TryPeekBits(this IBitBuffer buffer, Span<byte> destination, int bitCount)
         {
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
+
             if (!buffer.HasEnough(bitCount))
                 return false;
 
@@ -61,9 +62,11 @@ namespace Lidgren.Network
         /// Tries to read the specified number of bytes without advancing the read position.
         /// </summary>
         /// <param name="destination">The destination span.</param>
-        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         public static bool TryPeek(this IBitBuffer buffer, Span<byte> destination)
         {
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
+
             if (!buffer.IsByteAligned())
                 return buffer.TryPeekBits(destination, destination.Length * 8);
 
@@ -86,45 +89,53 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads a 1-bit <see cref="bool"/> without advancing the read position.
         /// </summary>
-        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         public static bool PeekBool(this IBitBuffer buffer)
         {
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
             if (!buffer.HasEnough(1))
                 throw new EndOfMessageException();
+
             return NetBitWriter.ReadByteUnchecked(buffer.GetBuffer(), buffer.BitPosition, 1) > 0;
         }
 
         /// <summary>
         /// Reads an <see cref="sbyte"/> without advancing the read position.
         /// </summary>
-        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         [CLSCompliant(false)]
         public static sbyte PeekSByte(this IBitBuffer buffer)
         {
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
             if (!buffer.HasEnough(8))
                 throw new EndOfMessageException();
+
             return (sbyte)NetBitWriter.ReadByteUnchecked(buffer.GetBuffer(), buffer.BitPosition, 8);
         }
 
         /// <summary>
         /// Reads a <see cref="byte"/> without advancing the read position.
         /// </summary>
-        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         public static byte PeekByte(this IBitBuffer buffer)
         {
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
             if (!buffer.HasEnough(8))
                 throw new EndOfMessageException();
+
             return NetBitWriter.ReadByteUnchecked(buffer.GetBuffer(), buffer.BitPosition, 8);
         }
 
         /// <summary>
         /// Reads the specified number of bits into a <see cref="byte"/> without advancing the read position.
         /// </summary>
-        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         public static byte PeekByte(this IBitBuffer buffer, int bitCount)
         {
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
             if (!buffer.HasEnough(bitCount))
                 throw new EndOfMessageException();
+
             return NetBitWriter.ReadByte(buffer.GetBuffer(), buffer.BitPosition, bitCount);
         }
 
@@ -354,9 +365,11 @@ namespace Lidgren.Network
 
         #endregion
 
-        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         public static bool PeekStringHeader(this IBitBuffer buffer, out NetStringHeader header)
         {
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
+
             int startPosition = buffer.BitPosition;
             bool read = buffer.ReadStringHeader(out header);
             buffer.BitPosition = startPosition;
@@ -366,9 +379,11 @@ namespace Lidgren.Network
         /// <summary>
         /// Reads a <see cref="string"/> without advancing the read position.
         /// </summary>
-        [SuppressMessage("Design", "CA1062", Justification = "Performance")]
         public static string PeekString(this IBitBuffer buffer)
         {
+            if (buffer == null)
+                throw new ArgumentNullException(nameof(buffer));
+
             int startPosition = buffer.BitPosition;
             string str = buffer.ReadString();
             buffer.BitPosition = startPosition;

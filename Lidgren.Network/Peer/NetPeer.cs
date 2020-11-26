@@ -302,7 +302,6 @@ namespace Lidgren.Network
         /// <summary>
         /// In DEBUG, throws an exception, in RELEASE logs an error message.
         /// </summary>
-        [SuppressMessage("Performance", "CA1822", Justification = "Contains compiler conditionals.")]
         internal void ThrowOrLog(string message)
         {
 #if DEBUG
@@ -334,8 +333,23 @@ namespace Lidgren.Network
                 if (disposing)
                 {
                     _messageReceivedEvent?.Dispose();
-                    _outgoingMessagePool?.Dispose();
-                    _incomingMessagePool?.Dispose();
+                    _readHelperMessage?.Dispose();
+
+                    if (_outgoingMessagePool != null)
+                    {
+                        while (_outgoingMessagePool.TryDequeue(out var message))
+                            message.Dispose();
+
+                        _outgoingMessagePool.Dispose();
+                    }
+
+                    if (_incomingMessagePool != null)
+                    {
+                        while (_incomingMessagePool.TryDequeue(out var message))
+                            message.Dispose();
+
+                        _incomingMessagePool.Dispose();
+                    }
                 }
                 _isDisposed = true;
             }

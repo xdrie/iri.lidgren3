@@ -7,7 +7,7 @@ namespace UnitTests
 {
     public static class ReadWriteTests
     {
-        // TODO: better tests
+        // TODO: better and cleaner/more readable tests
 
         public static void Run(NetPeer peer)
         {
@@ -16,7 +16,6 @@ namespace UnitTests
             msg.Write(false);
             msg.Write(-3, 6);
             msg.Write(42);
-            
             msg.Write("duke of earl");
             msg.Write((byte)43);
             msg.Write((ushort)44);
@@ -42,44 +41,45 @@ namespace UnitTests
             NetIncomingMessage inc = Program.CreateIncomingMessage(msg.GetBuffer(), msg.BitLength);
 
             var bdr = new StringBuilder();
+            char space = ' ';
 
-            bdr.Append(inc.ReadBool());
-            bdr.Append(inc.ReadInt32(6));
-            bdr.Append(inc.ReadInt32());
+            bdr.Append(inc.ReadBool()).Append(space);
+            bdr.Append(inc.ReadInt32(6)).Append(space);
+            bdr.Append(inc.ReadInt32()).Append(space);
 
             if (!inc.ReadString(out string strResult))
                 throw new LidgrenException("Read/write failure");
-            bdr.Append(strResult);
+            bdr.Append(strResult).Append(space);
             
-            bdr.Append(inc.ReadByte());
+            bdr.Append(inc.ReadByte()).Append(space);
 
             if (inc.PeekUInt16() != 44)
                 throw new LidgrenException("Read/write failure");
-            bdr.Append(inc.ReadUInt16());
+            bdr.Append(inc.ReadUInt16()).Append(space);
 
             var pp = inc.PeekUInt64(64);
             if (pp != ulong.MaxValue)
                 throw new LidgrenException("Read/write failure");
-            bdr.Append(inc.ReadUInt64());
+            bdr.Append(inc.ReadUInt64()).Append(space);
 
-            bdr.Append(inc.ReadBool());
+            bdr.Append(inc.ReadBool()).Append(space);
         
             inc.SkipPadBits();
 
-            bdr.Append(inc.ReadSingle());
-            bdr.Append(inc.ReadVarInt32());
-            bdr.Append(inc.ReadDouble());
-            bdr.Append(inc.ReadUInt32(9));
-            bdr.Append(inc.ReadVarInt32());
-            bdr.Append(inc.ReadVarInt32());
-            bdr.Append(inc.ReadVarUInt32());
-            bdr.Append(inc.ReadVarInt64());
+            bdr.Append(inc.ReadSingle()).Append(space);
+            bdr.Append(inc.ReadVarInt32()).Append(space);
+            bdr.Append(inc.ReadDouble()).Append(space);
+            bdr.Append(inc.ReadUInt32(9)).Append(space);
+            bdr.Append(inc.ReadVarInt32()).Append(space);
+            bdr.Append(inc.ReadVarInt32()).Append(space);
+            bdr.Append(inc.ReadVarUInt32()).Append(space);
+            bdr.Append(inc.ReadVarInt64()).Append(space);
 
             var bdrr = bdr.ToString();
-            if (bdrr.Equals("False-342duke of earl434418446744073709551615True56784521159980224614-4747000048-49"))
+            if (bdrr.Equals("False -3 42 duke of earl 43 44 18446744073709551615 True 567845 2115998022 46 14 -47 470000 48 -49 "))
                 Console.WriteLine("Read/write tests OK");
             else
-                throw new LidgrenException("Read/write tests FAILED!");
+                throw new LidgrenException($"Read/write tests FAILED! ({bdrr})");
 
             msg = peer.CreateMessage();
 

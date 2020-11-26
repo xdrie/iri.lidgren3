@@ -26,6 +26,7 @@ using System.Security.Cryptography;
 using System.Diagnostics;
 using System.Net.NetworkInformation;
 using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 
 namespace Lidgren.Network
 {
@@ -342,10 +343,10 @@ namespace Lidgren.Network
 
         #endregion
 
-        // TODO: replace hex methods with fast net5 ones
+        // TODO: replace hex methods with fast .NET ones in future
 
         public static int GetHexCharCount(int byteCount)
-        {
+        {   
             return byteCount * 2;
         }
 

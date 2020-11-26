@@ -69,6 +69,9 @@ namespace Lidgren.Network
 
                 if (value > _buffer.Length)
                 {
+                    if (_isDisposed)
+                        throw new ObjectDisposedException(GetType().FullName);
+
                     var newBuffer = _storagePool.Rent(value);
                     _buffer.AsMemory(0, ByteLength).CopyTo(newBuffer);
                     SetBuffer(newBuffer);
@@ -118,13 +121,18 @@ namespace Lidgren.Network
         public void Trim()
         {
             if (_bitLength == 0)
+                Recycle();
+        }
+
+        private void Recycle()
+        {
+            if (_recycleData)
             {
-                if (_recycleData)
-                {
-                    _storagePool.Return(_buffer);
-                    _buffer = Array.Empty<byte>();
-                    _recycleData = false;
-                }
+                _storagePool.Return(_buffer);
+                _buffer = Array.Empty<byte>();
+                _bitLength = 0;
+                _bitPosition = 0;
+                _recycleData = false;
             }
         }
 
@@ -134,7 +142,7 @@ namespace Lidgren.Network
             {
                 if (disposing)
                 {
-                    Trim();
+                    Recycle();
                 }
                 _isDisposed = true;
             }

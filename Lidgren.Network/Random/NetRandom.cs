@@ -148,7 +148,7 @@ namespace Lidgren.Network
             var ints = MemoryMarshal.Cast<byte, uint>(buffer);
             for (int i = 0; i < ints.Length; i++)
                 ints[i] = NextUInt32();
-            buffer = buffer.Slice(ints.Length * sizeof(uint));
+            buffer = buffer[(ints.Length * sizeof(uint))..];
 
             for (int i = 0; i < buffer.Length; i++)
                 buffer[i] = (byte)NextUInt32();

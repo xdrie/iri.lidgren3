@@ -101,8 +101,8 @@ namespace Lidgren.Network
 		ConnectionLatencyUpdated = 1 << 12, // Seconds as a TimeSpan,
 
 		/// <summary>
-		/// Represents various data sent by a <see cref="NetStream"/>. 
+		/// Represents various data and operations sent by a <see cref="NetStream"/>. 
 		/// </summary>
-		StreamData = 1 << 13
+		StreamMessage = 1 << 13
 	}
 }
