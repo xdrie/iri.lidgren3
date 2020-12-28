@@ -147,6 +147,7 @@ namespace Lidgren.Network
                     var ep = (EndPoint)new NetEndPoint(m_configuration.LocalAddress, reBind ? m_listenPort : m_configuration.Port);
 					m_socket.Bind(ep);
 
+#if WINDOWS
 					try
 					{
 						const uint IOC_IN = 0x80000000;
@@ -158,6 +159,7 @@ namespace Lidgren.Network
 					{
 						// ignore; SIO_UDP_CONNRESET not supported on this platform
 					}
+#endif
 				}
 				finally
 				{
