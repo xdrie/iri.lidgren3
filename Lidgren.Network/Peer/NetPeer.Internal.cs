@@ -142,6 +142,7 @@ namespace Lidgren.Network
                 var ep = new IPEndPoint(Configuration.LocalAddress, reuseAddress ? Port : Configuration.Port);
                 Socket.Bind(ep);
 
+#if WINDOWS
                 try
                 {
                     const uint IOC_IN = 0x80000000;
@@ -153,6 +154,7 @@ namespace Lidgren.Network
                 {
                     // ignore; SIO_UDP_CONNRESET not supported on this platform
                 }
+#endif
             }
             finally
             {
