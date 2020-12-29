@@ -1,102 +1,122 @@
 ﻿using System;
-using System.Text;
-
+using System.Linq;
+using System.Security.Cryptography;
+using System.Threading.Tasks;
 using Lidgren.Network;
-using System.Security;
-using System.Collections.Generic;
 
 namespace UnitTests
 {
-	public static class EncryptionTests
-	{
-		public static void Run(NetPeer peer)
-		{
-			//
-			// Test encryption
-			//
-			List<NetEncryption> algos = new List<NetEncryption>();
+    public static class EncryptionTests
+    {
+        public static void Run(NetPeer peer)
+        {
+            //
+            // Test encryption
+            //
 
-			algos.Add(new NetXorEncryption(peer, "TopSecret"));
-			algos.Add(new NetXtea(peer, "TopSecret"));
-			algos.Add(new NetAESEncryption(peer, "TopSecret"));
-			algos.Add(new NetRC2Encryption(peer, "TopSecret"));
-			algos.Add(new NetDESEncryption(peer, "TopSecret"));
-			algos.Add(new NetTripleDESEncryption(peer, "TopSecret"));
+            Console.WriteLine("Testing encryption:");
+            TestEncryption(new NetXorEncryption(peer));
+            TestEncryption(new NetXteaEncryption(peer));
+            TestEncryption(new NetSymmetricEncryption<Aes>(peer, Aes.Create()));
+            TestEncryption(new NetSymmetricEncryption<RC2>(peer, RC2.Create()));
+            TestEncryption(new NetSymmetricEncryption<DES>(peer, DES.Create()));
+            TestEncryption(new NetSymmetricEncryption<TripleDES>(peer, TripleDES.Create()));
+            
+            var srpXteas = TestSRPWithRandomness(peer);
+            Console.WriteLine("Testing SRP-based Xtea encryptions...");
+            foreach (var algo in srpXteas)
+                TestEncryption(algo, false);
 
-			foreach (var algo in algos)
-			{
-				NetOutgoingMessage om = peer.CreateMessage();
-				om.Write("Hallon");
-				om.Write(42);
-				om.Write(5, 5);
-				om.Write(true);
-				om.Write("kokos");
-				int unencLen = om.LengthBits;
-				om.Encrypt(algo);
+            Console.WriteLine("Message encryption OK");
+        }
 
-				// convert to incoming message
-				NetIncomingMessage im = Program.CreateIncomingMessage(om.PeekDataBuffer(), om.LengthBits);
-				if (im.Data == null || im.Data.Length == 0)
-					throw new NetException("bad im!");
+        public static void TestEncryption(NetEncryption algo, bool printName = true)
+        {
+            NetOutgoingMessage om = algo.Peer.CreateMessage();
+            om.Write("Hallon");
+            om.Write(42);
+            om.Write(5, 5);
+            om.Write(true);
+            om.Write("kokos");
 
-				im.Decrypt(algo);
+            int unencLen = om.BitLength;
+            if (!om.Encrypt(algo))
+                throw new LidgrenException("failed to encrypt");
 
-				if (im.Data == null || im.Data.Length == 0 || im.LengthBits != unencLen)
-					throw new NetException("Length fail");
+            // convert to incoming message
+            NetIncomingMessage im = Program.CreateIncomingMessage(
+                om.GetBuffer().AsSpan(0, om.ByteLength).ToArray(), om.BitLength);
 
-				var str = im.ReadString();
-				if (str != "Hallon")
-					throw new NetException("fail");
-				if (im.ReadInt32() != 42)
-					throw new NetException("fail");
-				if (im.ReadInt32(5) != 5)
-					throw new NetException("fail");
-				if (im.ReadBoolean() != true)
-					throw new NetException("fail");
-				if (im.ReadString() != "kokos")
-					throw new NetException("fail");
+            if (im.GetBuffer().Length == 0)
+                throw new LidgrenException("bad im!");
 
-				Console.WriteLine(algo.GetType().Name + " encryption verified");
-			}
+            if (!im.Decrypt(algo))
+                throw new LidgrenException("failed to decrypt");
 
-			for (int i = 0; i < 100; i++)
-			{
-				byte[] salt = NetSRP.CreateRandomSalt();
-				byte[] x = NetSRP.ComputePrivateKey("user", "password", salt);
+            if (im.GetBuffer().Length == 0 || im.BitLength != unencLen)
+                throw new LidgrenException("Length fail");
 
-				byte[] v = NetSRP.ComputeServerVerifier(x);
-				//Console.WriteLine("v = " + NetUtility.ToHexString(v));
+            var str = im.ReadString();
+            if (str != "Hallon")
+                throw new LidgrenException("fail");
+            if (im.ReadInt32() != 42)
+                throw new LidgrenException("fail");
+            if (im.ReadInt32(5) != 5)
+                throw new LidgrenException("fail");
+            if (im.ReadBool() != true)
+                throw new LidgrenException("fail");
+            if (im.ReadString() != "kokos")
+                throw new LidgrenException("fail");
 
-				byte[] a = NetSRP.CreateRandomEphemeral(); //  NetUtility.ToByteArray("393ed364924a71ba7258633cc4854d655ca4ec4e8ba833eceaad2511e80db2b5");
-				byte[] A = NetSRP.ComputeClientEphemeral(a);
-				//Console.WriteLine("A = " + NetUtility.ToHexString(A));
+            if (printName)
+                Console.WriteLine(" - " + algo.GetType().Name + " OK");
+        }
 
-				byte[] b = NetSRP.CreateRandomEphemeral(); // NetUtility.ToByteArray("cc4d87a90db91067d52e2778b802ca6f7d362490c4be294b21b4a57c71cf55a9");
-				byte[] B = NetSRP.ComputeServerEphemeral(b, v);
-				//Console.WriteLine("B = " + NetUtility.ToHexString(B));
+        public static NetXteaEncryption[] TestSRPWithRandomness(NetPeer peer)
+        {
+            int parallelism = (int)Math.Max(1, Environment.ProcessorCount * 0.75);
 
-				byte[] u = NetSRP.ComputeU(A, B);
-				//Console.WriteLine("u = " + NetUtility.ToHexString(u));
+            var xtea = new NetXteaEncryption[2000 + 1000 * parallelism];
 
-				byte[] Ss = NetSRP.ComputeServerSessionValue(A, v, u, b);
-				//Console.WriteLine("Ss = " + NetUtility.ToHexString(Ss));
+            Console.WriteLine(
+                $"Testing SRP helper {xtea.Length} times (degree of parallelism: {parallelism})...");
 
-				byte[] Sc = NetSRP.ComputeClientSessionValue(B, x, u, a);
-				//Console.WriteLine("Sc = " + NetUtility.ToHexString(Sc));
+            Parallel.For(
+                0,
+                xtea.Length,
+                new ParallelOptions { MaxDegreeOfParallelism = parallelism },
+                (i) =>
+            {
+                var salt = NetSRP.CreateRandomSalt();
+                var x = NetSRP.ComputePrivateKey("user", "password", salt);
 
-				if (Ss.Length != Sc.Length)
-					throw new NetException("SRP non matching lengths!");
+                var v = NetSRP.ComputeServerVerifier(x);
+                //Console.WriteLine("v = " + NetUtility.ToHexString(v));
 
-				for (int j = 0; j < Ss.Length; j++)
-				{
-					if (Ss[j] != Sc[j])
-						throw new NetException("SRP non matching session values!");
-				}
+                var a = NetSRP.CreateRandomEphemeral(); //  NetUtility.ToByteArray("393ed364924a71ba7258633cc4854d655ca4ec4e8ba833eceaad2511e80db2b5");
+                var A = NetSRP.ComputeClientEphemeral(a);
+                //Console.WriteLine("A = " + NetUtility.ToHexString(A));
 
-				var test = NetSRP.CreateEncryption(peer, Ss);
-			}
+                var b = NetSRP.CreateRandomEphemeral(); // NetUtility.ToByteArray("cc4d87a90db91067d52e2778b802ca6f7d362490c4be294b21b4a57c71cf55a9");
+                var B = NetSRP.ComputeServerEphemeral(b, v);
+                //Console.WriteLine("B = " + NetUtility.ToHexString(B));
 
-			Console.WriteLine("Message encryption OK");
-		}
-	}
+                var u = NetSRP.ComputeU(A, B);
+                //Console.WriteLine("u = " + NetUtility.ToHexString(u));
+
+                var Ss = NetSRP.ComputeServerSessionValue(A, v, u, b);
+                //Console.WriteLine("Ss = " + NetUtility.ToHexString(Ss));
+
+                var Sc = NetSRP.ComputeClientSessionValue(B, x, u, a);
+                //Console.WriteLine("Sc = " + NetUtility.ToHexString(Sc));
+
+                if (Ss != Sc)
+                    throw new LidgrenException("SRP non matching session values!");
+
+                xtea[i] = NetSRP.CreateEncryption(peer, Ss);
+            });
+
+            return xtea;
+        }
+    }
 }

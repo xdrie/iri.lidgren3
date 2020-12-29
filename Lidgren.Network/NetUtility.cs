@@ -17,461 +17,544 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR TH
 USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 
-#if !__NOIPENDPOINT__
-using NetEndPoint = System.Net.IPEndPoint;
-using NetAddress = System.Net.IPAddress;
-#endif
-
 using System;
 using System.Net;
-
 using System.Net.Sockets;
-using System.Text;
-using System.Text.RegularExpressions;
-using System.Collections.Generic;
+using System.Buffers.Binary;
+using System.Globalization;
 using System.Security.Cryptography;
+using System.Diagnostics;
+using System.Net.NetworkInformation;
+using System.Diagnostics.CodeAnalysis;
+using System.Runtime.CompilerServices;
 
 namespace Lidgren.Network
 {
-	/// <summary>
-	/// Utility methods
-	/// </summary>
-	public static partial class NetUtility
-	{
-		private static readonly bool IsMono = Type.GetType("Mono.Runtime") != null;
+    // TODO: replace IAsyncResult with Task<>
 
-		/// <summary>
-		/// Resolve endpoint callback
-		/// </summary>
-		public delegate void ResolveEndPointCallback(NetEndPoint endPoint);
+    /// <summary>
+    /// Utility methods
+    /// </summary>
+    public static partial class NetUtility
+    {
+        private static readonly double _inverseFrequency = 1.0 / Stopwatch.Frequency;
+        private static readonly long _timeInitialized = Stopwatch.GetTimestamp();
 
-		/// <summary>
-		/// Resolve address callback
-		/// </summary>
-		public delegate void ResolveAddressCallback(NetAddress adr);
+        internal static SHA256 Sha256 { get; } = SHA256.Create();
 
-		/// <summary>
-		/// Get IPv4 endpoint from notation (xxx.xxx.xxx.xxx) or hostname and port number (asynchronous version)
-		/// </summary>
-		public static void ResolveAsync(string ipOrHost, int port, ResolveEndPointCallback callback)
-		{
-			ResolveAsync(ipOrHost, delegate(NetAddress adr)
-			{
-				if (adr == null)
-				{
-					callback(null);
-				}
-				else
-				{
-					callback(new NetEndPoint(adr, port));
-				}
-			});
-		}
-
-		/// <summary>
-		/// Get IPv4 endpoint from notation (xxx.xxx.xxx.xxx) or hostname and port number
-		/// </summary>
-		public static NetEndPoint Resolve(string ipOrHost, int port)
-		{
-			var adr = Resolve(ipOrHost);
-			return adr == null ? null : new NetEndPoint(adr, port);
-		}
-
-		private static IPAddress s_broadcastAddress;
-		public static IPAddress GetCachedBroadcastAddress()
-		{
-			if (s_broadcastAddress == null)
-				s_broadcastAddress = GetBroadcastAddress();
-			return s_broadcastAddress;
-		}
-
-		/// <summary>
-		/// Get IPv4 address from notation (xxx.xxx.xxx.xxx) or hostname (asynchronous version)
-		/// </summary>
-		public static void ResolveAsync(string ipOrHost, ResolveAddressCallback callback)
-		{
-			if (string.IsNullOrEmpty(ipOrHost))
-				throw new ArgumentException("Supplied string must not be empty", "ipOrHost");
-
-			ipOrHost = ipOrHost.Trim();
-
-			NetAddress ipAddress = null;
-			if (NetAddress.TryParse(ipOrHost, out ipAddress))
-			{
-				if (ipAddress.AddressFamily == AddressFamily.InterNetwork || ipAddress.AddressFamily == AddressFamily.InterNetworkV6)
-				{
-					callback(ipAddress);
-					return;
-				}
-				throw new ArgumentException("This method will not currently resolve other than ipv4 addresses");
-			}
-
-			// ok must be a host name
-			IPHostEntry entry;
-			try
-			{
-				Dns.BeginGetHostEntry(ipOrHost, delegate(IAsyncResult result)
-				{
-					try
-					{
-						entry = Dns.EndGetHostEntry(result);
-					}
-					catch (SocketException ex)
-					{
-						if (ex.SocketErrorCode == SocketError.HostNotFound)
-						{
-							//LogWrite(string.Format(CultureInfo.InvariantCulture, "Failed to resolve host '{0}'.", ipOrHost));
-							callback(null);
-							return;
-						}
-						else
-						{
-							throw;
-						}
-					}
-
-					if (entry == null)
-					{
-						callback(null);
-						return;
-					}
-
-					// check each entry for a valid IP address
-					foreach (var ipCurrent in entry.AddressList)
-					{
-						if (ipCurrent.AddressFamily == AddressFamily.InterNetwork || ipCurrent.AddressFamily == AddressFamily.InterNetworkV6)
-						{
-							callback(ipCurrent);
-							return;
-						}
-					}
-
-					callback(null);
-				}, null);
-			}
-			catch (SocketException ex)
-			{
-				if (ex.SocketErrorCode == SocketError.HostNotFound)
-				{
-					//LogWrite(string.Format(CultureInfo.InvariantCulture, "Failed to resolve host '{0}'.", ipOrHost));
-					callback(null);
-				}
-				else
-				{
-					throw;
-				}
-			}
-		}
+        public static double Now => (Stopwatch.GetTimestamp() - _timeInitialized) * _inverseFrequency;
 
         /// <summary>
-		/// Get IPv4 address from notation (xxx.xxx.xxx.xxx) or hostname
-		/// </summary>
-		public static NetAddress Resolve(string ipOrHost)
-		{
-			if (string.IsNullOrEmpty(ipOrHost))
-				throw new ArgumentException("Supplied string must not be empty", "ipOrHost");
-
-			ipOrHost = ipOrHost.Trim();
-
-			NetAddress ipAddress = null;
-			if (NetAddress.TryParse(ipOrHost, out ipAddress))
-			{
-				if (ipAddress.AddressFamily == AddressFamily.InterNetwork || ipAddress.AddressFamily == AddressFamily.InterNetworkV6)
-					return ipAddress;
-				throw new ArgumentException("This method will not currently resolve other than IPv4 or IPv6 addresses");
-			}
-
-			// ok must be a host name
-			try
-			{
-				var addresses = Dns.GetHostAddresses(ipOrHost);
-				if (addresses == null)
-					return null;
-				foreach (var address in addresses)
-				{
-					if (address.AddressFamily == AddressFamily.InterNetwork || address.AddressFamily == AddressFamily.InterNetworkV6)
-						return address;
-				}
-				return null;
-			}
-			catch (SocketException ex)
-			{
-				if (ex.SocketErrorCode == SocketError.HostNotFound)
-				{
-					//LogWrite(string.Format(CultureInfo.InvariantCulture, "Failed to resolve host '{0}'.", ipOrHost));
-					return null;
-				}
-				else
-				{
-					throw;
-				}
-			}
-		}
-
-		/// <summary>
-		/// Create a hex string from an Int64 value
-		/// </summary>
-		public static string ToHexString(long data)
-		{
-			return ToHexString(BitConverter.GetBytes(data));
-		}
-
-		/// <summary>
-		/// Create a hex string from an array of bytes
-		/// </summary>
-		public static string ToHexString(byte[] data)
-		{
-			return ToHexString(data, 0, data.Length);
-		}
-
-		/// <summary>
-		/// Create a hex string from an array of bytes
-		/// </summary>
-		public static string ToHexString(byte[] data, int offset, int length)
-		{
-			char[] c = new char[length * 2];
-			byte b;
-			for (int i = 0; i < length; ++i)
-			{
-				b = ((byte)(data[offset + i] >> 4));
-				c[i * 2] = (char)(b > 9 ? b + 0x37 : b + 0x30);
-				b = ((byte)(data[offset + i] & 0xF));
-				c[i * 2 + 1] = (char)(b > 9 ? b + 0x37 : b + 0x30);
-			}
-			return new string(c);
-		}
-
-		/// <summary>
-		/// Returns true if the endpoint supplied is on the same subnet as this host
-		/// </summary>
-		public static bool IsLocal(NetEndPoint endPoint)
-		{
-			if (endPoint == null)
-				return false;
-			return IsLocal(endPoint.Address);
-		}
-
-		/// <summary>
-		/// Returns true if the IPAddress supplied is on the same subnet as this host
-		/// </summary>
-		public static bool IsLocal(NetAddress remote)
-		{
-			NetAddress mask;
-			var local = GetMyAddress(out mask);
-
-			if (mask == null)
-				return false;
-
-			uint maskBits = BitConverter.ToUInt32(mask.GetAddressBytes(), 0);
-			uint remoteBits = BitConverter.ToUInt32(remote.GetAddressBytes(), 0);
-			uint localBits = BitConverter.ToUInt32(local.GetAddressBytes(), 0);
-
-			// compare network portions
-			return ((remoteBits & maskBits) == (localBits & maskBits));
-		}
-
-		/// <summary>
-		/// Returns how many bits are necessary to hold a certain number
-		/// </summary>
-		[CLSCompliant(false)]
-		public static int BitsToHoldUInt(uint value)
-		{
-			int bits = 1;
-			while ((value >>= 1) != 0)
-				bits++;
-			return bits;
-		}
-
-		/// <summary>
-		/// Returns how many bits are necessary to hold a certain number
-		/// </summary>
-		[CLSCompliant(false)]
-		public static int BitsToHoldUInt64(ulong value)
-		{
-			int bits = 1;
-			while ((value >>= 1) != 0)
-				bits++;
-			return bits;
-		}
-
-		/// <summary>
-		/// Returns how many bytes are required to hold a certain number of bits
-		/// </summary>
-		public static int BytesToHoldBits(int numBits)
-		{
-			return (numBits + 7) / 8;
-		}
-
-		internal static UInt32 SwapByteOrder(UInt32 value)
-		{
-			return
-				((value & 0xff000000) >> 24) |
-				((value & 0x00ff0000) >> 8) |
-				((value & 0x0000ff00) << 8) |
-				((value & 0x000000ff) << 24);
-		}
-
-		internal static UInt64 SwapByteOrder(UInt64 value)
-		{
-			return
-				((value & 0xff00000000000000L) >> 56) |
-				((value & 0x00ff000000000000L) >> 40) |
-				((value & 0x0000ff0000000000L) >> 24) |
-				((value & 0x000000ff00000000L) >> 8) |
-				((value & 0x00000000ff000000L) << 8) |
-				((value & 0x0000000000ff0000L) << 24) |
-				((value & 0x000000000000ff00L) << 40) |
-				((value & 0x00000000000000ffL) << 56);
-		}
-
-		internal static bool CompareElements(byte[] one, byte[] two)
-		{
-			if (one.Length != two.Length)
-				return false;
-			for (int i = 0; i < one.Length; i++)
-				if (one[i] != two[i])
-					return false;
-			return true;
-		}
-
-		/// <summary>
-		/// Convert a hexadecimal string to a byte array
-		/// </summary>
-		public static byte[] ToByteArray(String hexString)
-		{
-			byte[] retval = new byte[hexString.Length / 2];
-			for (int i = 0; i < hexString.Length; i += 2)
-				retval[i / 2] = Convert.ToByte(hexString.Substring(i, 2), 16);
-			return retval;
-		}
-
-		/// <summary>
-		/// Converts a number of bytes to a shorter, more readable string representation
-		/// </summary>
-		public static string ToHumanReadable(long bytes)
-		{
-			if (bytes < 4000) // 1-4 kb is printed in bytes
-				return bytes + " bytes";
-			if (bytes < 1000 * 1000) // 4-999 kb is printed in kb
-				return Math.Round(((double)bytes / 1000.0), 2) + " kilobytes";
-			return Math.Round(((double)bytes / (1000.0 * 1000.0)), 2) + " megabytes"; // else megabytes
-		}
-
-		internal static int RelativeSequenceNumber(int nr, int expected)
-		{
-			return (nr - expected + NetConstants.NumSequenceNumbers + (NetConstants.NumSequenceNumbers / 2)) % NetConstants.NumSequenceNumbers - (NetConstants.NumSequenceNumbers / 2);
-
-			// old impl:
-			//int retval = ((nr + NetConstants.NumSequenceNumbers) - expected) % NetConstants.NumSequenceNumbers;
-			//if (retval > (NetConstants.NumSequenceNumbers / 2))
-			//	retval -= NetConstants.NumSequenceNumbers;
-			//return retval;
-		}
-
-		/// <summary>
-		/// Gets the window size used internally in the library for a certain delivery method
-		/// </summary>
-		public static int GetWindowSize(NetDeliveryMethod method)
-		{
-			switch (method)
-			{
-				case NetDeliveryMethod.Unknown:
-					return 0;
-
-				case NetDeliveryMethod.Unreliable:
-				case NetDeliveryMethod.UnreliableSequenced:
-					return NetConstants.UnreliableWindowSize;
-
-				case NetDeliveryMethod.ReliableOrdered:
-					return NetConstants.ReliableOrderedWindowSize;
-
-				case NetDeliveryMethod.ReliableSequenced:
-				case NetDeliveryMethod.ReliableUnordered:
-				default:
-					return NetConstants.DefaultWindowSize;
-			}
-		}
-
-		// shell sort
-		internal static void SortMembersList(System.Reflection.MemberInfo[] list)
-		{
-			int h;
-			int j;
-			System.Reflection.MemberInfo tmp;
-
-			h = 1;
-			while (h * 3 + 1 <= list.Length)
-				h = 3 * h + 1;
-
-			while (h > 0)
-			{
-				for (int i = h - 1; i < list.Length; i++)
-				{
-					tmp = list[i];
-					j = i;
-					while (true)
-					{
-						if (j >= h)
-						{
-							if (string.Compare(list[j - h].Name, tmp.Name, StringComparison.InvariantCulture) > 0)
-							{
-								list[j] = list[j - h];
-								j -= h;
-							}
-							else
-								break;
-						}
-						else
-							break;
-					}
-
-					list[j] = tmp;
-				}
-				h /= 3;
-			}
-		}
-
-		internal static NetDeliveryMethod GetDeliveryMethod(NetMessageType mtp)
-		{
-			if (mtp >= NetMessageType.UserReliableOrdered1)
-				return NetDeliveryMethod.ReliableOrdered;
-			else if (mtp >= NetMessageType.UserReliableSequenced1)
-				return NetDeliveryMethod.ReliableSequenced;
-			else if (mtp >= NetMessageType.UserReliableUnordered)
-				return NetDeliveryMethod.ReliableUnordered;
-			else if (mtp >= NetMessageType.UserSequenced1)
-				return NetDeliveryMethod.UnreliableSequenced;
-			return NetDeliveryMethod.Unreliable;
-		}
-
-		/// <summary>
-		/// Creates a comma delimited string from a lite of items
-		/// </summary>
-		public static string MakeCommaDelimitedList<T>(IList<T> list)
-		{
-			var cnt = list.Count;
-			StringBuilder bdr = new StringBuilder(cnt * 5); // educated guess
-			for(int i=0;i<cnt;i++)
-			{
-				bdr.Append(list[i].ToString());
-				if (i != cnt - 1)
-					bdr.Append(", ");
-			}
-			return bdr.ToString();
-		}
-
-		public static byte[] ComputeSHAHash(byte[] bytes)
-		{
-			// this is defined in the platform specific files
-			return ComputeSHAHash(bytes, 0, bytes.Length);
-		}
+        /// Resolve endpoint callback
+        /// </summary>
+        public delegate void ResolveEndPointCallback(IPEndPoint? endPoint);
 
         /// <summary>
-        /// Copies from <paramref name="src"/> to <paramref name="dst"/>. Maps to an IPv6 address
+        /// Resolve address callback
+        /// </summary>
+        public delegate void ResolveAddressCallback(IPAddress? address);
+
+        private static IPAddress? _cachedBroadcastAddress;
+
+        [CLSCompliant(false)]
+        public static ulong GetPlatformSeed(int seedInc)
+        {
+            ulong seed = (ulong)Stopwatch.GetTimestamp();
+            return seed ^ ((ulong)Environment.WorkingSet + (ulong)seedInc);
+        }
+
+        public static NetworkInterface? GetNetworkInterface()
+        {
+            var nics = NetworkInterface.GetAllNetworkInterfaces();
+            if (nics == null || nics.Length < 1)
+                return null;
+
+            NetworkInterface? best = null;
+            foreach (NetworkInterface adapter in nics)
+            {
+                if (adapter.NetworkInterfaceType == NetworkInterfaceType.Loopback ||
+                    adapter.NetworkInterfaceType == NetworkInterfaceType.Unknown)
+                    continue;
+
+                if (!adapter.Supports(NetworkInterfaceComponent.IPv4) &&
+                    !adapter.Supports(NetworkInterfaceComponent.IPv6))
+                    continue;
+
+                if (best == null)
+                    best = adapter;
+
+                if (adapter.OperationalStatus != OperationalStatus.Up)
+                    continue;
+
+                IPInterfaceProperties properties = adapter.GetIPProperties();
+                foreach (UnicastIPAddressInformation unicastAddress in properties.UnicastAddresses)
+                {
+                    if (unicastAddress == null || unicastAddress.Address == null)
+                        continue;
+
+                    if (unicastAddress.Address.AddressFamily == AddressFamily.InterNetwork ||
+                        unicastAddress.Address.AddressFamily == AddressFamily.InterNetworkV6)
+                        return adapter;
+                }
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// If available, returns the physical (MAC) address for the first usable network interface.
+        /// </summary>
+        public static PhysicalAddress? GetPhysicalAddress()
+        {
+            var ni = GetNetworkInterface();
+            if (ni == null)
+                return null;
+            return ni.GetPhysicalAddress();
+        }
+
+        public static IPAddress? RetrieveBroadcastAddress()
+        {
+            var ni = GetNetworkInterface();
+            if (ni == null)
+                return null;
+
+            Span<byte> addressTmp = stackalloc byte[16];
+            Span<byte> subnetMaskTmp = stackalloc byte[16];
+
+            var properties = ni.GetIPProperties();
+            foreach (UnicastIPAddressInformation unicastAddress in properties.UnicastAddresses)
+            {
+                if (unicastAddress != null &&
+                    unicastAddress.Address != null &&
+                    unicastAddress.Address.AddressFamily == AddressFamily.InterNetwork)
+                {
+                    if (!unicastAddress.Address.TryWriteBytes(addressTmp, out int addressLength))
+                        throw new NotImplementedException("Unknown address length.");
+
+                    if (!unicastAddress.IPv4Mask.TryWriteBytes(subnetMaskTmp, out int subnetMaskLength))
+                        throw new NotImplementedException("Unknown subnet mask length.");
+
+                    // subnet mask should realistically always have length 4
+                    if (addressLength != subnetMaskLength)
+                        throw new Exception("Length of IP address and subnet mask do not match.");
+
+                    Span<byte> broadcast = stackalloc byte[addressLength];
+                    for (int i = 0; i < broadcast.Length; i++)
+                        broadcast[i] = (byte)(addressTmp[i] | (subnetMaskTmp[i] ^ 255));
+
+                    return new IPAddress(broadcast);
+                }
+            }
+            return IPAddress.Broadcast;
+        }
+
+        public static IPAddress? GetBroadcastAddress()
+        {
+            if (_cachedBroadcastAddress == null)
+                _cachedBroadcastAddress = RetrieveBroadcastAddress();
+            return _cachedBroadcastAddress;
+        }
+
+        /// <summary>
+        /// Gets local IPv4 address and subnet mask.
+        /// </summary>
+        public static bool GetLocalAddress(
+            [MaybeNullWhen(false)] out IPAddress address,
+            [MaybeNullWhen(false)] out IPAddress mask)
+        {
+            var ni = GetNetworkInterface();
+            if (ni != null)
+            {
+                IPInterfaceProperties properties = ni.GetIPProperties();
+                foreach (UnicastIPAddressInformation unicastAddress in properties.UnicastAddresses)
+                {
+                    if (unicastAddress != null &&
+                        unicastAddress.Address != null &&
+                        unicastAddress.Address.AddressFamily == AddressFamily.InterNetwork)
+                    {
+                        address = unicastAddress.Address;
+                        mask = unicastAddress.IPv4Mask;
+                        return true;
+                    }
+                }
+            }
+
+            address = null;
+            mask = null;
+            return false;
+        }
+
+        #region Resolve
+
+        /// <summary>
+        /// Get IPv4 endpoint from notation (xxx.xxx.xxx.xxx) or hostname and port number asynchronously.
+        /// </summary>
+        public static void ResolveAsync(ReadOnlySpan<char> host, int port, ResolveEndPointCallback callback)
+        {
+            ResolveAsync(host, (resolved) =>
+            {
+                if (resolved == null)
+                    callback(null);
+                else
+                    callback(new IPEndPoint(resolved, port));
+            });
+        }
+
+        /// <summary>
+        /// Get IPv4 endpoint from notation (xxx.xxx.xxx.xxx) or hostname and port number
+        /// </summary>
+        public static IPEndPoint? Resolve(ReadOnlySpan<char> host, int port)
+        {
+            var resolved = Resolve(host);
+            return resolved == null ? null : new IPEndPoint(resolved, port);
+        }
+
+        /// <summary>
+        /// Get IPv4 address from notation (xxx.xxx.xxx.xxx) or hostname asynchronously.
+        /// </summary>
+        public static void ResolveAsync(ReadOnlySpan<char> host, ResolveAddressCallback callback)
+        {
+            if (host.IsEmpty)
+                throw new ArgumentException("Supplied string must not be empty.", nameof(host));
+
+            host = host.Trim();
+
+            if (IPAddress.TryParse(host, out IPAddress ipAddress))
+            {
+                if (ipAddress.AddressFamily == AddressFamily.InterNetwork ||
+                    ipAddress.AddressFamily == AddressFamily.InterNetworkV6)
+                {
+                    callback?.Invoke(ipAddress);
+                    return;
+                }
+
+                throw new ArgumentException(
+                    "This method will not currently resolve other than IPv4 and IPv6 addresses.",
+                    nameof(host));
+            }
+
+            // ok must be a host name
+            IPHostEntry entry;
+            try
+            {
+                Dns.BeginGetHostEntry(host.ToString(), (result) =>
+                {
+                    try
+                    {
+                        entry = Dns.EndGetHostEntry(result);
+                    }
+                    catch (SocketException ex)
+                    {
+                        if (ex.SocketErrorCode == SocketError.HostNotFound)
+                        {
+                            //LogWrite(string.Format(CultureInfo.InvariantCulture, "Failed to resolve host '{0}'.", host.ToString()));
+                            callback?.Invoke(null);
+                            return;
+                        }
+                        else
+                        {
+                            throw;
+                        }
+                    }
+
+                    if (entry == null)
+                    {
+                        callback?.Invoke(null);
+                        return;
+                    }
+
+                    // check each entry for a valid IP address
+                    foreach (var ipCurrent in entry.AddressList)
+                    {
+                        if (ipCurrent.AddressFamily == AddressFamily.InterNetwork ||
+                            ipCurrent.AddressFamily == AddressFamily.InterNetworkV6)
+                        {
+                            callback?.Invoke(ipCurrent);
+                            return;
+                        }
+                    }
+
+                    callback?.Invoke(null);
+
+                }, null);
+            }
+            catch (SocketException ex)
+            {
+                if (ex.SocketErrorCode == SocketError.HostNotFound)
+                {
+                    //LogWrite(string.Format(CultureInfo.InvariantCulture, "Failed to resolve host '{0}'.", host.ToString()));
+                    callback?.Invoke(null);
+                }
+                else
+                {
+                    throw;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Get IPv4 address from notation (xxx.xxx.xxx.xxx) or hostname.
+        /// </summary>
+        public static IPAddress? Resolve(ReadOnlySpan<char> host)
+        {
+            if (host.IsEmpty)
+                throw new ArgumentException("Supplied string must not be empty.", nameof(host));
+
+            host = host.Trim();
+
+            if (IPAddress.TryParse(host, out IPAddress ipAddress))
+            {
+                if (ipAddress.AddressFamily == AddressFamily.InterNetwork ||
+                    ipAddress.AddressFamily == AddressFamily.InterNetworkV6)
+                    return ipAddress;
+
+                throw new ArgumentException(
+                    "This method will not currently resolve other than IPv4 or IPv6 addresses.",
+                    nameof(host));
+            }
+
+            // ok must be a host name
+            try
+            {
+                var addresses = Dns.GetHostAddresses(host.ToString());
+                if (addresses == null)
+                    return null;
+
+                foreach (var address in addresses)
+                {
+                    if (address.AddressFamily == AddressFamily.InterNetwork ||
+                        address.AddressFamily == AddressFamily.InterNetworkV6)
+                        return address;
+                }
+                return null;
+            }
+            catch (SocketException ex)
+            {
+                if (ex.SocketErrorCode == SocketError.HostNotFound)
+                {
+                    //LogWrite(string.Format(CultureInfo.InvariantCulture, "Failed to resolve host '{0}'.", host.ToString()));
+                    return null;
+                }
+                else
+                {
+                    throw;
+                }
+            }
+        }
+
+        #endregion
+
+        // TODO: replace hex methods with fast .NET ones in future
+
+        public static int GetHexCharCount(int byteCount)
+        {   
+            return byteCount * 2;
+        }
+
+        public static void ToHexString(ReadOnlySpan<byte> source, Span<char> destination)
+        {
+            destination = destination.Slice(0, Math.Min(destination.Length, GetHexCharCount(source.Length)));
+            source = source.Slice(0, Math.Min(source.Length, destination.Length / 2));
+
+            if (source.IsEmpty || destination.IsEmpty)
+                return;
+
+            for (int i = 0; i < destination.Length / 2; i++)
+            {
+                int value = source[i];
+
+                int a = value >> 4;
+                destination[i * 2 + 0] = (char)(a > 9 ? a + 0x37 : a + 0x30);
+
+                int b = value & 0xF;
+                destination[i * 2 + 1] = (char)(b > 9 ? b + 0x37 : b + 0x30);
+            }
+        }
+
+        /// <summary>
+        /// Create a hex string from an array of bytes
+        /// </summary>
+        public static unsafe string ToHexString(ReadOnlySpan<byte> source)
+        {
+            if (source.IsEmpty)
+                return string.Empty;
+
+            // TODO: pass Span directly, not now as ref-structs are not supported by generics
+
+            fixed (byte* srcPtr = source)
+            {
+                return string.Create(source.Length * 2, (IntPtr)srcPtr, (dst, srcPtr) =>
+                {
+                    var src = new ReadOnlySpan<byte>((byte*)srcPtr, dst.Length / 2);
+                    ToHexString(src, dst);
+                });
+            }
+        }
+
+        /// <summary>
+        /// Create a hex string from an <see cref="long"/> value.
+        /// </summary>
+        public static string ToHexString(long value)
+        {
+            Span<byte> tmp = stackalloc byte[sizeof(long)];
+            BinaryPrimitives.WriteInt64LittleEndian(tmp, value);
+            return ToHexString(tmp);
+        }
+
+        public static int GetHexByteCount(int textLength)
+        {
+            return (textLength + 1) / 2;
+        }
+
+        /// <summary>
+        /// Convert a hexadecimal text to into bytes.
+        /// </summary>
+        public static void FromHexString(ReadOnlySpan<char> source, Span<byte> destination)
+        {
+            destination = destination.Slice(0, Math.Min(destination.Length, GetHexByteCount(source.Length)));
+            source = source.Slice(0, Math.Min(source.Length / 2 * 2, destination.Length / 2));
+
+            if (source.IsEmpty || destination.IsEmpty)
+                return;
+
+            int i = 0;
+            for (; i < source.Length; i += 2)
+                destination[i / 2] = byte.Parse(source[i..(i + 1)], NumberStyles.HexNumber);
+
+            if (source.Length - i > 0)
+                destination[i] = byte.Parse(stackalloc char[] { source[i] }, NumberStyles.HexNumber);
+        }
+
+        public static byte[] FromHexString(ReadOnlySpan<char> text)
+        {
+            if (text.IsEmpty)
+                return Array.Empty<byte>();
+
+            var array = new byte[GetHexByteCount(text.Length)];
+            FromHexString(text, array);
+            return array;
+        }
+
+        /// <summary>
+        /// Returns true if the supplied address is on the same subnet as this host.
+        /// </summary>
+        public static bool IsLocal(IPAddress remote)
+        {
+            if (remote == null)
+                return false;
+
+            static void GetBytes(IPAddress address, Span<byte> destination)
+            {
+                if (address.AddressFamily != AddressFamily.InterNetwork)
+                    throw new ArgumentException("Unsupported address type. Only IPv4 is supported.");
+
+                if (!address.TryWriteBytes(destination, out int remoteByteCount) ||
+                    remoteByteCount != 4)
+                    throw new ArgumentException("Failed to get address bytes.");
+            }
+
+            Span<byte> remoteBytes = stackalloc byte[4];
+            GetBytes(remote, remoteBytes);
+
+            if (!GetLocalAddress(out IPAddress? local, out IPAddress? mask))
+                return false;
+
+            Span<byte> maskBytes = stackalloc byte[4];
+            Span<byte> localBytes = stackalloc byte[4];
+            GetBytes(mask, maskBytes);
+            GetBytes(local, localBytes);
+
+            uint maskBits = BitConverter.ToUInt32(maskBytes);
+            uint remoteBits = BitConverter.ToUInt32(remoteBytes);
+            uint localBits = BitConverter.ToUInt32(localBytes);
+
+            // compare network portions
+            return (remoteBits & maskBits) == (localBits & maskBits);
+        }
+
+        /// <summary>
+        /// Returns true if the supplied endpoint is on the same subnet as this host.
+        /// </summary>
+        public static bool IsLocal(IPEndPoint endPoint)
+        {
+            if (endPoint == null)
+                return false;
+
+            return IsLocal(endPoint.Address);
+        }
+
+        /// <summary>
+        /// Converts a number of bytes to a shorter, more readable string representation
+        /// </summary>
+        public static string ToHumanReadable(long bytes)
+        {
+            if (bytes < 4000) // 1-4 kb is printed in bytes
+                return bytes + " bytes";
+            if (bytes < 1000 * 1000) // 4-999 kb is printed in kb
+                return Math.Round(bytes / 1000.0, 2) + " kilobytes";
+            return Math.Round(bytes / (1000.0 * 1000.0), 2) + " megabytes"; // else megabytes
+        }
+
+        internal static int RelativeSequenceNumber(int number, int expected)
+        {
+            return
+                (number - expected + NetConstants.SequenceNumbers + NetConstants.SequenceNumbers / 2)
+                % NetConstants.SequenceNumbers - NetConstants.SequenceNumbers / 2;
+
+            // old impl:
+            //int value = ((nr + NetConstants.SequenceNumbers) - expected) % NetConstants.SequenceNumbers;
+            //if (value > (NetConstants.SequenceNumbers / 2))
+            //    value -= NetConstants.SequenceNumbers;
+            //return value;
+        }
+
+        /// <summary>
+        /// Gets the window size used internally in the library for a certain delivery method
+        /// </summary>
+        public static int GetWindowSize(NetDeliveryMethod method)
+        {
+            switch (method)
+            {
+                case NetDeliveryMethod.Unknown:
+                    return 0;
+
+                case NetDeliveryMethod.Unreliable:
+                case NetDeliveryMethod.UnreliableSequenced:
+                    return NetConstants.UnreliableWindowSize;
+
+                case NetDeliveryMethod.ReliableOrdered:
+                    return NetConstants.ReliableOrderedWindowSize;
+
+                case NetDeliveryMethod.Stream:
+                    return NetConstants.StreamWindowSize;
+
+                case NetDeliveryMethod.ReliableSequenced:
+                case NetDeliveryMethod.ReliableUnordered:
+                default:
+                    return NetConstants.DefaultWindowSize;
+            }
+        }
+
+        internal static NetDeliveryMethod GetDeliveryMethod(NetMessageType mtp)
+        {
+            if (mtp >= NetMessageType.UserNetStream1)
+                return NetDeliveryMethod.Stream;
+            else if (mtp >= NetMessageType.UserReliableOrdered1)
+                return NetDeliveryMethod.ReliableOrdered;
+            else if (mtp >= NetMessageType.UserReliableSequenced1)
+                return NetDeliveryMethod.ReliableSequenced;
+            else if (mtp >= NetMessageType.UserReliableUnordered)
+                return NetDeliveryMethod.ReliableUnordered;
+            else if (mtp >= NetMessageType.UserSequenced1)
+                return NetDeliveryMethod.UnreliableSequenced;
+            return NetDeliveryMethod.Unreliable;
+        }
+
+        /// <summary>
+        /// Copies from <paramref name="src"/> to <paramref name="dst"/>, mapping to an IPv6 address.
         /// </summary>
         /// <param name="src">Source.</param>
         /// <param name="dst">Destination.</param>
-        internal static void CopyEndpoint(IPEndPoint src, IPEndPoint dst)
+        internal static void MapToIPv6(IPEndPoint src, IPEndPoint dst)
         {
             dst.Port = src.Port;
             if (src.AddressFamily == AddressFamily.InterNetwork)
@@ -481,7 +564,7 @@ namespace Lidgren.Network
         }
 
         /// <summary>
-        /// Maps the IPEndPoint object to an IPv6 address. Has allocation
+        /// Creates a new endpoint mapped to an IPv6 address.
         /// </summary>
         internal static IPEndPoint MapToIPv6(IPEndPoint endPoint)
         {

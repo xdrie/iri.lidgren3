@@ -17,26 +17,51 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR TH
 USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 */
+
 using System;
-using System.Collections.Generic;
-using System.Text;
 using System.Diagnostics;
+using System.Globalization;
 
 namespace Lidgren.Network
 {
-	/// <summary>
-	/// Time service
-	/// </summary>
-	public static partial class NetTime
-	{
-		/// <summary>
-		/// Given seconds it will output a human friendly readable string (milliseconds if less than 60 seconds)
-		/// </summary>
-		public static string ToReadable(double seconds)
-		{
-			if (seconds > 60)
-				return TimeSpan.FromSeconds(seconds).ToString();
-			return (seconds * 1000.0).ToString("N2") + " ms";
-		}
-	}
+    /// <summary>
+    /// Time service
+    /// </summary>
+    public static class NetTime
+    {
+        private static readonly long _timeInitialized = Stopwatch.GetTimestamp();
+
+        /// <summary>
+        /// Get the amount of time elapsed since the application started.
+        /// </summary>
+        public static TimeSpan Now => TimeSpan.FromTicks(Stopwatch.GetTimestamp() - _timeInitialized);
+
+        /// <summary>
+        /// Given seconds it will output a human friendly readable string
+        /// (milliseconds if less than 10 seconds).
+        /// </summary>
+        public static string ToReadable(double seconds)
+        {
+            var culture = CultureInfo.CurrentCulture;
+
+            if (seconds >= 10)
+                return TimeSpan.FromSeconds(seconds).ToString(null, culture);
+
+            return (seconds * 1000.0).ToString("N2", culture) + " ms";
+        }
+
+        /// <summary>
+        /// Given time it will output a human friendly readable string
+        /// (milliseconds if less than 10 seconds).
+        /// </summary>
+        public static string ToReadable(TimeSpan time)
+        {
+            var culture = CultureInfo.CurrentCulture;
+
+            if (time.TotalSeconds >= 10)
+                return time.ToString(null, culture);
+
+            return time.TotalMilliseconds.ToString("N2", culture) + " ms";
+        }
+    }
 }

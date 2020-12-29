@@ -17,138 +17,96 @@ TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR TH
 USE OR OTHER DEALINGS IN THE SOFTWARE.
 */
 using System;
-using System.Security.Cryptography;
-using System.Text;
-using System.Security;
+using System.Buffers.Binary;
 
 namespace Lidgren.Network
 {
-	/// <summary>
-	/// Methods to encrypt and decrypt data using the XTEA algorithm
-	/// </summary>
-	public sealed class NetXtea : NetBlockEncryptionBase
-	{
-		private const int c_blockSize = 8;
-		private const int c_keySize = 16;
-		private const int c_delta = unchecked((int)0x9E3779B9);
+    /// <summary>
+    /// Methods to encrypt and decrypt data using the XTEA algorithm.
+    /// </summary>
+    public sealed class NetXteaEncryption : NetBlockEncryption
+    {
+        private const int KeySize = 16;
+        //private const int c_delta = unchecked((int)0x9E3779B9);
 
-		private readonly int m_numRounds;
-		private readonly uint[] m_sum0;
-		private readonly uint[] m_sum1;
+        private readonly int _rounds;
+        private readonly uint[] _sum0;
+        private readonly uint[] _sum1;
 
-		/// <summary>
-		/// Gets the block size for this cipher
-		/// </summary>
-		public override int BlockSize { get { return c_blockSize; } }
+        /// <summary>
+        /// Gets the block size for this cipher.
+        /// </summary>
+        public override int BlockSize => 8;
 
-		/// <summary>
-		/// 16 byte key
-		/// </summary>
-		public NetXtea(NetPeer peer, byte[] key, int rounds)
-			: base(peer)
-		{
-			if (key.Length < c_keySize)
-				throw new NetException("Key too short!");
+        public override bool SupportsIV => false;
 
-			m_numRounds = rounds;
-			m_sum0 = new uint[m_numRounds];
-			m_sum1 = new uint[m_numRounds];
-			uint[] tmp = new uint[8];
+        public NetXteaEncryption(NetPeer peer, int rounds = 32) : base(peer)
+        {
+            _rounds = rounds;
+            _sum0 = new uint[_rounds];
+            _sum1 = new uint[_rounds];
+        }
 
-			int num2;
-			int index = num2 = 0;
-			while (index < 4)
-			{
-				tmp[index] = BitConverter.ToUInt32(key, num2);
-				index++;
-				num2 += 4;
-			}
-			for (index = num2 = 0; index < 32; index++)
-			{
-				m_sum0[index] = ((uint)num2) + tmp[num2 & 3];
-				num2 += -1640531527;
-				m_sum1[index] = ((uint)num2) + tmp[(num2 >> 11) & 3];
-			}
-		}
+        public override void SetKey(byte[] data)
+        {
+            Span<byte> hash = stackalloc byte[NetBitWriter.BytesForBits(NetUtility.Sha256.HashSize)];
+            var key = data.Length > KeySize ? hash : data;
 
-		/// <summary>
-		/// 16 byte key
-		/// </summary>
-		public NetXtea(NetPeer peer, byte[] key)
-			: this(peer, key, 32)
-		{
-		}
+            if (data.Length > KeySize)
+                if (!NetUtility.Sha256.TryComputeHash(data, hash, out _))
+                    throw new Exception();
+            
+            Span<uint> tmp = stackalloc uint[8];
+            int i = 0;
+            int j = 0;
+            while (i < 4)
+            {
+                tmp[i] = BinaryPrimitives.ReadUInt32LittleEndian(key[j..]);
+                i++;
+                j += 4;
+            }
+            for (i = j = 0; i < 32; i++)
+            {
+                _sum0[i] = ((uint)j) + tmp[j & 3];
+                j += -1640531527;
+                _sum1[i] = ((uint)j) + tmp[(j >> 11) & 3];
+            }
+        }
 
-		/// <summary>
-		/// String to hash for key
-		/// </summary>
-		public NetXtea(NetPeer peer, string key)
-			: this(peer, NetUtility.ComputeSHAHash(Encoding.UTF8.GetBytes(key)), 32)
-		{
-		}
+        public override void SetIV(byte[] iv)
+        {
+            // TODO:
+            throw new NotSupportedException();
+        }
 
-		public override void SetKey(byte[] data, int offset, int length)
-		{
-			var key = NetUtility.ComputeSHAHash(data, offset, length);
-			NetException.Assert(key.Length >= 16);
-			SetKey(key, 0, 16);
-		}
+        protected override void EncryptBlock(ReadOnlySpan<byte> source, Span<byte> destination)
+        {
+            uint v0 = BinaryPrimitives.ReadUInt32LittleEndian(source);
+            uint v1 = BinaryPrimitives.ReadUInt32LittleEndian(source[4..]);
 
-		/// <summary>
-		/// Encrypts a block of bytes
-		/// </summary>
-		protected override void EncryptBlock(byte[] source, int sourceOffset, byte[] destination)
-		{
-			uint v0 = BytesToUInt(source, sourceOffset);
-			uint v1 = BytesToUInt(source, sourceOffset + 4);
+            for (int i = 0; i < _rounds; i++)
+            {
+                v0 += (((v1 << 4) ^ (v1 >> 5)) + v1) ^ _sum0[i];
+                v1 += (((v0 << 4) ^ (v0 >> 5)) + v0) ^ _sum1[i];
+            }
 
-			for (int i = 0; i != m_numRounds; i++)
-			{
-				v0 += (((v1 << 4) ^ (v1 >> 5)) + v1) ^ m_sum0[i];
-				v1 += (((v0 << 4) ^ (v0 >> 5)) + v0) ^ m_sum1[i];
-			}
+            BinaryPrimitives.WriteUInt32LittleEndian(destination, v0);
+            BinaryPrimitives.WriteUInt32LittleEndian(destination[4..], v1);
+        }
 
-			UIntToBytes(v0, destination, 0);
-			UIntToBytes(v1, destination, 0 + 4);
+        protected override void DecryptBlock(ReadOnlySpan<byte> source, Span<byte> destination)
+        {
+            uint v0 = BinaryPrimitives.ReadUInt32LittleEndian(source);
+            uint v1 = BinaryPrimitives.ReadUInt32LittleEndian(source[4..]);
 
-			return;
-		}
+            for (int i = _rounds; i-- > 0;)
+            {
+                v1 -= (((v0 << 4) ^ (v0 >> 5)) + v0) ^ _sum1[i];
+                v0 -= (((v1 << 4) ^ (v1 >> 5)) + v1) ^ _sum0[i];
+            }
 
-		/// <summary>
-		/// Decrypts a block of bytes
-		/// </summary>
-		protected override void DecryptBlock(byte[] source, int sourceOffset, byte[] destination)
-		{
-			// Pack bytes into integers
-			uint v0 = BytesToUInt(source, sourceOffset);
-			uint v1 = BytesToUInt(source, sourceOffset + 4);
-
-			for (int i = m_numRounds - 1; i >= 0; i--)
-			{
-				v1 -= (((v0 << 4) ^ (v0 >> 5)) + v0) ^ m_sum1[i];
-				v0 -= (((v1 << 4) ^ (v1 >> 5)) + v1) ^ m_sum0[i];
-			}
-
-			UIntToBytes(v0, destination, 0);
-			UIntToBytes(v1, destination, 0 + 4);
-
-			return;
-		}
-
-		private static uint BytesToUInt(byte[] bytes, int offset)
-		{
-			uint retval = (uint)(bytes[offset] << 24);
-			retval |= (uint)(bytes[++offset] << 16);
-			retval |= (uint)(bytes[++offset] << 8);
-			return (retval | bytes[++offset]);
-		}
-
-		private static void UIntToBytes(uint value, byte[] destination, int destinationOffset)
-		{
-			destination[destinationOffset++] = (byte)(value >> 24);
-			destination[destinationOffset++] = (byte)(value >> 16);
-			destination[destinationOffset++] = (byte)(value >> 8);
-			destination[destinationOffset++] = (byte)value;
-		}
-	}
+            BinaryPrimitives.WriteUInt32LittleEndian(destination, v0);
+            BinaryPrimitives.WriteUInt32LittleEndian(destination[4..], v1);
+        }
+    }
 }

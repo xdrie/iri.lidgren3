@@ -1,45 +1,57 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Security.Cryptography;
 
 namespace Lidgren.Network
 {
-	/// <summary>
-	/// Interface for an encryption algorithm
-	/// </summary>
-	public abstract class NetEncryption
-	{
-		/// <summary>
-		/// NetPeer
-		/// </summary>
-		protected NetPeer m_peer;
+    /// <summary>
+    /// Base class for an encryption algorithm.
+    /// </summary>
+    public abstract class NetEncryption : IDisposable
+    {
+        public NetPeer Peer { get; private set; }
 
-		/// <summary>
-		/// Constructor
-		/// </summary>
-		public NetEncryption(NetPeer peer)
-		{
-			if (peer == null)
-				throw new NetException("Peer must not be null");
-			m_peer = peer;
-		}
+        public bool IsDisposed { get; private set; }
 
-		public void SetKey(string str)
-		{
-			var bytes = System.Text.Encoding.ASCII.GetBytes(str);
-			SetKey(bytes, 0, bytes.Length);
-		}
+        public abstract bool SupportsIV { get; }
 
-		public abstract void SetKey(byte[] data, int offset, int count);
+        /// <summary>
+        /// Constructs the base encryption object.
+        /// </summary>
+        public NetEncryption(NetPeer peer)
+        {
+            Peer = peer ?? throw new ArgumentNullException(nameof(peer));
+        }
 
-		/// <summary>
-		/// Encrypt an outgoing message in place
-		/// </summary>
-		public abstract bool Encrypt(NetOutgoingMessage msg);
+        public abstract void SetKey(byte[] key);
 
-		/// <summary>
-		/// Decrypt an incoming message in place
-		/// </summary>
-		public abstract bool Decrypt(NetIncomingMessage msg);
-	}
+        public abstract void SetIV(byte[] iv);
+
+        /// <summary>
+        /// Encrypt an outgoing message in place.
+        /// </summary>
+        public abstract bool Encrypt(NetOutgoingMessage message);
+
+        /// <summary>
+        /// Decrypt an incoming message in place.
+        /// </summary>
+        public abstract bool Decrypt(NetIncomingMessage message);
+
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        protected virtual void Dispose(bool disposing)
+        {
+            if (!IsDisposed)
+            {
+                IsDisposed = true;
+            }
+        }
+
+        ~NetEncryption()
+        {
+            Dispose(false);
+        }
+    }
 }
